@@ -226,8 +226,8 @@ export default function Home() {
                 <fieldset className="grid gap-6 rounded-lg border p-4">
                   <legend className="-ml-1 px-1 text-sm font-medium">Settings</legend>
                   <div className="grid gap-3">
-                    <Label htmlFor="model">Model</Label>
-                    <Select id="model" value={model} onValueChange={(value) => setModel(value)}>
+                    <Label htmlFor="model-drawer">Model</Label>
+                    <Select value={model} onValueChange={(value) => setModel(value)}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select a model" />
                       </SelectTrigger>
@@ -271,7 +271,7 @@ export default function Home() {
                 <legend className="-ml-1 px-1 text-sm font-medium">Settings</legend>
                 <div className="grid gap-3">
                   <Label htmlFor="model">Model</Label>
-                  <Select id="model" value={model} onValueChange={(value) => setModel(value)}>
+                  <Select value="model" onValueChange={(value) => setModel(value)}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select a model" />
                     </SelectTrigger>
