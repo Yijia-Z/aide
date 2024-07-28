@@ -23,7 +23,7 @@ export default function Home() {
   const [currentMessage, setCurrentMessage] = useState('');
   const [currentRole, setCurrentRole] = useState<'user' | 'assistant'>('user');
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
-  const [model, setModel] = useState('gpt-3.5-turbo');
+  const [model, setModel] = useState('gpt-4o-mini');
   const [temperature, setTemperature] = useState(0.4);
   const [topP, setTopP] = useState(0.7);
   const [maxTokens, setMaxTokens] = useState(100);
@@ -232,8 +232,8 @@ export default function Home() {
                         <SelectValue placeholder="Select a model" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="gpt-3.5-turbo">GPT-3.5-Turbo</SelectItem>
-                        <SelectItem value="gpt-4">GPT-4</SelectItem>
+                        <SelectItem value="gpt-4o-mini">GPT-4o-mini</SelectItem>
+                        <SelectItem value="gpt-4o">GPT-4o</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -276,8 +276,8 @@ export default function Home() {
                       <SelectValue placeholder="Select a model" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="gpt-3.5-turbo">GPT-3.5-Turbo</SelectItem>
-                      <SelectItem value="gpt-4">GPT-4</SelectItem>
+                      <SelectItem value="gpt-4o-mini">GPT-4o-mini</SelectItem>
+                      <SelectItem value="gpt-4o">GPT-4o</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
