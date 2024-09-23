@@ -302,7 +302,7 @@ export default function Home() {
               </fieldset>
             </form>
           </div>
-          <div className="relative flex h-full min-h-[50vh] flex-col rounded-xl bg-muted/50 p-4 lg:col-span-2">
+          <div className="relative flex h-full min-h-[50vh] flex-col rounded-xl bg-gradient-to-r from-red-500 to-purple-600 p-8 shadow-lg lg:col-span-2">
             <Badge variant="outline" className="absolute right-3 top-3">Output</Badge>
             <div className="flex-1 overflow-auto">
               {messages.map((message) => (
@@ -314,7 +314,7 @@ export default function Home() {
                 />
               ))}
             </div>
-            <form className="relative overflow-hidden rounded-lg border bg-background focus-within:ring-1 focus-within:ring-ring" x-chunk="dashboard-03-chunk-1">
+            <form className="relative overflow-hidden rounded-rounded-full border bg-white shadow-md mt-4 px-6 py-2 mx-auto max-w-3xl flex items-center">
               <Label htmlFor="message" className="sr-only">Message</Label>
               {replyingTo && (
                 <p className="ml-3 mt-2 text-xs">
@@ -324,9 +324,18 @@ export default function Home() {
               <Textarea
                 id="message"
                 placeholder="Type your message here..."
-                className="min-h-12 resize-none border-0 p-3 shadow-none focus-visible:ring-0"
+                className="w-full resize-none border-0 text-sm p-2 bg-transparent focus-visible:ring-0"
                 value={currentMessage}
                 onChange={(e) => setCurrentMessage(e.target.value)}
+                onInput={(e) => {
+                  const target = e.target as HTMLTextAreaElement;
+                  target.style.height = 'auto';
+                  target.style.height = `${target.scrollHeight}px`; 
+                }}
+                
+                rows={1} 
+                style={{ minHeight: '40px', maxHeight: '200px', overflow: 'hidden' }}
+  
               />
               <div className="flex items-center p-3 pt-0">
                 <Button type="button" variant="ghost" size="sm" onClick={() => setCurrentRole(currentRole === 'user' ? 'assistant' : 'user')}>
@@ -357,10 +366,14 @@ type MessageThreadProps = {
 
 const MessageThread: React.FC<MessageThreadProps> = ({ message, addReply, setReplyingTo }) => {
   return (
-    <div className="border rounded-lg p-3 mb-2">
-      <div className={`${message.role === 'user' ? 'text-blue-600' : 'text-gray-600'} `}>
+    <div className="relative pl-10 mb-4">
+     
+      <div className="absolute left-0 top-1 w-4 h-4 rounded-full bg-white"></div> 
+      <div className="absolute left-2 top-4 h-full border-l-2 border-gray-400"></div> 
+      <div className={`${message.role === 'user' ? 'text-blue-600' : 'text-gray-600'} bg-white border border-gray-300 rounded-lg p-4 shadow-sm ml-6`}>
         <strong>{message.role}</strong>: {message.content}
       </div>
+     
       <div className="flex justify-end mt-2">
         <Button variant="outline" size="icon" onClick={() => { setReplyingTo(message); }}>
           Reply
