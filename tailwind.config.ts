@@ -14,10 +14,16 @@ const config = {
       center: true,
       padding: "2rem",
       screens: {
+        "tablet": "640px",
+        "laptop": "1024px",
+        "desktop": "1280px",
         "2xl": "1400px",
       },
     },
     extend: {
+      fontFamily: {
+        jetBrains: ["JetBrains Mono", "monospace"],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",

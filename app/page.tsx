@@ -302,9 +302,9 @@ export default function Home() {
               </fieldset>
             </form>
           </div>
-          <div className="relative flex h-full min-h-[50vh] flex-col rounded-xl bg-gradient-to-r from-red-500 to-purple-600 p-8 shadow-lg lg:col-span-2">
+          <div className="relative flex h-full min-h-[50vh] flex-col rounded-xl overflow-hidden bg-gradient-to-br from-red-500 to-purple-600 p-8 shadow-lg lg:col-span-2">
             <Badge variant="outline" className="absolute right-3 top-3">Output</Badge>
-            <div className="flex-1 overflow-auto">
+            <div className="flex-1 max-w-1/4 justify-center">
               {messages.map((message) => (
                 <MessageThread
                   key={message.id}
