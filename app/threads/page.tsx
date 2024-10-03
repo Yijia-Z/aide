@@ -1,4 +1,3 @@
-'use client'
 import React, { useState, useCallback, useRef, useEffect } from 'react'
 import { ChevronDown, ChevronRight, Edit, Trash, RefreshCw, MessageSquare, X, Check, Settings, Pin, PinOff, Menu, Send } from 'lucide-react'
 import { Button } from "@/components/ui/button"
@@ -35,14 +34,12 @@ interface Model {
   maxTokens: number
 }
 
-const OPENAI_API_KEY = process.env.NEXT_PUBLIC_OPENAI_API_KEY
-
 async function generateAIResponse(prompt: string, model: Model) {
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${OPENAI_API_KEY}`
+      'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
     },
     body: JSON.stringify({
       model: model.baseModel,
@@ -109,41 +106,41 @@ export default function ThreadedDocument() {
   }, [])
 
   const addMessage = useCallback((threadId: string, parentId: string | null, content: string, publisher: 'user' | 'ai') => {
-    setThreads((prev: Thread[]) => prev.map((thread) => {
-      if (thread.id !== threadId) return thread;
-      const newMessage: Message = { id: Date.now().toString(), content, publisher, replies: [], isCollapsed: false };
+    setThreads((prev: any[]) => prev.map((thread: { id: string; messages: Message[] }) => {
+      if (thread.id !== threadId) return thread
+      const newMessage: Message = { id: Date.now().toString(), content, publisher, replies: [], isCollapsed: false }
       if (!parentId) {
-        return { ...thread, messages: [...thread.messages, newMessage] };
+        return { ...thread, messages: [...thread.messages, newMessage] }
       }
       const addReply = (messages: Message[]): Message[] => {
         return messages.map(message => {
           if (message.id === parentId) {
-            return { ...message, replies: [...message.replies, newMessage] };
+            return { ...message, replies: [...message.replies, newMessage] }
           }
-          return { ...message, replies: addReply(message.replies) };
-        });
-      };
-      return { ...thread, messages: addReply(thread.messages) };
-    }));
-  }, []);
+          return { ...message, replies: addReply(message.replies) }
+        })
+      }
+      return { ...thread, messages: addReply(thread.messages) }
+    }))
+  }, [])
 
   const toggleCollapse = useCallback((threadId: string, messageId: string) => {
-    setThreads((prev: Thread[]) => prev.map((thread) => {
-      if (thread.id !== threadId) return thread;
+    setThreads((prev: any[]) => prev.map((thread: { id: string; messages: Message[] }) => {
+      if (thread.id !== threadId) return thread
       const toggleMessage = (messages: Message[]): Message[] => {
         return messages.map(message => {
           if (message.id === messageId) {
-            return { ...message, isCollapsed: !message.isCollapsed };
+            return { ...message, isCollapsed: !message.isCollapsed }
           }
-          return { ...message, replies: toggleMessage(message.replies) };
-        });
-      };
-      return { ...thread, messages: toggleMessage(thread.messages) };
-    }));
-  }, []);
+          return { ...message, replies: toggleMessage(message.replies) }
+        })
+      }
+      return { ...thread, messages: toggleMessage(thread.messages) }
+    }))
+  }, [])
 
   const deleteMessage = useCallback((threadId: string, messageId: string) => {
-    setThreads((prev: Thread[]) => prev.map(thread => {
+    setThreads((prev: any[]) => prev.map((thread: { id: string; messages: Message[] }) => {
       if (thread.id !== threadId) return thread
       const removeMessage = (messages: Message[]): Message[] => {
         return messages.filter(message => {
@@ -179,13 +176,16 @@ export default function ThreadedDocument() {
       }))
     }
 
-    setThreads((prev: any[]) => prev.map((t: { id: string; messages: Message[] }) =>
-      t.id === threadId ? { ...t, messages: findMessageAndRegenerateContent(t.messages) } : t
-    ))
+    setThreads(async (prev: Thread[]) => {
+      const updatedThreads = await Promise.all(prev.map(async t =>
+        t.id === threadId ? { ...t, messages: await findMessageAndRegenerateContent(t.messages) } : t
+      ));
+      return updatedThreads;
+    });
   }, [threads, models, selectedModel])
 
   const editThreadTitle = useCallback((threadId: string, newTitle: string) => {
-    setThreads((prev: any[]) => prev.map((thread: { id: string }) =>
+    setThreads((prev: Thread[]) => prev.map((thread: { id: string }) =>
       thread.id === threadId ? { ...thread, title: newTitle } : thread
     ))
   }, [])
