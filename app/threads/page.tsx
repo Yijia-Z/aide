@@ -128,19 +128,19 @@ export default function ThreadedDocument() {
   }, []);
 
   const toggleCollapse = useCallback((threadId: string, messageId: string) => {
-    setThreads((prev: any[]) => prev.map((thread: { id: string; messages: Message[] }) => {
-      if (thread.id !== threadId) return thread
+    setThreads((prev: Thread[]) => prev.map((thread) => {
+      if (thread.id !== threadId) return thread;
       const toggleMessage = (messages: Message[]): Message[] => {
         return messages.map(message => {
           if (message.id === messageId) {
-            return { ...message, isCollapsed: !message.isCollapsed }
+            return { ...message, isCollapsed: !message.isCollapsed };
           }
-          return { ...message, replies: toggleMessage(message.replies) }
-        })
-      }
-      return { ...thread, messages: toggleMessage(thread.messages) }
-    }))
-  }, [])
+          return { ...message, replies: toggleMessage(message.replies) };
+        });
+      };
+      return { ...thread, messages: toggleMessage(thread.messages) };
+    }));
+  }, []);
 
   const deleteMessage = useCallback((threadId: string, messageId: string) => {
     setThreads((prev: Thread[]) => prev.map(thread => {
