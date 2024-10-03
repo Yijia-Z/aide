@@ -36,12 +36,9 @@ interface Model {
 }
 
 async function generateAIResponse(prompt: string, model: Model) {
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+  const response = await fetch('/api/chat', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: model.baseModel,
       messages: [
@@ -153,37 +150,6 @@ export default function ThreadedDocument() {
       return { ...thread, messages: removeMessage(thread.messages) }
     }))
   }, [])
-
-  const regenerateMessage = useCallback(async (threadId: string, messageId: string) => {
-    const thread = threads.find((t: { id: string }) => t.id === threadId)
-    if (!thread) return
-
-    const findMessageAndRegenerateContent = async (messages: Message[]): Promise<Message[]> => {
-      return Promise.all(messages.map(async (message) => {
-        if (message.id === messageId) {
-          setIsGenerating(true)
-          try {
-            const model = models.find((m: { id: any }) => m.id === selectedModel) || models[0]
-            const newContent = await generateAIResponse(message.content, model)
-            setIsGenerating(false)
-            return { ...message, content: newContent }
-          } catch (error) {
-            console.error('Failed to regenerate message:', error)
-            setIsGenerating(false)
-            return message
-          }
-        }
-        return { ...message, replies: await findMessageAndRegenerateContent(message.replies) }
-      }))
-    }
-
-    setThreads((prev: any) => {
-      const updatedThreads = prev.map((t: { id: string; messages: Message[] }) =>
-        t.id === threadId ? { ...t, messages: findMessageAndRegenerateContent(t.messages) } : t
-      );
-      return updatedThreads;
-    });
-  }, [threads, models, selectedModel])
 
   const editThreadTitle = useCallback((threadId: string, newTitle: string) => {
     setThreads((prev: Thread[]) => prev.map((thread) =>
