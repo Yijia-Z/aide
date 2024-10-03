@@ -104,31 +104,31 @@ export default function ThreadedDocument() {
       messages: [],
       isPinned: false
     }
-    setThreads((prev: any) => [...prev, newThread])
+    setThreads(prev => [...prev, newThread])
     setCurrentThread(newThread.id)
   }, [])
-
+  
   const addMessage = useCallback((threadId: string, parentId: string | null, content: string, publisher: 'user' | 'ai') => {
-    setThreads((prev: any[]) => prev.map((thread: { id: string; messages: Message[] }) => {
-      if (thread.id !== threadId) return thread
-      const newMessage: Message = { id: Date.now().toString(), content, publisher, replies: [], isCollapsed: false }
+    setThreads((prev: Thread[]) => prev.map((thread) => {
+      if (thread.id !== threadId) return thread;
+      const newMessage: Message = { id: Date.now().toString(), content, publisher, replies: [], isCollapsed: false };
       if (!parentId) {
-        return { ...thread, messages: [...thread.messages, newMessage] }
+        return { ...thread, messages: [...thread.messages, newMessage] };
       }
       const addReply = (messages: Message[]): Message[] => {
         return messages.map(message => {
           if (message.id === parentId) {
-            return { ...message, replies: [...message.replies, newMessage] }
+            return { ...message, replies: [...message.replies, newMessage] };
           }
-          return { ...message, replies: addReply(message.replies) }
-        })
-      }
-      return { ...thread, messages: addReply(thread.messages) }
-    }))
-  }, [])
+          return { ...message, replies: addReply(message.replies) };
+        });
+      };
+      return { ...thread, messages: addReply(thread.messages) };
+    }));
+  }, []);
 
   const toggleCollapse = useCallback((threadId: string, messageId: string) => {
-    setThreads((prev: any[]) => prev.map((thread: { id: string; messages: Message[] }) => {
+    setThreads(prev => prev.map(thread => {
       if (thread.id !== threadId) return thread
       const toggleMessage = (messages: Message[]): Message[] => {
         return messages.map(message => {
@@ -143,7 +143,7 @@ export default function ThreadedDocument() {
   }, [])
 
   const deleteMessage = useCallback((threadId: string, messageId: string) => {
-    setThreads((prev: any[]) => prev.map((thread: { id: string; messages: Message[] }) => {
+    setThreads(prev => prev.map(thread => {
       if (thread.id !== threadId) return thread
       const removeMessage = (messages: Message[]): Message[] => {
         return messages.filter(message => {
@@ -157,7 +157,7 @@ export default function ThreadedDocument() {
   }, [])
 
   const regenerateMessage = useCallback(async (threadId: string, messageId: string) => {
-    const thread = threads.find((t: { id: string }) => t.id === threadId)
+    const thread = threads.find(t => t.id === threadId)
     if (!thread) return
 
     const findMessageAndRegenerateContent = async (messages: Message[]): Promise<Message[]> => {
@@ -165,7 +165,7 @@ export default function ThreadedDocument() {
         if (message.id === messageId) {
           setIsGenerating(true)
           try {
-            const model = models.find((m: { id: any }) => m.id === selectedModel) || models[0]
+            const model = models.find(m => m.id === selectedModel) || models[0]
             const newContent = await generateAIResponse(message.content, model)
             setIsGenerating(false)
             return { ...message, content: newContent }
@@ -179,13 +179,13 @@ export default function ThreadedDocument() {
       }))
     }
 
-    setThreads((prev: any[]) => prev.map((t: { id: string; messages: Message[] }) =>
+    setThreads(prev => prev.map(t =>
       t.id === threadId ? { ...t, messages: findMessageAndRegenerateContent(t.messages) } : t
     ))
   }, [threads, models, selectedModel])
 
   const editThreadTitle = useCallback((threadId: string, newTitle: string) => {
-    setThreads((prev: any[]) => prev.map((thread: { id: string }) =>
+    setThreads(prev => prev.map(thread =>
       thread.id === threadId ? { ...thread, title: newTitle } : thread
     ))
   }, [])
@@ -201,7 +201,7 @@ export default function ThreadedDocument() {
   }, [])
 
   const confirmEditingMessage = useCallback((threadId: string, messageId: string) => {
-    setThreads((prev: any[]) => prev.map((thread: { id: string; messages: Message[] }) => {
+    setThreads(prev => prev.map(thread => {
       if (thread.id !== threadId) return thread
       const editMessage = (messages: Message[]): Message[] => {
         return messages.map(message => {
@@ -218,7 +218,7 @@ export default function ThreadedDocument() {
   }, [editingContent])
 
   const generateAIReply = useCallback(async (threadId: string, messageId: string) => {
-    const thread = threads.find((t: { id: string }) => t.id === threadId)
+    const thread = threads.find(t => t.id === threadId)
     if (!thread) return
 
     const message = findMessageById(thread.messages, messageId)
@@ -226,7 +226,7 @@ export default function ThreadedDocument() {
 
     setIsGenerating(true)
     try {
-      const model = models.find((m: { id: any }) => m.id === selectedModel) || models[0]
+      const model = models.find(m => m.id === selectedModel) || models[0]
       const aiResponse = await generateAIResponse(message.content, model)
       addMessage(threadId, messageId, aiResponse, 'ai')
     } catch (error) {
@@ -255,7 +255,7 @@ export default function ThreadedDocument() {
               {editingMessage === message.id ? (
                 <Input
                   value={editingContent}
-                  onChange={(e: { target: { value: any } }) => setEditingContent(e.target.value)}
+                  onChange={(e) => setEditingContent(e.target.value)}
                   className="flex-grow"
                 />
               ) : (
@@ -339,7 +339,7 @@ export default function ThreadedDocument() {
 
   const saveModelChanges = useCallback(() => {
     if (editingModel) {
-      setModels((prev: any[]) => prev.map((model: { id: any }) =>
+      setModels(prev => prev.map(model =>
         model.id === editingModel.id ? editingModel : model
       ))
       setEditingModel(null)
@@ -347,7 +347,7 @@ export default function ThreadedDocument() {
   }, [editingModel])
 
   const deleteModel = useCallback((id: string) => {
-    setModels((prev: any[]) => prev.filter((model: { id: string }) => model.id !== id))
+    setModels(prev => prev.filter(model => model.id !== id))
     if (selectedModel === id) {
       setSelectedModel(models[0].id)
     }
@@ -362,18 +362,18 @@ export default function ThreadedDocument() {
       temperature: 0.7,
       maxTokens: 150
     }
-    setModels((prev: any) => [...prev, newModel])
+    setModels(prev => [...prev, newModel])
     setEditingModel(newModel)
   }, [])
 
   const toggleThreadPin = useCallback((threadId: string) => {
-    setThreads((prev: any[]) => prev.map((thread: { id: string; isPinned: any }) =>
+    setThreads(prev => prev.map(thread =>
       thread.id === threadId ? { ...thread, isPinned: !thread.isPinned } : thread
     ))
   }, [])
 
   const deleteThreads = useCallback(() => {
-    setThreads((prev: any[]) => prev.filter((thread: { id: any }) => !selectedThreads.includes(thread.id)))
+    setThreads(prev => prev.filter(thread => !selectedThreads.includes(thread.id)))
     setSelectedThreads([])
     if (selectedThreads.includes(currentThread)) {
       setCurrentThread(null)
@@ -381,14 +381,14 @@ export default function ThreadedDocument() {
   }, [selectedThreads, currentThread])
 
   const toggleThreadSelection = useCallback((threadId: string) => {
-    setSelectedThreads((prev: string[]) =>
+    setSelectedThreads(prev =>
       prev.includes(threadId)
-        ? prev.filter((id: string) => id !== threadId)
+        ? prev.filter(id => id !== threadId)
         : [...prev, threadId]
     )
   }, [])
 
-  const sortedThreads = threads.sort((a: { isPinned: any }, b: { isPinned: any }) => {
+  const sortedThreads = threads.sort((a, b) => {
     if (a.isPinned && !b.isPinned) return -1
     if (!a.isPinned && b.isPinned) return 1
     return 0
@@ -405,7 +405,7 @@ export default function ThreadedDocument() {
         )}
       </div>
       <ScrollArea className="flex-grow mb-4">
-        {sortedThreads.map((thread: { id: any; title: any; isPinned: any }) => (
+        {sortedThreads.map(thread => (
           <div
             key={thread.id}
             className={`p-2 cursor-pointer ${currentThread === thread.id ? 'bg-gray-200' : ''} ${selectedThreads.includes(thread.id) ? 'bg-blue-100' : ''}`}
@@ -420,9 +420,9 @@ export default function ThreadedDocument() {
                   <Input
                     ref={threadTitleInputRef}
                     value={thread.title}
-                    onChange={(e: { target: { value: any } }) => editThreadTitle(thread.id, e.target.value)}
+                    onChange={(e) => editThreadTitle(thread.id, e.target.value)}
                     onBlur={() => setEditingThreadTitle(null)}
-                    onKeyPress={(e: { key: string }) => {
+                    onKeyPress={(e) => {
                       if (e.key === 'Enter') {
                         setEditingThreadTitle(null)
                       }
@@ -456,7 +456,7 @@ export default function ThreadedDocument() {
             </SheetHeader>
             <ScrollArea className="h-[calc(100vh-10rem)] mt-4">
               <div className="space-y-4">
-                {models.map((model: { id: any; name: any; baseModel: any; temperature: any; maxTokens: any }) => (
+                {models.map(model => (
                   <div key={model.id} className="p-2 border rounded">
                     <div className="flex justify-between items-center mb-2">
                       <h3 className="font-bold">{model.name}</h3>
@@ -465,15 +465,15 @@ export default function ThreadedDocument() {
                     {editingModel?.id === model.id ? (
                       <div className="space-y-2">
                         <Label>Name</Label>
-                        <Input value={editingModel.name} onChange={(e: { target: { value: any } }) => handleModelChange('name', e.target.value)} />
+                        <Input value={editingModel.name} onChange={(e) => handleModelChange('name', e.target.value)} />
                         <Label>Base Model</Label>
-                        <Input value={editingModel.baseModel} onChange={(e: { target: { value: any } }) => handleModelChange('baseModel', e.target.value)} />
+                        <Input value={editingModel.baseModel} onChange={(e) => handleModelChange('baseModel', e.target.value)} />
                         <Label>System Prompt</Label>
-                        <Textarea value={editingModel.systemPrompt} onChange={(e: { target: { value: any } }) => handleModelChange('systemPrompt', e.target.value)} />
+                        <Textarea value={editingModel.systemPrompt} onChange={(e) => handleModelChange('systemPrompt', e.target.value)} />
                         <Label>Temperature</Label>
-                        <Input type="number" value={editingModel.temperature} onChange={(e: { target: { value: string } }) => handleModelChange('temperature', parseFloat(e.target.value))} />
+                        <Input type="number" value={editingModel.temperature} onChange={(e) => handleModelChange('temperature', parseFloat(e.target.value))} />
                         <Label>Max Tokens</Label>
-                        <Input type="number" value={editingModel.maxTokens} onChange={(e: { target: { value: string } }) => handleModelChange('maxTokens', parseInt(e.target.value))} />
+                        <Input type="number" value={editingModel.maxTokens} onChange={(e) => handleModelChange('maxTokens', parseInt(e.target.value))} />
                         <div className="flex justify-end space-x-2 mt-2">
                           <Button onClick={saveModelChanges}>Save</Button>
                           <Button variant="outline" onClick={() => setEditingModel(null)}>Cancel</Button>
@@ -500,7 +500,7 @@ export default function ThreadedDocument() {
           <SelectValue placeholder="Select a model" />
         </SelectTrigger>
         <SelectContent>
-          {models.map((model: { id: any; name: any }) => (
+          {models.map(model => (
             <SelectItem key={model.id} value={model.id}>{model.name}</SelectItem>
           ))}
         </SelectContent>
@@ -531,16 +531,16 @@ export default function ThreadedDocument() {
         {currentThread && (
           <>
             <h1 className="text-2xl font-bold mb-4">
-              {threads.find((t: { id: any }) => t.id === currentThread)?.title}
+              {threads.find(t => t.id === currentThread)?.title}
             </h1>
             <ScrollArea className="flex-grow mb-4">
-              {threads.find((t: { id: any }) => t.id === currentThread)?.messages.map((message: any) => renderMessage(message, currentThread))}
+              {threads.find(t => t.id === currentThread)?.messages.map(message => renderMessage(message, currentThread))}
             </ScrollArea>
             <div className="mt-4 sticky bottom-0 bg-white p-4 border-t" ref={replyBoxRef}>
               {replyingTo && (
                 <div className="mb-2 p-2 bg-gray-100 rounded flex justify-between items-center">
                   <span>
-                    Replying to: {findMessageById(threads.find((t: { id: any }) => t.id === currentThread)?.messages || [], replyingTo)?.content.slice(0, 50)}...
+                    Replying to: {findMessageById(threads.find(t => t.id === currentThread)?.messages || [], replyingTo)?.content.slice(0, 50)}...
                   </span>
                   <Button variant="ghost" size="icon" onClick={() => setReplyingTo(null)}>
                     <X className="h-4 w-4" />
@@ -551,7 +551,7 @@ export default function ThreadedDocument() {
                 <Textarea
                   ref={newMessageInputRef}
                   value={newMessageContent}
-                  onChange={(e: { target: { value: any } }) => setNewMessageContent(e.target.value)}
+                  onChange={(e) => setNewMessageContent(e.target.value)}
                   onKeyPress={handleKeyPress}
                   placeholder="Type your message..."
                   className="flex-grow"
