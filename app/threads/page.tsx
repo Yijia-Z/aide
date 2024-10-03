@@ -1,3 +1,4 @@
+'use client'
 import React, { useState, useCallback, useRef, useEffect } from 'react'
 import { ChevronDown, ChevronRight, Edit, Trash, RefreshCw, MessageSquare, X, Check, Settings, Pin, PinOff, Menu, Send } from 'lucide-react'
 import { Button } from "@/components/ui/button"
