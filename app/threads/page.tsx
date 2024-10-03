@@ -40,13 +40,11 @@ async function generateAIResponse(prompt: string, model: Model) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: model.baseModel,
       messages: [
         { role: 'system', content: model.systemPrompt },
         { role: 'user', content: prompt }
       ],
-      temperature: model.temperature,
-      max_tokens: model.maxTokens,
+      configuration: { model: model.baseModel, temperature: model.temperature, max_tokens: model.maxTokens },
     }),
   })
 
@@ -62,7 +60,7 @@ export default function ThreadedDocument() {
   const [threads, setThreads] = useState<Thread[]>([])
   const [currentThread, setCurrentThread] = useState<string | null>(null)
   const [models, setModels] = useState<Model[]>([
-    { id: '1', name: 'Default AI', baseModel: 'gpt-3.5-turbo', systemPrompt: 'You are a helpful assistant.', temperature: 0.7, maxTokens: 150 }
+    { id: '1', name: 'Default AI', baseModel: 'gpt-4o-mini', systemPrompt: 'You are a helpful assistant.', temperature: 0.7, maxTokens: 150 }
   ])
   const [selectedModel, setSelectedModel] = useState<string>(models[0].id)
   const [newMessageContent, setNewMessageContent] = useState('')

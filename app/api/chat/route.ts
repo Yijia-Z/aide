@@ -14,7 +14,6 @@ export async function POST(req: NextRequest) {
             messages,
             model: configuration.model,
             temperature: configuration.temperature,
-            top_p: configuration.top_p,
             max_tokens: configuration.max_tokens,
         };
 
