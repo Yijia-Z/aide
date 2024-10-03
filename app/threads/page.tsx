@@ -107,9 +107,9 @@ export default function ThreadedDocument() {
   }, [])
 
   const addMessage = useCallback((threadId: string, parentId: string | null, content: string, publisher: 'user' | 'ai') => {
-    setThreads((prev: any[]) => prev.map((thread: { id: string; messages: Message[] }) => {
-      if (thread.id !== threadId) return thread
-      const newMessage: Message = { id: Date.now().toString(), content, publisher, replies: [], isCollapsed: false }
+    setThreads((prev: Thread[]) => prev.map((thread) => {
+      if (thread.id !== threadId) return thread;
+      const newMessage: Message = { id: Date.now().toString(), content, publisher, replies: [], isCollapsed: false };
       if (!parentId) {
         return { ...thread, messages: [...thread.messages, newMessage] }
       }
@@ -126,8 +126,8 @@ export default function ThreadedDocument() {
   }, [])
 
   const toggleCollapse = useCallback((threadId: string, messageId: string) => {
-    setThreads((prev: any[]) => prev.map((thread: { id: string; messages: Message[] }) => {
-      if (thread.id !== threadId) return thread
+    setThreads((prev: Thread[]) => prev.map((thread) => {
+      if (thread.id !== threadId) return thread;
       const toggleMessage = (messages: Message[]): Message[] => {
         return messages.map(message => {
           if (message.id === messageId) {
@@ -141,7 +141,7 @@ export default function ThreadedDocument() {
   }, [])
 
   const deleteMessage = useCallback((threadId: string, messageId: string) => {
-    setThreads((prev: any[]) => prev.map((thread: { id: string; messages: Message[] }) => {
+    setThreads((prev: Thread[]) => prev.map((thread) => {
       if (thread.id !== threadId) return thread
       const removeMessage = (messages: Message[]): Message[] => {
         return messages.filter(message => {
@@ -177,16 +177,16 @@ export default function ThreadedDocument() {
       }))
     }
 
-    setThreads(async (prev: Thread[]) => {
-      const updatedThreads = await Promise.all(prev.map(async t =>
-        t.id === threadId ? { ...t, messages: await findMessageAndRegenerateContent(t.messages) } : t
-      ));
+    setThreads((prev: any) => {
+      const updatedThreads = prev.map((t: { id: string; messages: Message[] }) =>
+        t.id === threadId ? { ...t, messages: findMessageAndRegenerateContent(t.messages) } : t
+      );
       return updatedThreads;
     });
   }, [threads, models, selectedModel])
 
   const editThreadTitle = useCallback((threadId: string, newTitle: string) => {
-    setThreads((prev: Thread[]) => prev.map((thread: { id: string }) =>
+    setThreads((prev: Thread[]) => prev.map((thread) =>
       thread.id === threadId ? { ...thread, title: newTitle } : thread
     ))
   }, [])
@@ -202,7 +202,7 @@ export default function ThreadedDocument() {
   }, [])
 
   const confirmEditingMessage = useCallback((threadId: string, messageId: string) => {
-    setThreads((prev: any[]) => prev.map((thread: { id: string; messages: Message[] }) => {
+    setThreads((prev: Thread[]) => prev.map((thread) => {
       if (thread.id !== threadId) return thread
       const editMessage = (messages: Message[]): Message[] => {
         return messages.map(message => {
@@ -340,8 +340,8 @@ export default function ThreadedDocument() {
 
   const saveModelChanges = useCallback(() => {
     if (editingModel) {
-      setModels((prev: any[]) => prev.map((model: { id: any }) =>
-        model.id === editingModel.id ? editingModel : model
+      setModels((prev: Model[]) => prev.map((model: Model) =>
+        model.id === editingModel.id ? { ...model, ...editingModel } : model
       ))
       setEditingModel(null)
     }
@@ -368,15 +368,15 @@ export default function ThreadedDocument() {
   }, [])
 
   const toggleThreadPin = useCallback((threadId: string) => {
-    setThreads((prev: any[]) => prev.map((thread: { id: string; isPinned: any }) =>
+    setThreads((prev: Thread[]) => prev.map((thread) =>
       thread.id === threadId ? { ...thread, isPinned: !thread.isPinned } : thread
     ))
   }, [])
 
   const deleteThreads = useCallback(() => {
-    setThreads((prev: any[]) => prev.filter((thread: { id: any }) => !selectedThreads.includes(thread.id)))
+    setThreads((prev: Thread[]) => prev.filter((thread) => !selectedThreads.includes(thread.id)))
     setSelectedThreads([])
-    if (selectedThreads.includes(currentThread)) {
+    if (currentThread && selectedThreads.includes(currentThread)) {
       setCurrentThread(null)
     }
   }, [selectedThreads, currentThread])
@@ -457,7 +457,7 @@ export default function ThreadedDocument() {
             </SheetHeader>
             <ScrollArea className="h-[calc(100vh-10rem)] mt-4">
               <div className="space-y-4">
-                {models.map((model: { id: any; name: any; baseModel: any; temperature: any; maxTokens: any }) => (
+                {models.map((model: { id: any; name: any; baseModel: any; temperature: any; maxTokens: any; systemPrompt: any }) => (
                   <div key={model.id} className="p-2 border rounded">
                     <div className="flex justify-between items-center mb-2">
                       <h3 className="font-bold">{model.name}</h3>
@@ -466,15 +466,15 @@ export default function ThreadedDocument() {
                     {editingModel?.id === model.id ? (
                       <div className="space-y-2">
                         <Label>Name</Label>
-                        <Input value={editingModel.name} onChange={(e: { target: { value: any } }) => handleModelChange('name', e.target.value)} />
+                        <Input value={editingModel?.name} onChange={(e: { target: { value: any } }) => handleModelChange('name', e.target.value)} />
                         <Label>Base Model</Label>
-                        <Input value={editingModel.baseModel} onChange={(e: { target: { value: any } }) => handleModelChange('baseModel', e.target.value)} />
+                        <Input value={editingModel?.baseModel} onChange={(e: { target: { value: any } }) => handleModelChange('baseModel', e.target.value)} />
                         <Label>System Prompt</Label>
-                        <Textarea value={editingModel.systemPrompt} onChange={(e: { target: { value: any } }) => handleModelChange('systemPrompt', e.target.value)} />
+                        <Textarea value={editingModel?.systemPrompt} onChange={(e: { target: { value: any } }) => handleModelChange('systemPrompt', e.target.value)} />
                         <Label>Temperature</Label>
-                        <Input type="number" value={editingModel.temperature} onChange={(e: { target: { value: string } }) => handleModelChange('temperature', parseFloat(e.target.value))} />
+                        <Input type="number" value={editingModel?.temperature} onChange={(e: { target: { value: string } }) => handleModelChange('temperature', parseFloat(e.target.value))} />
                         <Label>Max Tokens</Label>
-                        <Input type="number" value={editingModel.maxTokens} onChange={(e: { target: { value: string } }) => handleModelChange('maxTokens', parseInt(e.target.value))} />
+                        <Input type="number" value={editingModel?.maxTokens} onChange={(e: { target: { value: string } }) => handleModelChange('maxTokens', parseInt(e.target.value))} />
                         <div className="flex justify-end space-x-2 mt-2">
                           <Button onClick={saveModelChanges}>Save</Button>
                           <Button variant="outline" onClick={() => setEditingModel(null)}>Cancel</Button>
