@@ -54,9 +54,10 @@ function findAllParentMessages(threads: Thread[], currentThreadId: string | null
   const parentMessages = findMessageAndParents(currentThread.messages, replyingToId);
   return parentMessages ? parentMessages.slice(0, -1) : [];
 }
-
+const apiBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+console.log('API Base URL:', apiBaseUrl);
 async function generateAIResponse(prompt: string, model: Model, threads: Thread[], currentThread: string | null, replyingTo: string | null) {
-  const response = await fetch('http://localhost:8000/api/chat', {
+  const response = await fetch(`${apiBaseUrl}/api/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -108,7 +109,7 @@ export default function ThreadedDocument() {
   useEffect(() => {
     const connectToBackend = async () => {
       try {
-        const response = await fetch('http://localhost:8000/api/connect', { method: 'GET' });
+        const response = await fetch(`${apiBaseUrl}/api/connect`, { method: 'GET' });
         if (response.ok) {
           console.log("connect to back！");
           setIsConnected(true);  // 设置为连接成功
