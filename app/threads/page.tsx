@@ -55,9 +55,10 @@ function findAllParentMessages(threads: Thread[], currentThreadId: string | null
   const allMessages = findMessageAndParents(currentThread.messages, messageId);
   return allMessages.slice(0, -1); // Exclude the target message itself
 }
-
+const apiBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+console.log('API Base URL:', apiBaseUrl);
 async function generateAIResponse(prompt: string, model: Model, threads: Thread[], currentThread: string | null, replyingTo: string | null) {
-  const response = await fetch('/api/chat', {
+  const response = await fetch(`${apiBaseUrl}/api/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -79,7 +80,9 @@ async function generateAIResponse(prompt: string, model: Model, threads: Thread[
   }
 
   const data = await response.json()
-  return data.choices[0].message.content
+  console.log(data);
+  return data.response
+  
 }
 
 export default function ThreadedDocument() {
@@ -99,10 +102,30 @@ export default function ThreadedDocument() {
   const [editingModel, setEditingModel] = useState<Model | null>(null)
   const [selectedThreads, setSelectedThreads] = useState<string[]>([])
   const [selectedMessage, setSelectedMessage] = useState<string | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
 
   const replyBoxRef = useRef<HTMLDivElement>(null)
   const threadTitleInputRef = useRef<HTMLInputElement>(null)
   const newMessageInputRef = useRef<HTMLTextAreaElement>(null)
+  useEffect(() => {
+    const connectToBackend = async () => {
+      try {
+        const response = await fetch(`${apiBaseUrl}/api/connect`, { method: 'GET' });
+        if (response.ok) {
+          console.log("connect to back！");
+          setIsConnected(true);  // 设置为连接成功
+        } else {
+          console.error("fail。");
+          setIsConnected(false);
+        }
+      } catch (error) {
+        console.error("error:", error);
+        setIsConnected(false);
+      }
+    };
+
+    connectToBackend();  // 组件加载时调用连接函数
+  }, []);  // 空依赖数组，确保只在组件首次加载时执行一次
 
   useEffect(() => {
     if (replyBoxRef.current) {
@@ -407,6 +430,11 @@ export default function ThreadedDocument() {
   return (
     <div className="flex h-screen">
       <div className="w-1/4 p-4 border-r flex flex-col">
+      {isConnected ? (
+          <div style={{ color: 'green' }}>successful！connect to back！</div>
+        ) : (
+          <div style={{ color: 'red' }}>fail!</div>
+        )}
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-bold">Threads</h2>
           {selectedThreads.length > 0 && (
