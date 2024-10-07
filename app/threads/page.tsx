@@ -14,7 +14,6 @@ interface Message {
   id: string
   content: string
   publisher: 'user' | 'ai'
-  parentId: string | null
   replies: Message[]
   isCollapsed: boolean
 }
@@ -35,25 +34,25 @@ interface Model {
   maxTokens: number
 }
 
-function findAllParentMessages(threads: Thread[], currentThreadId: string | null, messageId: string | null): Message[] {
-  if (!currentThreadId || !messageId) return [];
+function findAllParentMessages(threads: Thread[], currentThreadId: string | null, replyingToId: string | null): Message[] {
+  if (!currentThreadId || !replyingToId) return [];
+
   const currentThread = threads.find(thread => thread.id === currentThreadId);
   if (!currentThread) return [];
 
-  function findMessageAndParents(messages: Message[], targetId: string): Message[] {
-    const message = messages.find(m => m.id === targetId);
-		if (!message) return [];
-
-    if (!message.parentId) return [message];
-
-    const parent = messages.find(m => m.id === message.parentId);
-    if (!parent) return [message];
-
-    return [...findMessageAndParents(messages, parent.id), message];
+  function findMessageAndParents(messages: Message[], targetId: string, parents: Message[] = []): Message[] | null {
+    for (const message of messages) {
+      if (message.id === targetId) {
+        return [...parents, message];
+      }
+      const found = findMessageAndParents(message.replies, targetId, [...parents, message]);
+      if (found) return found;
+    }
+    return null;
   }
 
-  const allMessages = findMessageAndParents(currentThread.messages, messageId);
-  return allMessages.slice(0, -1); // Exclude the target message itself
+  const parentMessages = findMessageAndParents(currentThread.messages, replyingToId);
+  return parentMessages ? parentMessages.slice(0, -1) : [];
 }
 
 async function generateAIResponse(prompt: string, model: Model, threads: Thread[], currentThread: string | null, replyingTo: string | null) {
@@ -128,34 +127,23 @@ export default function ThreadedDocument() {
   }, [])
 
   const addMessage = useCallback((threadId: string, parentId: string | null, content: string, publisher: 'user' | 'ai') => {
-		setThreads((prev: Thread[]) => prev.map((thread) => {
-			if (thread.id !== threadId) return thread;
-	
-			const newMessage: Message = {
-				id: Date.now().toString(),
-				content,
-				publisher,
-				replies: [],
-				parentId,
-				isCollapsed: false
-			};
-	
-			if (!parentId) {
-				return { ...thread, messages: [...thread.messages, newMessage] };
-			}
-	
-			const addReply = (messages: Message[]): Message[] => {
-				return messages.map(message => {
-					if (message.id === parentId) {
-						return { ...message, replies: [...message.replies, newMessage] };
-					}
-					return { ...message, replies: addReply(message.replies) };
-				});
-			};
-	
-			return { ...thread, messages: addReply(thread.messages) };
-		}));
-	}, []);
+    setThreads((prev: Thread[]) => prev.map((thread) => {
+      if (thread.id !== threadId) return thread;
+      const newMessage: Message = { id: Date.now().toString(), content, publisher, replies: [], isCollapsed: false };
+      if (!parentId) {
+        return { ...thread, messages: [...thread.messages, newMessage] }
+      }
+      const addReply = (messages: Message[]): Message[] => {
+        return messages.map(message => {
+          if (message.id === parentId) {
+            return { ...message, replies: [...message.replies, newMessage] }
+          }
+          return { ...message, replies: addReply(message.replies) }
+        })
+      }
+      return { ...thread, messages: addReply(thread.messages) }
+    }))
+  }, [])
 
   const toggleCollapse = useCallback((threadId: string, messageId: string) => {
     setThreads((prev: Thread[]) => prev.map((thread) => {
