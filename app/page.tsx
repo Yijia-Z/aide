@@ -259,6 +259,12 @@ export default function ThreadedDocument() {
   const renderMessage = useCallback((message: Message, threadId: string, depth = 0) => {
     const indent = depth < COLLAPSE_THRESHOLD ? depth * MESSAGE_INDENT : (COLLAPSE_THRESHOLD * MESSAGE_INDENT) + ((depth - COLLAPSE_THRESHOLD) * (MESSAGE_INDENT / 8));
 
+    const getTotalReplies = (msg: Message): number => {
+      return msg.replies.reduce((total, reply) => total + 1 + getTotalReplies(reply), 0);
+    };
+
+    const totalReplies = getTotalReplies(message);
+
     return (
       <div key={message.id} className="mt-2" style={{ marginLeft: `${indent}px` }}>
         <div
@@ -287,7 +293,12 @@ export default function ThreadedDocument() {
                   className="flex-grow"
                 />
               ) : (
-                <span>{message.content}</span>
+                <span>
+                  {message.isCollapsed
+                    ? `${message.content.slice(0, 50)}... (${totalReplies} ${totalReplies === 1 ? 'reply' : 'replies'})`
+                    : message.content
+                  }
+                </span>
               )}
             </div>
             {!message.isCollapsed && selectedMessage === message.id && (
