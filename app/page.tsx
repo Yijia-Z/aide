@@ -579,7 +579,7 @@ export default function ThreadedDocument() {
   }
 
   return (
-    <div className="h-screen flex flex-col md:flex-row">
+    <div className="h-screen flex flex-col md:flex-row p-2">
       {isMobile ? (
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'threads' | 'messages' | 'models')} className="w-full">
           <TabsList className="grid w-full grid-cols-3">
@@ -587,13 +587,13 @@ export default function ThreadedDocument() {
             <TabsTrigger value="messages">Messages</TabsTrigger>
             <TabsTrigger value="models">Models</TabsTrigger>
           </TabsList>
-          <TabsContent value="threads" className="flex-grow overflow-y-auto">
+          <TabsContent value="threads" className="flex-grow overflow-y-auto pt-1">
             {renderThreadsList()}
           </TabsContent>
-          <TabsContent value="messages" className="flex-grow overflow-y-auto">
+          <TabsContent value="messages" className="flex-grow overflow-y-auto pt-1">
             {renderMessages()}
           </TabsContent>
-          <TabsContent value="models" className="flex-grow overflow-y-auto">
+          <TabsContent value="models" className="flex-grow overflow-y-auto pt-1">
             {renderModelConfig()}
           </TabsContent>
         </Tabs>
