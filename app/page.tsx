@@ -93,7 +93,7 @@ export default function ThreadedDocument() {
   const [threads, setThreads] = useState<Thread[]>([])
   const [currentThread, setCurrentThread] = useState<string | null>(null)
   const [models, setModels] = useState<Model[]>([
-    { id: '1', name: 'Default AI', baseModel: 'gpt-4o-mini', systemPrompt: 'You are a helpful assistant.', temperature: 0.7, maxTokens: 150 }
+    { id: '1', name: 'Default AI', baseModel: 'gpt-4o-mini', systemPrompt: 'You are a helpful assistant.', temperature: 0.7, maxTokens: 512 }
   ])
   const [selectedModel, setSelectedModel] = useState<string>(models[0].id)
   const [newMessageContent, setNewMessageContent] = useState('')
@@ -118,7 +118,7 @@ export default function ThreadedDocument() {
         const response = await fetch(`${apiBaseUrl}/api/connect`, { method: 'GET' });
         if (response.ok) {
           console.log("connect to back！");
-          setIsConnected(true);  // 设置为连接成功
+          setIsConnected(true);
         } else {
           console.error("fail。");
           setIsConnected(false);
@@ -129,8 +129,8 @@ export default function ThreadedDocument() {
       }
     };
 
-    connectToBackend();  // 组件加载时调用连接函数
-  }, []);  // 空依赖数组，确保只在组件首次加载时执行一次
+    connectToBackend();  // Call the connection function when the component loads
+  }, []);  // Empty dependency array, ensures it only executes once when the component first loads
 
   useEffect(() => {
     if (replyBoxRef.current) {
@@ -281,24 +281,25 @@ export default function ThreadedDocument() {
           >
             {message.isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
           </Button>
-          <div className="flex-grow">
-            <div className="flex items-center space-x-2">
+          <div className="flex-grow overflow-hidden">
+            <div className="flex flex-col">
               <span className={`font-bold ${message.publisher === 'ai' ? 'text-blue-600' : 'text-green-600'}`}>
-                {message.publisher === 'ai' ? 'AI' : 'User'}:
+                {message.publisher === 'ai' ? 'AI' : 'User'}
+                {/*{message.publisher === 'ai' ? models.find(m => m.id === selectedModel)?.name || 'AI' : 'User'}*/}
               </span>
               {editingMessage === message.id ? (
-                <Input
+                <Textarea
                   value={editingContent}
                   onChange={(e: { target: { value: any } }) => setEditingContent(e.target.value)}
-                  className="flex-grow"
+                  className="flex-grow mt-1"
                 />
               ) : (
-                <span>
+                <div className="whitespace-pre-wrap break-words overflow-hidden mt-1">
                   {message.isCollapsed
-                    ? `${message.content.slice(0, 50)}... (${totalReplies} ${totalReplies === 1 ? 'reply' : 'replies'})`
+                    ? `${message.content.split('\n')[0].slice(0, 50)}${message.content.length > 50 ? '...' : ''}${totalReplies > 0 ? ` (${totalReplies} ${totalReplies === 1 ? 'reply' : 'replies'})` : ''}`
                     : message.content
                   }
-                </span>
+                </div>
               )}
             </div>
             {!message.isCollapsed && selectedMessage === message.id && (
@@ -401,7 +402,7 @@ export default function ThreadedDocument() {
       baseModel: 'gpt-4o-mini',
       systemPrompt: 'You are a helpful assistant.',
       temperature: 0.7,
-      maxTokens: 150
+      maxTokens: 1024
     }
     setModels((prev: any) => [...prev, newModel])
     setEditingModel(newModel)
@@ -428,14 +429,14 @@ export default function ThreadedDocument() {
     }
   }, [selectedThreads, currentThread])
 
-  const toggleThreadSelection = useCallback((threadId: string) => {
-    setSelectedThreads((prev: string[]) =>
-      prev.includes(threadId)
-        ? prev.filter((id: string) => id !== threadId)
-        : [...prev, threadId]
-    )
-  }, [])
-
+  /*   const toggleThreadSelection = useCallback((threadId: string) => {
+      setSelectedThreads((prev: string[]) =>
+        prev.includes(threadId)
+          ? prev.filter((id: string) => id !== threadId)
+          : [...prev, threadId]
+      )
+    }, [])
+   */
   const sortedThreads = threads.sort((a: { isPinned: any }, b: { isPinned: any }) => {
     if (a.isPinned && !b.isPinned) return -1
     if (!a.isPinned && b.isPinned) return 1
@@ -447,7 +448,9 @@ export default function ThreadedDocument() {
       <>
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-bold">Threads</h2>
-          <Button size="sm" onClick={addThread}><Plus className="h-4 w-4" /></Button>
+          <Button size="sm" onClick={addThread}>
+            <Plus className="h-4 w-4" />
+          </Button>
         </div>
         <ScrollArea className="h-[calc(100vh-10rem)] mt-4">
           <div className="flex-grow overflow-y-auto mb-4">
@@ -491,8 +494,8 @@ export default function ThreadedDocument() {
 
   function renderMessages() {
     return currentThread ? (
-      <div className="flex flex-col h-[calc(100vh)]">
-        <h1 className="text-2xl font-bold mb-4 p-4">
+      <div className={`flex flex-col ${isMobile ? 'h-[calc(90vh)]' : 'h-full'}`}>
+        <h1 className="text-2xl font-bold p-4">
           {threads.find(t => t.id === currentThread)?.title}
         </h1>
         <ScrollArea className="flex-grow">
@@ -504,7 +507,16 @@ export default function ThreadedDocument() {
           {replyingTo && (
             <div className="mb-2 p-2 bg-gray-100 rounded flex justify-between items-center">
               <span className="truncate">
-                Replying to: {findMessageById(threads.find((t: { id: any }) => t.id === currentThread)?.messages || [], replyingTo)?.content.slice(0, 50)}...
+                {(() => {
+                  const replyMessage = findMessageById(threads.find((t: { id: any }) => t.id === currentThread)?.messages || [], replyingTo);
+                  if (!replyMessage) {
+                    setReplyingTo(null);
+                    return null;
+                  }
+                  return replyMessage.content.length <= 50
+                    ? `Replying to: ${replyMessage.content}`
+                    : `Replying to: ${replyMessage.content.slice(0, 50)}...`;
+                })()}
               </span>
               <Button variant="ghost" size="icon" onClick={() => setReplyingTo(null)}>
                 <X className="h-4 w-4" />
@@ -518,7 +530,7 @@ export default function ThreadedDocument() {
               onChange={(e: { target: { value: any } }) => setNewMessageContent(e.target.value)}
               onKeyDown={handleKeyPress}
               placeholder="Type your message..."
-              className="flex-grow resize-vertical"
+              className="flex-grow resize-y"
               style={{ maxHeight: '200px', overflowY: 'auto' }}
             />
             <Button onClick={handleSendMessage} disabled={!newMessageContent.trim()}>
@@ -537,23 +549,30 @@ export default function ThreadedDocument() {
   function renderModelConfig() {
     return (
       <>
-        <Select value={selectedModel} onValueChange={setSelectedModel}>
-          <SelectTrigger>
-            <SelectValue placeholder="Select a model" />
-          </SelectTrigger>
-          <SelectContent>
-            {models.map(model => (
-              <SelectItem key={model.id} value={model.id}>{model.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center space-x-2">
+          <Select value={selectedModel} onValueChange={setSelectedModel}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select a model" />
+            </SelectTrigger>
+            <SelectContent>
+              {models.map(model => (
+                <SelectItem key={model.id} value={model.id}>{model.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button size="sm" onClick={addNewModel}>
+            <Plus className="h-4 w-4" />
+          </Button>
+        </div>
         <ScrollArea className="h-[calc(100vh-10rem)] mt-4">
           <div className="space-y-4">
             {models.map((model: { id: any; name: any; baseModel: any; temperature: any; maxTokens: any; systemPrompt: any }) => (
               <div key={model.id} className="p-2 border rounded">
                 <div className="flex justify-between items-center mb-2">
                   <h3 className="font-bold">{model.name}</h3>
-                  <Button variant="outline" size="sm" onClick={() => setEditingModel(model)}>Edit</Button>
+                  <Button variant="outline" size="icon" onClick={() => setEditingModel(model)}>
+                    <Edit className="h-4 w-4" />
+                  </Button>
                 </div>
                 {editingModel?.id === model.id ? (
                   <div className="space-y-2">
@@ -567,9 +586,23 @@ export default function ThreadedDocument() {
                     <Input type="number" value={editingModel?.temperature} onChange={(e: { target: { value: string } }) => handleModelChange('temperature', parseFloat(e.target.value))} />
                     <Label>Max Tokens</Label>
                     <Input type="number" value={editingModel?.maxTokens} onChange={(e: { target: { value: string } }) => handleModelChange('maxTokens', parseInt(e.target.value))} />
-                    <div className="flex justify-end space-x-2 mt-2">
-                      <Button onClick={saveModelChanges}>Save</Button>
-                      <Button variant="outline" onClick={() => setEditingModel(null)}>Cancel</Button>
+                    <div className="flex justify-between items-center mt-2">
+                      <div className="space-x-2">
+                        <Button size="icon" onClick={saveModelChanges}>
+                          <Check className="h-4 w-4" />
+                        </Button>
+                        <Button variant="outline" size="icon" onClick={() => setEditingModel(null)}>
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <Button
+                        variant="destructive"
+                        size="icon"
+                        onClick={() => deleteModel(model.id)}
+                        disabled={models.length === 1}
+                      >
+                        <Trash className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
                 ) : (
@@ -579,10 +612,8 @@ export default function ThreadedDocument() {
                     <p>Max Tokens: {model.maxTokens}</p>
                   </div>
                 )}
-                <Button variant="destructive" size="sm" className="mt-2" onClick={() => deleteModel(model.id)}>Delete</Button>
               </div>
             ))}
-            <Button onClick={addNewModel}>Add New Model</Button>
           </div>
         </ScrollArea>
       </>
@@ -610,7 +641,7 @@ export default function ThreadedDocument() {
         </Tabs>
       ) : (
         <>
-          <div className="w-1/4 h-full overflow-y-auto border-r p-2">
+          <div className="h-full overflow-y-auto border-r p-2 resize-x" style={{ minWidth: '25%', maxWidth: '75%' }}>
             <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'threads' | 'models')} className="w-full">
               <TabsList className="grid w-full grid-cols-2 mb-4">
                 <TabsTrigger value="threads">Threads</TabsTrigger>
@@ -624,7 +655,7 @@ export default function ThreadedDocument() {
               </TabsContent>
             </Tabs>
           </div>
-          <div className="w-3/4 h-full overflow-y-auto">
+          <div className="flex-grow h-full overflow-y-auto">
             {renderMessages()}
           </div>
         </>
