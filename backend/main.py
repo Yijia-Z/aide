@@ -42,7 +42,7 @@ app.add_middleware(
 # def models
 models = {
     'gpt-4': {
-        'model_name': 'gpt-4',
+        'model_name': 'gpt-4o',
         'max_tokens': 150,
         'temperature': 0.7,
     },
