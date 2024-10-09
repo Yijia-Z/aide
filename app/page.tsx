@@ -634,59 +634,45 @@ export default function ThreadedDocument() {
   }
 
   return (
-    <>
-      <Head>
-        <title>AIDE</title>
-        <meta name="description" content="An interactive threaded chat interface" />
-        <meta name="keywords" content="chat, AI, LLM, thread, conversation, language models" />
-        <meta name="author" content="yijia zhao, jiawei wen, alex huper" />
-        <meta property="og:title" content="AIDE" />
-        <meta property="og:description" content="Engage in threaded conversations with AI assistance" />
-        <meta property="og:type" content="website" />
-        <meta property="og:url" content="https://aide.zy-j.com" />
-        <meta property="og:image" content="https://zy-j.com/images/avatar.png" />
-        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-      </Head>
-      <div className="h-screen flex flex-col md:flex-row p-2">
-        {isMobile ? (
-          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'threads' | 'messages' | 'models')} className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="threads">Threads</TabsTrigger>
-              <TabsTrigger value="messages">Messages</TabsTrigger>
-              <TabsTrigger value="models">Models</TabsTrigger>
-            </TabsList>
-            <TabsContent value="threads" className="flex-grow overflow-y-auto pt-1">
-              {renderThreadsList()}
-            </TabsContent>
-            <TabsContent value="messages" className="flex-grow overflow-y-auto pt-1">
-              {renderMessages()}
-            </TabsContent>
-            <TabsContent value="models" className="flex-grow overflow-y-auto pt-1">
-              {renderModelConfig()}
-            </TabsContent>
-          </Tabs>
-        ) : (
-          <>
-            <div className="h-full overflow-y-auto border-r pr-2 resize-x" style={{ minWidth: '25%', maxWidth: '75%' }}>
-              <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'threads' | 'models')} className="w-full">
-                <TabsList className="grid w-full grid-cols-2 mb-4">
-                  <TabsTrigger value="threads">Threads</TabsTrigger>
-                  <TabsTrigger value="models">Models</TabsTrigger>
-                </TabsList>
-                <TabsContent value="threads" className="flex-grow overflow-y-auto pt-1">
-                  {renderThreadsList()}
-                </TabsContent>
-                <TabsContent value="models" className="flex-grow overflow-y-auto pt-1">
-                  {renderModelConfig()}
-                </TabsContent>
-              </Tabs>
-            </div>
-            <div className="flex-grow h-full overflow-y-auto">
-              {renderMessages()}
-            </div>
-          </>
-        )}
-      </div>
-    </>
+    <div className="h-screen flex flex-col md:flex-row p-2">
+      {isMobile ? (
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'threads' | 'messages' | 'models')} className="w-full">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="threads">Threads</TabsTrigger>
+            <TabsTrigger value="messages">Messages</TabsTrigger>
+            <TabsTrigger value="models">Models</TabsTrigger>
+          </TabsList>
+          <TabsContent value="threads" className="flex-grow overflow-y-auto pt-1">
+            {renderThreadsList()}
+          </TabsContent>
+          <TabsContent value="messages" className="flex-grow overflow-y-auto pt-1">
+            {renderMessages()}
+          </TabsContent>
+          <TabsContent value="models" className="flex-grow overflow-y-auto pt-1">
+            {renderModelConfig()}
+          </TabsContent>
+        </Tabs>
+      ) : (
+        <>
+          <div className="h-full overflow-y-auto border-r pr-2 resize-x" style={{ minWidth: '25%', maxWidth: '75%' }}>
+            <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'threads' | 'models')} className="w-full">
+              <TabsList className="grid w-full grid-cols-2 mb-4">
+                <TabsTrigger value="threads">Threads</TabsTrigger>
+                <TabsTrigger value="models">Models</TabsTrigger>
+              </TabsList>
+              <TabsContent value="threads" className="flex-grow overflow-y-auto pt-1">
+                {renderThreadsList()}
+              </TabsContent>
+              <TabsContent value="models" className="flex-grow overflow-y-auto pt-1">
+                {renderModelConfig()}
+              </TabsContent>
+            </Tabs>
+          </div>
+          <div className="flex-grow h-full overflow-y-auto">
+            {renderMessages()}
+          </div>
+        </>
+      )}
+    </div>
   )
 }
