@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Slider } from "@/components/ui/slider"
 
 const MESSAGE_INDENT = 8; // Constant value for indentation
 
@@ -595,10 +596,10 @@ export default function ThreadedDocument() {
                     <Input value={editingModel?.baseModel} onChange={(e: { target: { value: any } }) => handleModelChange('baseModel', e.target.value)} />
                     <Label>System Prompt</Label>
                     <Textarea value={editingModel?.systemPrompt} onChange={(e: { target: { value: any } }) => handleModelChange('systemPrompt', e.target.value)} />
-                    <Label>Temperature</Label>
-                    <Input type="number" value={editingModel?.temperature} onChange={(e: { target: { value: string } }) => handleModelChange('temperature', parseFloat(e.target.value))} />
-                    <Label>Max Tokens</Label>
-                    <Input type="number" value={editingModel?.maxTokens} onChange={(e: { target: { value: string } }) => handleModelChange('maxTokens', parseInt(e.target.value))} />
+                    <Label>Temperature = {editingModel?.temperature}</Label>
+                    {editingModel && <Slider defaultValue={[.7]} max={1} step={.01} value={[editingModel.temperature]} onValueChange={(value: number[]) => handleModelChange('temperature', value[0])} />}
+                    <Label>Max Tokens = {editingModel?.maxTokens} </Label>
+                    {editingModel && <Slider defaultValue={[1024]} max={2048} step={10} value={[editingModel.maxTokens]} onValueChange={(value: number[]) => handleModelChange('maxTokens', value[0])} />}
                     <div className="flex justify-between items-center mt-2">
                       <div className="space-x-2">
                         <Button size="icon" onClick={saveModelChanges}>
