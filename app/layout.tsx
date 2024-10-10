@@ -16,7 +16,7 @@ export const metadata: Metadata = {
     url: "https://aide.zy-j.com",
     images: [{ url: "https://zy-j.com/images/avatar.png" }],
   },
-  viewport: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no",
+  viewport: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, touch-action=none",
 };
 
 export default function RootLayout({
