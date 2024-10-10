@@ -12,6 +12,16 @@ import { Label } from "@/components/ui/label"
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup, } from "@/components/ui/resizable"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Slider } from "@/components/ui/slider"
+import {
+  Menubar,
+  MenubarContent,
+  MenubarItem,
+  MenubarMenu,
+  MenubarSeparator,
+  MenubarShortcut,
+  MenubarTrigger,
+} from "@/components/ui/menubar"
+
 
 const MESSAGE_INDENT = 8; // Constant value for indentation
 
@@ -169,7 +179,7 @@ export default function ThreadedDocument() {
         replies: [],
         isCollapsed: false
       };
-      setSelectedMessage(newMessageId || null);
+      setSelectedMessage(newMessage.id);
       if (!parentId) {
         return { ...thread, messages: [...thread.messages, newMessage] }
       }
@@ -200,15 +210,18 @@ export default function ThreadedDocument() {
     }))
   }, [])
 
-  const deleteMessage = useCallback((threadId: string, messageId: string) => {
+  const deleteMessage = useCallback((threadId: string, messageId: string, deleteChildren: boolean) => {
     setThreads((prev: Thread[]) => prev.map((thread) => {
       if (thread.id !== threadId) return thread
       const removeMessage = (messages: Message[]): Message[] => {
-        return messages.filter(message => {
-          if (message.id === messageId) return false
-          message.replies = removeMessage(message.replies)
-          return true
-        })
+        return messages.reduce((acc: Message[], message) => {
+          if (message.id === messageId) {
+            // If deleteChildren is false, add the message's replies to the accumulator
+            return deleteChildren ? acc : [...acc, ...message.replies];
+          }
+          // Otherwise, keep the message and recursively process its replies
+          return [...acc, { ...message, replies: removeMessage(message.replies) }];
+        }, []);
       }
       return { ...thread, messages: removeMessage(thread.messages) }
     }))
@@ -247,7 +260,7 @@ export default function ThreadedDocument() {
     setEditingContent('')
   }, [editingContent])
 
-  const generateAIReply = useCallback(async (threadId: string, messageId: string) => {
+  const generateAIReply = useCallback(async (threadId: string, messageId: string, count: number = 1) => {
     const thread = threads.find((t: { id: string }) => t.id === threadId)
     if (!thread) return
 
@@ -257,8 +270,10 @@ export default function ThreadedDocument() {
     setIsGenerating(true)
     try {
       const model = models.find((m: { id: any }) => m.id === selectedModel) || models[0]
-      const aiResponse = await generateAIResponse(message.content, model, threads, threadId, messageId)
-      addMessage(threadId, messageId, aiResponse, 'ai')
+      for (let i = 0; i < count; i++) {
+        const aiResponse = await generateAIResponse(message.content, model, threads, threadId, messageId)
+        addMessage(threadId, messageId, aiResponse, 'ai')
+      }
     } catch (error) {
       console.error('Failed to generate AI response:', error)
     } finally {
@@ -346,7 +361,7 @@ export default function ThreadedDocument() {
               )}
             </div>
             {!message.isCollapsed && selectedMessage === message.id && (
-              <div className="mt-2 space-x-2 flex flex-wrap">
+              <div className="mt-2 space-x-2 flex flex-wrap items-center">
                 {editingMessage === message.id ? (
                   <>
                     <Button size="sm" variant="ghost" onClick={() => confirmEditingMessage(threadId, message.id)}>
@@ -364,18 +379,51 @@ export default function ThreadedDocument() {
                       <MessageSquare className="h-4 w-4" />
                       <span className="hidden sm:inline ml-2">Reply</span>
                     </Button>
-                    <Button size="sm" variant="ghost" onClick={() => generateAIReply(threadId, message.id)} disabled={isGenerating}>
-                      <Sparkle className="h-4 w-4" />
-                      <span className="hidden sm:inline ml-2">Generate</span>
-                    </Button>
+                    <Menubar className="bg-transparent">
+                      <MenubarMenu>
+                        <MenubarTrigger className="bg-transparent">
+                          <Sparkle className="h-4 w-4" />
+                          <span className="hidden sm:inline ml-2">Generate</span>
+                        </MenubarTrigger>
+                        <MenubarContent>
+                          <MenubarItem onClick={() => generateAIReply(threadId, message.id, 1)}>
+                            Once
+                          </MenubarItem>
+                          <MenubarItem onClick={() => generateAIReply(threadId, message.id, 3)}>
+                            Thrice
+                          </MenubarItem>
+                          <MenubarItem onClick={() => {
+                            const times = prompt('How many times do you want to generate?', '5');
+                            const numTimes = parseInt(times || '1', 10);
+                            if (!isNaN(numTimes) && numTimes > 0) {
+                              generateAIReply(threadId, message.id, numTimes);
+                            }
+                          }}>
+                            Custom
+                          </MenubarItem>
+                        </MenubarContent>
+                      </MenubarMenu>
+                    </Menubar>
                     <Button size="sm" variant="ghost" onClick={() => startEditingMessage(message)}>
                       <Edit className="h-4 w-4" />
                       <span className="hidden sm:inline ml-2">Edit</span>
                     </Button>
-                    <Button size="sm" variant="ghost" onClick={() => deleteMessage(threadId, message.id)}>
-                      <Trash className="h-4 w-4" />
-                      <span className="hidden sm:inline ml-2">Delete</span>
-                    </Button>
+                    <Menubar className="bg-transparent">
+                      <MenubarMenu>
+                        <MenubarTrigger className="bg-transparent">
+                          <Trash className="h-4 w-4" />
+                          <span className="hidden sm:inline ml-2">Delete</span>
+                        </MenubarTrigger>
+                        <MenubarContent>
+                          <MenubarItem onClick={() => deleteMessage(threadId, message.id, false)}>
+                            Keep Children
+                          </MenubarItem>
+                          <MenubarItem onClick={() => deleteMessage(threadId, message.id, true)}>
+                            With Children
+                          </MenubarItem>
+                        </MenubarContent>
+                      </MenubarMenu>
+                    </Menubar>
                   </>
                 )}
               </div>
@@ -499,7 +547,13 @@ export default function ThreadedDocument() {
         case 'Delete':
           // Delete for deleting a message
           if (currentThread) {
-            deleteMessage(currentThread, selectedMessage);
+            if (event.shiftKey) {
+              // Shift+Delete to delete the message and its children
+              deleteMessage(currentThread, selectedMessage, true);
+            } else {
+              // Regular Delete to delete only the message
+              deleteMessage(currentThread, selectedMessage, false);
+            }
           }
           break;
         default:
@@ -528,7 +582,7 @@ export default function ThreadedDocument() {
             <ListPlus className="h-4 w-4" />
           </Button>
         </div>
-        <ScrollArea className="h-[calc(100vh-10rem)] mt-4">
+        <ScrollArea className="h-[calc(100vh-10rem)] mt-2">
           <div className="flex-grow overflow-y-auto mb-4">
             {sortedThreads.map(thread => (
               <div
@@ -611,7 +665,7 @@ export default function ThreadedDocument() {
             <Plus className="h-4 w-4" />
           </Button>
         </div>
-        <ScrollArea className="h-[calc(100vh-10rem)] mt-4">
+        <ScrollArea className="h-[calc(100vh-10rem)] mt-2">
           <div className="space-y-4">
             {models.map((model: { id: any; name: any; baseModel: any; temperature: any; maxTokens: any; systemPrompt: any }) => (
               <div key={model.id} className="p-2 border rounded">
@@ -736,7 +790,7 @@ export default function ThreadedDocument() {
               </TabsContent>
             </Tabs>
           </ResizablePanel>
-          <ResizableHandle withHandle />
+          <ResizableHandle withHandle className="mx-2" />
           <ResizablePanel defaultSize={75}>
             <div className="h-full overflow-y-auto">
               {renderMessages()}
