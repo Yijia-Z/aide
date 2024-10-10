@@ -1,6 +1,6 @@
 'use client'
 import React, { useState, useCallback, useRef, useEffect } from 'react'
-import Head from 'next/head'
+import ReactMarkdown from 'react-markdown'
 import { ChevronDown, ChevronRight, Edit, Trash, ListPlus, MessageSquare, X, Plus, Check, MessageSquarePlus, Pin, PinOff, Menu, Send, Sparkle } from 'lucide-react'
 import { useMediaQuery } from 'usehooks-ts'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -148,6 +148,16 @@ export default function ThreadedDocument() {
       replyBoxRef.current.scrollIntoView({ behavior: 'smooth' })
     }
   }, [replyingTo])
+
+  useEffect(() => {
+    if (selectedMessage) {
+      const messageElement = document.getElementById(`message-${selectedMessage}`);
+      if (messageElement) {
+        messageElement.scrollIntoView({ behavior: 'smooth' });
+      }
+    }
+  }, [selectedMessage]);
+
 
   useEffect(() => {
     if (editingThreadTitle && threadTitleInputRef.current) {
@@ -317,18 +327,19 @@ export default function ThreadedDocument() {
     return (
       <div key={message.id} className="mt-2" style={{ marginLeft: `${indent}px` }} id={`message-${message.id}`}>
         <div
-          className={`flex items-start space-x-2 p-2 rounded hover:bg-gray-100 ${isSelectedOrParent ? 'bg-gray-200' : ''}`}
+          className={`flex items-start space-x-1 p-2 rounded hover:bg-gray-100 ${isSelectedOrParent ? 'bg-gray-200' : ''}`}
           onClick={() => setSelectedMessage(message.id)}
         >
           <Button
             variant="ghost"
             size="sm"
+            className="w-3 h-3 p-0 min-w-3"
             onClick={(e) => {
               e.stopPropagation();
               toggleCollapse(threadId, message.id);
             }}
           >
-            {message.isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            {message.isCollapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
           </Button>
           <div className="flex-grow overflow-hidden">
             <div className="flex flex-col p-1">
@@ -355,10 +366,11 @@ export default function ThreadedDocument() {
                 <div className="whitespace-pre-wrap break-words overflow-hidden mt-1">
                   {message.isCollapsed
                     ? `${message.content.split('\n')[0].slice(0, 50)}${message.content.length > 50 ? '...' : ''}${totalReplies > 0 ? ` (${totalReplies} ${totalReplies === 1 ? 'reply' : 'replies'})` : ''}`
-                    : message.content
+                    : <div className="markdown-content">
+                      <ReactMarkdown>{message.content}</ReactMarkdown>
+                    </div>
                   }
-                </div>
-              )}
+                </div>)}
             </div>
             {!message.isCollapsed && selectedMessage === message.id && (
               <div className="mt-2 space-x-2 flex flex-wrap items-center">
@@ -366,11 +378,11 @@ export default function ThreadedDocument() {
                   <>
                     <Button size="sm" variant="ghost" onClick={() => confirmEditingMessage(threadId, message.id)}>
                       <Check className="h-4 w-4" />
-                      <span className="hidden sm:inline ml-2">Ctrl + Enter</span>
+                      {!isMobile && <MenubarShortcut>Ctrl + ↵</MenubarShortcut>}
                     </Button>
                     <Button size="sm" variant="ghost" onClick={cancelEditingMessage}>
                       <X className="h-4 w-4" />
-                      <span className="hidden sm:inline ml-2">Esc</span>
+                      {!isMobile && <MenubarShortcut>Esc</MenubarShortcut>}
                     </Button>
                   </>
                 ) : (
@@ -388,6 +400,7 @@ export default function ThreadedDocument() {
                         <MenubarContent>
                           <MenubarItem onClick={() => generateAIReply(threadId, message.id, 1)}>
                             Once
+                            {!isMobile && <MenubarShortcut>⎇G</MenubarShortcut>}
                           </MenubarItem>
                           <MenubarItem onClick={() => generateAIReply(threadId, message.id, 3)}>
                             Thrice
@@ -417,9 +430,11 @@ export default function ThreadedDocument() {
                         <MenubarContent>
                           <MenubarItem onClick={() => deleteMessage(threadId, message.id, false)}>
                             Keep Children
+                            {!isMobile && <MenubarShortcut>⌦</MenubarShortcut>}
                           </MenubarItem>
                           <MenubarItem onClick={() => deleteMessage(threadId, message.id, true)}>
                             With Children
+                            {!isMobile && <MenubarShortcut>⇧⌦</MenubarShortcut>}
                           </MenubarItem>
                         </MenubarContent>
                       </MenubarMenu>
@@ -433,8 +448,7 @@ export default function ThreadedDocument() {
         {!message.isCollapsed && message.replies.map(reply => renderMessage(reply, threadId, depth + 1, message.id))}
       </div>
     )
-  }
-  /*   const handleSendMessage = useCallback(async () => {
+  }  /*   const handleSendMessage = useCallback(async () => {
       if (currentThread && newMessageContent.trim()) {
         const newMessageId = Date.now().toString(); // Generate a new ID for the message
         addMessage(currentThread, replyingTo, newMessageContent, 'user', newMessageId);
@@ -513,9 +527,57 @@ export default function ThreadedDocument() {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (!selectedMessage) return;
+      if (!selectedMessage || !currentThread) return;
+
+      const currentThreadData = threads.find(t => t.id === currentThread);
+      if (!currentThreadData) return;
+
+      const findMessageAndParent = (messages: Message[], targetId: string, parent: Message | null = null): [Message | null, Message | null] => {
+        for (const message of messages) {
+          if (message.id === targetId) return [message, parent];
+          const [found, foundParent] = findMessageAndParent(message.replies, targetId, message);
+          if (found) return [found, foundParent];
+        }
+        return [null, null];
+      };
+
+      const [currentMessage, parentMessage] = findMessageAndParent(currentThreadData.messages, selectedMessage);
+      if (!currentMessage) return;
+
+      const getSiblings = (parent: Message | null): Message[] => {
+        if (!parent) return currentThreadData.messages;
+        return parent.replies;
+      };
 
       switch (event.key) {
+        case 'ArrowLeft':
+          // Select parent message
+          if (parentMessage) {
+            setSelectedMessage(parentMessage.id);
+          }
+          break;
+        case 'ArrowRight':
+          // Select first child message
+          if (currentMessage.replies.length > 0) {
+            setSelectedMessage(currentMessage.replies[0].id);
+          }
+          break;
+        case 'ArrowUp':
+          // Select previous sibling
+          const siblings = getSiblings(parentMessage);
+          const currentIndex = siblings.findIndex(m => m.id === currentMessage.id);
+          if (currentIndex > 0) {
+            setSelectedMessage(siblings[currentIndex - 1].id);
+          }
+          break;
+        case 'ArrowDown':
+          // Select next sibling
+          const nextSiblings = getSiblings(parentMessage);
+          const nextIndex = nextSiblings.findIndex(m => m.id === currentMessage.id);
+          if (nextIndex < nextSiblings.length - 1) {
+            setSelectedMessage(nextSiblings[nextIndex + 1].id);
+          }
+          break;
         case 'r':
           if (event.altKey) {
             // Alt+R for replying to a message
@@ -587,7 +649,7 @@ export default function ThreadedDocument() {
             {sortedThreads.map(thread => (
               <div
                 key={thread.id}
-                className={`p-2 cursor-pointer ${currentThread === thread.id ? 'bg-gray-200' : ''}`}
+                className={`p-2 cursor-pointer rounded-sm mb-2 ${currentThread === thread.id ? 'bg-gray-200' : 'hover:bg-gray-100'}`}
               >
                 <div className="flex items-center space-x-2">
                   <div className="flex-grow" onClick={() => setCurrentThread(thread.id)}>
@@ -708,16 +770,7 @@ export default function ThreadedDocument() {
                         max="4096"
                       />
                     </div>
-                    {editingModel && <Slider defaultValue={[1024]} max={4096} step={10} value={[editingModel.maxTokens]} onValueChange={(value: number[]) => handleModelChange('maxTokens', value[0])} />
-/*                     <Slider
-                      defaultValue={[Math.log2(1024)]}
-                      min={Math.log2(1)}
-                      max={Math.log2(4096)}
-                      step={0.1}
-                      value={[Math.log2(editingModel.maxTokens)]}
-                      onValueChange={(value: number[]) => handleModelChange('maxTokens', Math.round(Math.pow(2, value[0])))}
-                    />
- */}
+                    {editingModel && <Slider defaultValue={[1024]} max={4096} step={10} value={[editingModel.maxTokens]} onValueChange={(value: number[]) => handleModelChange('maxTokens', value[0])} />}
                     <div className="flex justify-between items-center mt-2">
                       <div className="space-x-2">
                         <Button size="icon" onClick={saveModelChanges}>
