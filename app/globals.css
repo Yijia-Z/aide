@@ -75,6 +75,11 @@
     @apply bg-background text-foreground;
   }
 }
+
+.min-font-size {
+  font-size: 16px;
+}
+
 /* Custom Markdown Styles */
 .markdown-content h1,
 .markdown-content h2,

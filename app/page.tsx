@@ -352,7 +352,7 @@ export default function ThreadedDocument() {
                 <Textarea
                   value={editingContent}
                   onChange={(e) => setEditingContent(e.target.value)}
-                  className="flex-grow mt-1"
+                  className="min-font-size flex-grow mt-1"
                   autoFocus
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && e.ctrlKey) {
@@ -658,6 +658,7 @@ export default function ThreadedDocument() {
                         ref={threadTitleInputRef}
                         value={thread.title}
                         onChange={(e) => editThreadTitle(thread.id, e.target.value)}
+                        className="min-font-size"
                         onBlur={() => setEditingThreadTitle(null)}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') {
@@ -740,37 +741,37 @@ export default function ThreadedDocument() {
                 {editingModel?.id === model.id ? (
                   <div className="space-y-2">
                     <Label>Name</Label>
-                    <Input value={editingModel?.name} onChange={(e: { target: { value: any } }) => handleModelChange('name', e.target.value)} />
+                    <Input className="min-font-size" value={editingModel?.name} onChange={(e: { target: { value: any } }) => handleModelChange('name', e.target.value)} />
                     <Label>Base Model</Label>
-                    <Input value={editingModel?.baseModel} onChange={(e: { target: { value: any } }) => handleModelChange('baseModel', e.target.value)} />
+                    <Input className="min-font-size" value={editingModel?.baseModel} onChange={(e: { target: { value: any } }) => handleModelChange('baseModel', e.target.value)} />
                     <Label>System Prompt</Label>
-                    <Textarea value={editingModel?.systemPrompt} onChange={(e: { target: { value: any } }) => handleModelChange('systemPrompt', e.target.value)} />
+                    <Textarea className="min-font-size" value={editingModel?.systemPrompt} onChange={(e: { target: { value: any } }) => handleModelChange('systemPrompt', e.target.value)} />
                     <div className="flex items-center justify-between">
                       <Label>Temperature</Label>
                       <Input
                         type="number"
                         value={editingModel?.temperature}
                         onChange={(e) => handleModelChange('temperature', parseFloat(e.target.value))}
-                        className="w-18 h-6 text-right text-xs"
+                        className="min-font-size w-18 h-6 text-right text-xs"
                         step="0.01"
                         min="0"
                         max="1"
                       />
                     </div>
-                    {editingModel && <Slider defaultValue={[.7]} max={1} step={.01} value={[editingModel.temperature]} onValueChange={(value: number[]) => handleModelChange('temperature', value[0])} />}
+                    {editingModel && <Slider defaultValue={[.7]} max={1} step={.01} value={[editingModel.temperature]} onValueChange={(value: number[]) => handleModelChange('temperature', value[0])} className="h-4" />}
                     <div className="flex items-center justify-between mt-2">
                       <Label>Max Tokens</Label>
                       <Input
                         type="number"
                         value={editingModel?.maxTokens}
                         onChange={(e) => handleModelChange('maxTokens', parseInt(e.target.value))}
-                        className="w-18 h-6 text-right text-xs"
+                        className="min-font-size w-18 h-6 text-right text-xs"
                         step="10"
                         min="1"
                         max="4096"
                       />
                     </div>
-                    {editingModel && <Slider defaultValue={[1024]} max={4096} step={10} value={[editingModel.maxTokens]} onValueChange={(value: number[]) => handleModelChange('maxTokens', value[0])} />}
+                    {editingModel && <Slider defaultValue={[1024]} max={4096} step={10} value={[editingModel.maxTokens]} onValueChange={(value: number[]) => handleModelChange('maxTokens', value[0])} className="h-4" />}
                     <div className="flex justify-between items-center mt-2">
                       <div className="space-x-2">
                         <Button size="icon" onClick={saveModelChanges}>
