@@ -137,25 +137,21 @@
 
 .markdown-content th,
 .markdown-content td {
-  border: 1px solid #ddd;
   padding: 8px;
   text-align: left;
 }
 
 .markdown-content th {
-  background-color: #f2f2f2;
   font-weight: bold;
 }
 
 .markdown-content code {
-  background-color: #f4f4f4;
   padding: 2px 4px;
   border-radius: 4px;
   font-family: monospace;
 }
 
 .markdown-content pre {
-  background-color: #f4f4f4;
   padding: 1em;
   overflow-x: auto;
   border-radius: 4px;
