@@ -22,7 +22,8 @@ const config = {
     },
     extend: {
       fontFamily: {
-        jetBrains: ["JetBrains Mono", "monospace"],
+        sans: ["var(--font-jetbrains-mono)", "sans-serif"],
+        mono: ["var(--font-jetbrains-mono)", "monospace"],
       },
       colors: {
         border: "hsl(var(--border))",
