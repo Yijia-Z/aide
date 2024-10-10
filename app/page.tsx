@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup, } from "@/components/ui/resizable"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Slider } from "@/components/ui/slider"
 
@@ -168,6 +169,7 @@ export default function ThreadedDocument() {
         replies: [],
         isCollapsed: false
       };
+      setSelectedMessage(newMessageId || null);
       if (!parentId) {
         return { ...thread, messages: [...thread.messages, newMessage] }
       }
@@ -257,7 +259,6 @@ export default function ThreadedDocument() {
       const model = models.find((m: { id: any }) => m.id === selectedModel) || models[0]
       const aiResponse = await generateAIResponse(message.content, model, threads, threadId, messageId)
       addMessage(threadId, messageId, aiResponse, 'ai')
-      setSelectedMessage(aiResponse.id) // Set the generated message as selected
     } catch (error) {
       console.error('Failed to generate AI response:', error)
     } finally {
@@ -277,8 +278,6 @@ export default function ThreadedDocument() {
       replies: [],
       isCollapsed: false
     });
-
-    setSelectedMessage(newMessageId);
 
     setTimeout(() => {
       const newMessageElement = document.getElementById(`message-${newMessageId}`);
@@ -464,22 +463,56 @@ export default function ThreadedDocument() {
     }
   }, [])
 
-  /*   const deleteThreads = useCallback(() => {
-      setThreads((prev: Thread[]) => prev.filter((thread) => !selectedThreads.includes(thread.id)))
-      setSelectedThreads([])
-      if (currentThread && selectedThreads.includes(currentThread)) {
-        setCurrentThread(null)
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!selectedMessage) return;
+
+      switch (event.key) {
+        case 'r':
+          if (event.altKey) {
+            // Alt+R for replying to a message
+            event.preventDefault();
+            if (currentThread) {
+              addEmptyReply(currentThread, selectedMessage);
+            }
+          }
+          break;
+        case 'g':
+          if (event.altKey) {
+            // Alt+G for generating AI reply
+            event.preventDefault();
+            if (currentThread) {
+              generateAIReply(currentThread, selectedMessage);
+            }
+          }
+          break;
+        case 'Insert':
+          // Insert for editing a message
+          const currentThreadData = threads.find(t => t.id === currentThread);
+          if (currentThreadData) {
+            const message = findMessageById(currentThreadData.messages, selectedMessage);
+            if (message) {
+              startEditingMessage(message);
+            }
+          }
+          break;
+        case 'Delete':
+          // Delete for deleting a message
+          if (currentThread) {
+            deleteMessage(currentThread, selectedMessage);
+          }
+          break;
+        default:
+          break;
       }
-    }, [selectedThreads, currentThread])
-  
-      const toggleThreadSelection = useCallback((threadId: string) => {
-        setSelectedThreads((prev: string[]) =>
-          prev.includes(threadId)
-            ? prev.filter((id: string) => id !== threadId)
-            : [...prev, threadId]
-        )
-      }, [])
-   */
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [selectedMessage, currentThread, threads, generateAIReply, addEmptyReply, startEditingMessage, deleteMessage]);
+
   const sortedThreads = threads.sort((a: { isPinned: any }, b: { isPinned: any }) => {
     if (a.isPinned && !b.isPinned) return -1
     if (!a.isPinned && b.isPinned) return 1
@@ -596,10 +629,41 @@ export default function ThreadedDocument() {
                     <Input value={editingModel?.baseModel} onChange={(e: { target: { value: any } }) => handleModelChange('baseModel', e.target.value)} />
                     <Label>System Prompt</Label>
                     <Textarea value={editingModel?.systemPrompt} onChange={(e: { target: { value: any } }) => handleModelChange('systemPrompt', e.target.value)} />
-                    <Label>Temperature = {editingModel?.temperature}</Label>
+                    <div className="flex items-center justify-between">
+                      <Label>Temperature</Label>
+                      <Input
+                        type="number"
+                        value={editingModel?.temperature}
+                        onChange={(e) => handleModelChange('temperature', parseFloat(e.target.value))}
+                        className="w-18 h-6 text-right text-xs"
+                        step="0.01"
+                        min="0"
+                        max="1"
+                      />
+                    </div>
                     {editingModel && <Slider defaultValue={[.7]} max={1} step={.01} value={[editingModel.temperature]} onValueChange={(value: number[]) => handleModelChange('temperature', value[0])} />}
-                    <Label>Max Tokens = {editingModel?.maxTokens} </Label>
-                    {editingModel && <Slider defaultValue={[1024]} max={2048} step={10} value={[editingModel.maxTokens]} onValueChange={(value: number[]) => handleModelChange('maxTokens', value[0])} />}
+                    <div className="flex items-center justify-between mt-2">
+                      <Label>Max Tokens</Label>
+                      <Input
+                        type="number"
+                        value={editingModel?.maxTokens}
+                        onChange={(e) => handleModelChange('maxTokens', parseInt(e.target.value))}
+                        className="w-18 h-6 text-right text-xs"
+                        step="10"
+                        min="1"
+                        max="4096"
+                      />
+                    </div>
+                    {editingModel && <Slider defaultValue={[1024]} max={4096} step={10} value={[editingModel.maxTokens]} onValueChange={(value: number[]) => handleModelChange('maxTokens', value[0])} />
+/*                     <Slider
+                      defaultValue={[Math.log2(1024)]}
+                      min={Math.log2(1)}
+                      max={Math.log2(4096)}
+                      step={0.1}
+                      value={[Math.log2(editingModel.maxTokens)]}
+                      onValueChange={(value: number[]) => handleModelChange('maxTokens', Math.round(Math.pow(2, value[0])))}
+                    />
+ */}
                     <div className="flex justify-between items-center mt-2">
                       <div className="space-x-2">
                         <Button size="icon" onClick={saveModelChanges}>
@@ -643,19 +707,22 @@ export default function ThreadedDocument() {
             <TabsTrigger value="messages">Messages</TabsTrigger>
             <TabsTrigger value="models">Models</TabsTrigger>
           </TabsList>
-          <TabsContent value="threads" className="flex-grow overflow-y-auto pt-1">
+          <TabsContent value="threads" className="flex-grow overflow-y-auto">
             {renderThreadsList()}
           </TabsContent>
-          <TabsContent value="messages" className="flex-grow overflow-y-auto pt-1">
+          <TabsContent value="messages" className="flex-grow overflow-y-auto">
             {renderMessages()}
           </TabsContent>
-          <TabsContent value="models" className="flex-grow overflow-y-auto pt-1">
+          <TabsContent value="models" className="flex-grow overflow-y-auto">
             {renderModelConfig()}
           </TabsContent>
         </Tabs>
       ) : (
-        <>
-          <div className="h-full overflow-y-auto border-r pr-2 resize-x" style={{ minWidth: '25%', maxWidth: '75%' }}>
+        <ResizablePanelGroup
+          direction="horizontal"
+          className="h-full"
+        >
+          <ResizablePanel defaultSize={25} minSize={20} maxSize={50}>
             <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'threads' | 'models')} className="w-full">
               <TabsList className="grid w-full grid-cols-2 mb-4">
                 <TabsTrigger value="threads">Threads</TabsTrigger>
@@ -668,11 +735,14 @@ export default function ThreadedDocument() {
                 {renderModelConfig()}
               </TabsContent>
             </Tabs>
-          </div>
-          <div className="flex-grow h-full overflow-y-auto">
-            {renderMessages()}
-          </div>
-        </>
+          </ResizablePanel>
+          <ResizableHandle withHandle />
+          <ResizablePanel defaultSize={75}>
+            <div className="h-full overflow-y-auto">
+              {renderMessages()}
+            </div>
+          </ResizablePanel>
+        </ResizablePanelGroup>
       )}
     </div>
   )
