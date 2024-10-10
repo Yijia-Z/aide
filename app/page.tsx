@@ -22,7 +22,6 @@ import {
   MenubarTrigger,
 } from "@/components/ui/menubar"
 
-
 const MESSAGE_INDENT = 8; // Constant value for indentation
 
 interface Message {
@@ -366,7 +365,7 @@ export default function ThreadedDocument() {
                   {message.isCollapsed
                     ? `${message.content.split('\n')[0].slice(0, 50)}${message.content.length > 50 ? '...' : ''}${totalReplies > 0 ? ` (${totalReplies} ${totalReplies === 1 ? 'reply' : 'replies'})` : ''}`
                     : <div className="markdown-content">
-                      <ReactMarkdown>{message.content}</ReactMarkdown>
+                      <ReactMarkdown>{message.content.replace(/\n\s*\n/g, '\n')}</ReactMarkdown>
                     </div>
                   }
                 </div>)}
