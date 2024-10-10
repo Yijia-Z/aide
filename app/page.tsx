@@ -73,7 +73,7 @@ function findAllParentMessages(threads: Thread[], currentThreadId: string | null
 const apiBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 console.log('API Base URL:', apiBaseUrl);
 async function generateAIResponse(prompt: string, model: Model, threads: Thread[], currentThread: string | null, replyingTo: string | null) {
-  const response = await fetch(`${apiBaseUrl}/api/chat`, {
+  const response = await fetch(apiBaseUrl ? `${apiBaseUrl}/api/chat` : '/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -88,7 +88,7 @@ async function generateAIResponse(prompt: string, model: Model, threads: Thread[
       ],
       configuration: { model: model.baseModel, temperature: model.temperature, max_tokens: model.maxTokens },
     }),
-  })
+  });
 
   if (!response.ok) {
     throw new Error('Failed to generate AI response')
@@ -96,8 +96,7 @@ async function generateAIResponse(prompt: string, model: Model, threads: Thread[
 
   const data = await response.json()
   console.log(data);
-  return data.response
-
+  return apiBaseUrl ? data.response : data.choices[0].message.content
 }
 
 export default function ThreadedDocument() {
@@ -122,11 +121,11 @@ export default function ThreadedDocument() {
 
   const replyBoxRef = useRef<HTMLDivElement>(null)
   const threadTitleInputRef = useRef<HTMLInputElement>(null)
-  //c onst newMessageInputRef = useRef<HTMLTextAreaElement>(null)
+  // const newMessageInputRef = useRef<HTMLTextAreaElement>(null)
   useEffect(() => {
     const connectToBackend = async () => {
       try {
-        const response = await fetch(`${apiBaseUrl}/api/connect`, { method: 'GET' });
+        const response = await fetch(isConnected ? `${apiBaseUrl}/api/connect` : '/api/connect', { method: 'GET' });
         if (response.ok) {
           console.log("connect to back！");
           setIsConnected(true);
