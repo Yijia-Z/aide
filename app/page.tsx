@@ -960,10 +960,8 @@ export default function ThreadedDocument() {
   // Render the list of threads
   function renderThreadsList() {
     return (
-      <div
-        className={`flex flex-col relative h-[calc(91vh)]`}
-      >
-        <div className="flex items-center justify-between pb-2 absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-background/100 to-background/0 backdrop-blur-[3px]">
+      <div className={`flex flex-col relative ${isMobile ? "h-full" : "h-[calc(91vh)]"}`}>
+        <div className="flex items-center justify-between pb-10 space-x-2 absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-background/100 to-background/00 backdrop-blur-[1px]">
           <h2 className="text-2xl font-serif font-bold pl-2">Threads</h2>
           <Button
             className="bg-background hover:bg-secondary text-primary border border-border"
@@ -1044,10 +1042,8 @@ export default function ThreadedDocument() {
   function renderMessages() {
     const currentThreadData = threads.find((t) => t.id === currentThread);
     return currentThread ? (
-      <div
-        className={`flex flex-col relative ${isMobile ? "h-[calc(90vh)]" : "h-full"}`}
-      >
-        <div className="flex items-center justify-between pb-2 absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-background/100 to-background/0 backdrop-blur-[3px]">
+      <div className={`flex flex-col relative ${isMobile ? "h-[calc(90vh)]" : "h-full"}`}>
+        <div className="flex items-center justify-between pb-10 space-x-2 absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-background/100 to-background/0 backdrop-blur-[1px]">
           <h1 className="text-2xl font-serif font-bold pl-2">
             {currentThreadData?.title}
           </h1>
@@ -1083,8 +1079,8 @@ export default function ThreadedDocument() {
   // Render model configuration
   function renderModelConfig() {
     return (
-      <div className={`flex flex-col relative h-[calc(91vh)]`}>
-        <div className="flex items-center justify-between space-x-2 pb-2 absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-background/100 to-background/0 backdrop-blur-[3px]">
+      <div className={`flex flex-col relative ${isMobile ? "h-full" : "h-[calc(91vh)]"}`}>
+        <div className="flex items-center justify-between pb-10 space-x-2 absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-background/100 to-background/0 backdrop-blur-[1px">
           <Select value={selectedModel} onValueChange={setSelectedModel}>
             <SelectTrigger>
               <SelectValue placeholder="Select a model" />
@@ -1251,13 +1247,8 @@ export default function ThreadedDocument() {
           onValueChange={(value) =>
             setActiveTab(value as "threads" | "messages" | "models")
           }
-          className="w-full"
+          className="w-full flex flex-col h-full"
         >
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="threads">Threads</TabsTrigger>
-            <TabsTrigger value="messages">Messages</TabsTrigger>
-            <TabsTrigger value="models">Models</TabsTrigger>
-          </TabsList>
           <TabsContent value="threads" className="flex-grow overflow-y-auto">
             {renderThreadsList()}
           </TabsContent>
@@ -1267,11 +1258,16 @@ export default function ThreadedDocument() {
           <TabsContent value="models" className="flex-grow overflow-y-auto">
             {renderModelConfig()}
           </TabsContent>
+          <TabsList className="grid bg-transparent w-full grid-cols-3">
+            <TabsTrigger value="threads" className="data-[state=active]:bg-secondary">Threads</TabsTrigger>
+            <TabsTrigger value="messages" className="data-[state=active]:bg-secondary">Messages</TabsTrigger>
+            <TabsTrigger value="models" className="data-[state=active]:bg-secondary">Models</TabsTrigger>
+          </TabsList>
         </Tabs>
       ) : (
         // Desktop layout with resizable panels
         <ResizablePanelGroup direction="horizontal" className="h-full">
-          <ResizablePanel defaultSize={31} minSize={25} maxSize={50}>
+          <ResizablePanel defaultSize={31} minSize={26} maxSize={50}>
             <Tabs
               value={activeTab}
               onValueChange={(value) =>
