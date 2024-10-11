@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Viewport } from "next";
 import "./globals.css";
 import localfont from 'next/font/local'
 import { ThemeProvider } from "@/components/theme-provider"
@@ -26,6 +27,14 @@ export const metadata: Metadata = {
     url: "https://aide.zy-j.com",
     images: [{ url: "/android-chrome-512x512.png" }],
   },
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
 };
 
 const jetBrainsMono = localfont({

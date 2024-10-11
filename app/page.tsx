@@ -24,30 +24,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import {
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
-} from "@/components/ui/resizable";
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Slider } from "@/components/ui/slider";
-import {
-  Menubar,
-  MenubarContent,
-  MenubarItem,
-  MenubarMenu,
-  MenubarSeparator,
-  MenubarShortcut,
-  MenubarTrigger,
-} from "@/components/ui/menubar";
+import { Menubar, MenubarContent, MenubarItem, MenubarMenu, MenubarSeparator, MenubarShortcut, MenubarTrigger } from "@/components/ui/menubar";
 
 const MESSAGE_INDENT = 12; // Constant value for indentation
 
@@ -1236,7 +1218,7 @@ export default function ThreadedDocument() {
   }
 
   return (
-    <div className="h-screen flex flex-col md:flex-row p-2">
+    <div className="h-screen flex flex-col md:flex-row p-2 overflow-hidden">
       <div className="sm:hidden bg-transparent">
         {/* Mobile layout with tabs for threads, messages, and models */}
         <Tabs
@@ -1245,6 +1227,11 @@ export default function ThreadedDocument() {
             setActiveTab(value as "threads" | "messages" | "models")
           }
           className="w-full flex flex-col h-full"
+          style={{
+            paddingTop: 'env(safe-area-inset-top)',
+            paddingLeft: 'env(safe-area-inset-left)',
+            paddingRight: 'env(safe-area-inset-right)',
+          }}
         >
           <TabsContent value="threads" className="flex-grow overflow-y-auto">
             {renderThreadsList()}
@@ -1255,14 +1242,22 @@ export default function ThreadedDocument() {
           <TabsContent value="models" className="flex-grow overflow-y-auto">
             {renderModelConfig()}
           </TabsContent>
-          <TabsList className="grid bg-background/10 backdrop-blur-md w-full grid-cols-3 absolute bottom-0 left-0 right-0">
+          <TabsList className="grid bg-background/30 backdrop-blur-[5px] w-full fixed bottom-0 left-0 right-0 pb-14 grid-cols-3">
             <TabsTrigger value="threads" className="data-[state=active]:bg-secondary">Threads</TabsTrigger>
             <TabsTrigger value="messages" className="data-[state=active]:bg-secondary">Messages</TabsTrigger>
             <TabsTrigger value="models" className="data-[state=active]:bg-secondary">Models</TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
-      <div className="hidden sm:block w-full h-full">
+      <div
+        className="hidden sm:block w-full h-full"
+        style={{
+          paddingTop: 'env(safe-area-inset-top)',
+          paddingBottom: 'env(safe-area-inset-bottom)',
+          paddingLeft: 'env(safe-area-inset-left)',
+          paddingRight: 'env(safe-area-inset-right)',
+        }}
+      >
         {/* Desktop layout with resizable panels */}
         <ResizablePanelGroup direction="horizontal" className="h-full">
           <ResizablePanel defaultSize={31} minSize={26} maxSize={50}>
@@ -1271,7 +1266,7 @@ export default function ThreadedDocument() {
               onValueChange={(value) =>
                 setActiveTab(value as "threads" | "models")
               }
-              className="w-full"
+              className="w-full h-full flex flex-col"
             >
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="threads">Threads</TabsTrigger>
