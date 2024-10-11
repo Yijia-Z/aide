@@ -2,7 +2,6 @@
 
 import React, { useState, useCallback, useRef, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
-import { useMediaQuery } from "usehooks-ts";
 import { cn } from "@/lib/utils";
 
 import {
@@ -50,7 +49,7 @@ import {
   MenubarTrigger,
 } from "@/components/ui/menubar";
 
-const MESSAGE_INDENT = 8; // Constant value for indentation
+const MESSAGE_INDENT = 12; // Constant value for indentation
 
 interface Message {
   id: string;
@@ -190,8 +189,6 @@ export default function ThreadedDocument() {
 
   const [isConnected, setIsConnected] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-
-  const isMobile = useMediaQuery("(max-width: 768px)");
 
   // Focus on thread title input when editing
   useEffect(() => {
@@ -646,7 +643,7 @@ export default function ThreadedDocument() {
                             }
                           >
                             Once
-                            {!isMobile && <MenubarShortcut>⎇G</MenubarShortcut>}
+                            <span className="hidden sm:inline ml-2"><MenubarShortcut>⎇G</MenubarShortcut></span>
                           </MenubarItem>
                           <MenubarItem
                             onClick={() =>
@@ -694,7 +691,7 @@ export default function ThreadedDocument() {
                             }
                           >
                             Keep Children
-                            {!isMobile && <MenubarShortcut>⌦</MenubarShortcut>}
+                            <span className="hidden sm:inline ml-2"><MenubarShortcut>⌦</MenubarShortcut></span>
                           </MenubarItem>
                           <MenubarItem
                             onClick={() =>
@@ -702,7 +699,7 @@ export default function ThreadedDocument() {
                             }
                           >
                             With Children
-                            {!isMobile && <MenubarShortcut>⇧⌦</MenubarShortcut>}
+                            <span className="hidden sm:inline ml-2"><MenubarShortcut>⇧⌦</MenubarShortcut></span>
                           </MenubarItem>
                         </MenubarContent>
                       </MenubarMenu>
@@ -960,7 +957,7 @@ export default function ThreadedDocument() {
   // Render the list of threads
   function renderThreadsList() {
     return (
-      <div className={`flex flex-col relative ${isMobile ? "h-full" : "h-[calc(91vh)]"}`}>
+      <div className="flex flex-col relative h-[calc(97vh)]">
         <div className="flex items-center justify-between pb-10 space-x-2 absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-background/100 to-background/00 backdrop-blur-[1px]">
           <h2 className="text-2xl font-serif font-bold pl-2">Threads</h2>
           <Button
@@ -1042,7 +1039,7 @@ export default function ThreadedDocument() {
   function renderMessages() {
     const currentThreadData = threads.find((t) => t.id === currentThread);
     return currentThread ? (
-      <div className={`flex flex-col relative ${isMobile ? "h-[calc(90vh)]" : "h-full"}`}>
+      <div className={`flex flex-col relative sm:h-full h-[calc(97vh)]`}>
         <div className="flex items-center justify-between pb-10 space-x-2 absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-background/100 to-background/0 backdrop-blur-[1px]">
           <h1 className="text-2xl font-serif font-bold pl-2">
             {currentThreadData?.title}
@@ -1079,7 +1076,7 @@ export default function ThreadedDocument() {
   // Render model configuration
   function renderModelConfig() {
     return (
-      <div className={`flex flex-col relative ${isMobile ? "h-full" : "h-[calc(91vh)]"}`}>
+      <div className={`flex flex-col relative sm:h-full h-[calc(91vh)]`}>
         <div className="flex items-center justify-between pb-10 space-x-2 absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-background/100 to-background/0 backdrop-blur-[1px">
           <Select value={selectedModel} onValueChange={setSelectedModel}>
             <SelectTrigger>
@@ -1240,8 +1237,8 @@ export default function ThreadedDocument() {
 
   return (
     <div className="h-screen flex flex-col md:flex-row p-2">
-      {isMobile ? (
-        // Mobile layout with tabs for threads, messages, and models
+      <div className="sm:hidden bg-transparent">
+        {/* Mobile layout with tabs for threads, messages, and models */}
         <Tabs
           value={activeTab}
           onValueChange={(value) =>
@@ -1258,14 +1255,15 @@ export default function ThreadedDocument() {
           <TabsContent value="models" className="flex-grow overflow-y-auto">
             {renderModelConfig()}
           </TabsContent>
-          <TabsList className="grid bg-transparent w-full grid-cols-3">
+          <TabsList className="grid bg-background/10 backdrop-blur-md w-full grid-cols-3 absolute bottom-0 left-0 right-0">
             <TabsTrigger value="threads" className="data-[state=active]:bg-secondary">Threads</TabsTrigger>
             <TabsTrigger value="messages" className="data-[state=active]:bg-secondary">Messages</TabsTrigger>
             <TabsTrigger value="models" className="data-[state=active]:bg-secondary">Models</TabsTrigger>
           </TabsList>
         </Tabs>
-      ) : (
-        // Desktop layout with resizable panels
+      </div>
+      <div className="hidden sm:block w-full h-full">
+        {/* Desktop layout with resizable panels */}
         <ResizablePanelGroup direction="horizontal" className="h-full">
           <ResizablePanel defaultSize={31} minSize={26} maxSize={50}>
             <Tabs
@@ -1295,7 +1293,7 @@ export default function ThreadedDocument() {
             <div className="h-full overflow-y-auto">{renderMessages()}</div>
           </ResizablePanel>
         </ResizablePanelGroup>
-      )}
+      </div>
     </div>
   );
 }

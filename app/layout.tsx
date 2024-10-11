@@ -13,8 +13,6 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: "black-translucent",
   },
-  themeColor: "#000000",
-  viewport: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no",
   twitter: {
     card: "summary_large_image",
     title: "AIDE",
