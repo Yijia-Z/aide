@@ -959,9 +959,11 @@ export default function ThreadedDocument() {
   // Render the list of threads
   function renderThreadsList() {
     return (
-      <>
-        <div className="flex items-center justify-between space-x-2">
-          <h2 className="text-xl text-muted-foreground font-serif font-bold pl-2">Threads</h2>
+      <div
+        className={`flex flex-col relative h-[calc(91vh)]`}
+      >
+        <div className="flex items-center justify-between pb-2 absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-background/100 to-background/0 backdrop-blur-[3px]">
+          <h2 className="text-2xl font-serif font-bold pl-2">Threads</h2>
           <Button
             className="bg-background hover:bg-secondary text-primary border border-border"
             size="default"
@@ -971,14 +973,14 @@ export default function ThreadedDocument() {
             <span className="ml-2 hidden md:inline">New Thread</span>
           </Button>
         </div>
-        <ScrollArea className="h-[calc(100vh-10rem)] mt-2">
-          <div className="flex-grow overflow-y-auto mb-4">
+        <ScrollArea className="flex-grow">
+          <div className="mb-4">
             {sortedThreads.map((thread) => (
               <div
                 key={thread.id}
                 className={`font-serif p-2 cursor-pointer rounded mb-2 ${currentThread === thread.id
-                    ? "bg-secondary"
-                    : "hover:bg-secondary text-muted-foreground"
+                  ? "bg-secondary"
+                  : "hover:bg-secondary text-muted-foreground"
                   }`}
               >
                 <div className="flex items-center space-x-2">
@@ -1033,7 +1035,7 @@ export default function ThreadedDocument() {
             ))}
           </div>
         </ScrollArea>
-      </>
+      </div>
     );
   }
 
@@ -1048,17 +1050,19 @@ export default function ThreadedDocument() {
           <h1 className="text-2xl font-serif font-bold pl-2">
             {currentThreadData?.title}
           </h1>
-          <Button
-            className="bg-background hover:bg-secondary text-primary border border-border"
-            size="default"
-            onClick={(e) => {
-              e.stopPropagation();
-              addEmptyReply(currentThread, null);
-            }}
-          >
-            <MessageSquarePlus className="h-4 w-4" />
-            <span className="ml-2 hidden md:inline">New Message</span>
-          </Button>
+          {currentThread && (
+            <Button
+              className="bg-background hover:bg-secondary text-primary border border-border"
+              size="default"
+              onClick={(e) => {
+                e.stopPropagation();
+                addEmptyReply(currentThread, null);
+              }}
+            >
+              <MessageSquarePlus className="h-4 w-4" />
+              <span className="ml-2 hidden md:inline">New Message</span>
+            </Button>
+          )}
         </div>
         <ScrollArea className="flex-grow">
           <div className="mb-4">
@@ -1078,8 +1082,8 @@ export default function ThreadedDocument() {
   // Render model configuration
   function renderModelConfig() {
     return (
-      <>
-        <div className="flex items-center space-x-2">
+      <div className={`flex flex-col relative h-[calc(91vh)]`}>
+        <div className="flex items-center justify-between space-x-2 pb-2 absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-background/100 to-background/0 backdrop-blur-[3px]">
           <Select value={selectedModel} onValueChange={setSelectedModel}>
             <SelectTrigger>
               <SelectValue placeholder="Select a model" />
@@ -1101,150 +1105,139 @@ export default function ThreadedDocument() {
             <span className="ml-2 hidden md:inline">New Model</span>
           </Button>
         </div>
-        <ScrollArea className="h-[calc(100vh-10rem)] mt-2">
-          <div className="space-y-4">
-            {models.map(
-              (model: {
-                id: any;
-                name: any;
-                baseModel: any;
-                temperature: any;
-                maxTokens: any;
-                systemPrompt: any;
-              }) => (
-                <div key={model.id} className="p-2 border rounded">
-                  <div className="flex justify-between items-center mb-2">
-                    <h3 className="font-bold">{model.name}</h3>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => setEditingModel(model)}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  {editingModel?.id === model.id ? (
-                    // Render editable fields when the model is being edited
-                    <div className="space-y-2 text-muted-foreground">
-                      <Label>Name</Label>
+        <ScrollArea className="flex-grow">
+          <div className="flex-grow overflow-y-auto mb-4">
+            {models.map((model) => (
+              <div key={model.id} className="p-2 border rounded mb-2">
+                <div className="flex justify-between items-center mb-2">
+                  <h3 className="font-bold">{model.name}</h3>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setEditingModel(model)}
+                  >
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                </div>
+                {editingModel?.id === model.id ? (
+                  <div className="space-y-2 text-muted-foreground">
+                    <Label>Name</Label>
+                    <Input
+                      className="min-font-size text-foreground"
+                      value={editingModel?.name}
+                      onChange={(e) =>
+                        handleModelChange("name", e.target.value)
+                      }
+                    />
+                    <Label>Base Model</Label>
+                    <Input
+                      className="min-font-size text-foreground"
+                      value={editingModel?.baseModel}
+                      onChange={(e) =>
+                        handleModelChange("baseModel", e.target.value)
+                      }
+                    />
+                    <Label>System Prompt</Label>
+                    <Textarea
+                      className="min-font-size text-foreground"
+                      value={editingModel?.systemPrompt}
+                      onChange={(e) =>
+                        handleModelChange("systemPrompt", e.target.value)
+                      }
+                    />
+                    <div className="flex items-center justify-between">
+                      <Label>Temperature</Label>
                       <Input
-                        className="min-font-size text-foreground"
-                        value={editingModel?.name}
-                        onChange={(e: { target: { value: any } }) =>
-                          handleModelChange("name", e.target.value)
+                        type="number"
+                        value={editingModel?.temperature}
+                        onChange={(e) =>
+                          handleModelChange(
+                            "temperature",
+                            parseFloat(e.target.value)
+                          )
                         }
+                        className="min-font-size text-foreground w-15 h-6 text-left text-xs"
+                        step="0.01"
+                        min="0"
+                        max="1"
                       />
-                      <Label>Base Model</Label>
+                    </div>
+                    {editingModel && (
+                      <Slider
+                        defaultValue={[0.7]}
+                        max={1}
+                        step={0.01}
+                        value={[editingModel.temperature]}
+                        onValueChange={(value) =>
+                          handleModelChange("temperature", value[0])
+                        }
+                        className="h-4"
+                      />
+                    )}
+                    <div className="flex items-center justify-between mt-2">
+                      <Label>Max Tokens</Label>
                       <Input
-                        className="min-font-size text-foreground"
-                        value={editingModel?.baseModel}
-                        onChange={(e: { target: { value: any } }) =>
-                          handleModelChange("baseModel", e.target.value)
+                        type="number"
+                        value={editingModel?.maxTokens}
+                        onChange={(e) =>
+                          handleModelChange(
+                            "maxTokens",
+                            parseInt(e.target.value)
+                          )
                         }
+                        className="min-font-size text-foreground w-15 h-6 text-left text-xs"
+                        step="10"
+                        min="1"
+                        max="4096"
                       />
-                      <Label>System Prompt</Label>
-                      <Textarea
-                        className="min-font-size text-foreground"
-                        value={editingModel?.systemPrompt}
-                        onChange={(e: { target: { value: any } }) =>
-                          handleModelChange("systemPrompt", e.target.value)
+                    </div>
+                    {editingModel && (
+                      <Slider
+                        defaultValue={[1024]}
+                        max={4096}
+                        step={10}
+                        value={[editingModel.maxTokens]}
+                        onValueChange={(value) =>
+                          handleModelChange("maxTokens", value[0])
                         }
+                        className="h-4"
                       />
-                      <div className="flex items-center justify-between">
-                        <Label>Temperature</Label>
-                        <Input
-                          type="number"
-                          value={editingModel?.temperature}
-                          onChange={(e) =>
-                            handleModelChange(
-                              "temperature",
-                              parseFloat(e.target.value)
-                            )
-                          }
-                          className="min-font-size text-foreground w-15 h-6 text-left text-xs"
-                          step="0.01"
-                          min="0"
-                          max="1"
-                        />
-                      </div>
-                      {editingModel && (
-                        <Slider
-                          defaultValue={[0.7]}
-                          max={1}
-                          step={0.01}
-                          value={[editingModel.temperature]}
-                          onValueChange={(value: number[]) =>
-                            handleModelChange("temperature", value[0])
-                          }
-                          className="h-4"
-                        />
-                      )}
-                      <div className="flex items-center justify-between mt-2">
-                        <Label>Max Tokens</Label>
-                        <Input
-                          type="number"
-                          value={editingModel?.maxTokens}
-                          onChange={(e) =>
-                            handleModelChange(
-                              "maxTokens",
-                              parseInt(e.target.value)
-                            )
-                          }
-                          className="min-font-size text-foreground w-15 h-6 text-left text-xs"
-                          step="10"
-                          min="1"
-                          max="4096"
-                        />
-                      </div>
-                      {editingModel && (
-                        <Slider
-                          defaultValue={[1024]}
-                          max={4096}
-                          step={10}
-                          value={[editingModel.maxTokens]}
-                          onValueChange={(value: number[]) =>
-                            handleModelChange("maxTokens", value[0])
-                          }
-                          className="h-4"
-                        />
-                      )}
-                      <div className="flex justify-between items-center mt-2">
-                        <div className="space-x-2">
-                          <Button size="icon" onClick={saveModelChanges}>
-                            <Check className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() => setEditingModel(null)}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
+                    )}
+                    <div className="flex justify-between items-center mt-2">
+                      <div className="space-x-2">
+                        <Button size="icon" onClick={saveModelChanges}>
+                          <Check className="h-4 w-4" />
+                        </Button>
                         <Button
-                          variant="destructive"
+                          variant="outline"
                           size="icon"
-                          onClick={() => deleteModel(model.id)}
-                          disabled={models.length === 1}
+                          onClick={() => setEditingModel(null)}
                         >
-                          <Trash className="h-4 w-4" />
+                          <X className="h-4 w-4" />
                         </Button>
                       </div>
+                      <Button
+                        variant="destructive"
+                        size="icon"
+                        onClick={() => deleteModel(model.id)}
+                        disabled={models.length === 1}
+                      >
+                        <Trash className="h-4 w-4" />
+                      </Button>
                     </div>
-                  ) : (
-                    // Display model details when not editing
-                    <div>
-                      <p>Base Model: {model.baseModel}</p>
-                      <p>Temperature: {model.temperature}</p>
-                      <p>Max Tokens: {model.maxTokens}</p>
-                    </div>
-                  )}
-                </div>
-              )
-            )}
+                  </div>
+                ) : (
+                  <div>
+                    <p>Base Model: {model.baseModel}</p>
+                    <p>Temperature: {model.temperature}</p>
+                    <p>Max Tokens: {model.maxTokens}</p>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         </ScrollArea>
-      </>
+      </div>
     );
   }
 
@@ -1277,7 +1270,7 @@ export default function ThreadedDocument() {
       ) : (
         // Desktop layout with resizable panels
         <ResizablePanelGroup direction="horizontal" className="h-full">
-          <ResizablePanel defaultSize={25} minSize={20} maxSize={50}>
+          <ResizablePanel defaultSize={31} minSize={25} maxSize={50}>
             <Tabs
               value={activeTab}
               onValueChange={(value) =>
