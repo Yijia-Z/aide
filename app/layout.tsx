@@ -1,22 +1,32 @@
 import type { Metadata } from "next";
-// import { Inter } from "next/font/google";
 import "./globals.css";
 import localfont from 'next/font/local'
 import { ThemeProvider } from "@/components/theme-provider"
 
-// const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "AIDE",
   description: "An interactive threaded chat interface",
   keywords: "chat, AI, LLM, thread, conversation, language models",
   authors: [{ name: "yijia zhao" }, { name: "jiawei wen" }, { name: "alex huper" }],
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+  },
+  themeColor: "#000000",
+  viewport: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no",
+  twitter: {
+    card: "summary_large_image",
+    title: "AIDE",
+    description: "An interactive threaded chat interface",
+    images: ["/android-chrome-512x512.png"],
+  },
   openGraph: {
     title: "AIDE",
     description: "Engage in threaded conversations with AI assistance",
     type: "website",
     url: "https://aide.zy-j.com",
-    images: [{ url: "https://zy-j.com/images/avatar.png" }],
+    images: [{ url: "/android-chrome-512x512.png" }],
   },
 };
 
