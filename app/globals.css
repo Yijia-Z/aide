@@ -1,7 +1,7 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-@import url('https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+/* @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap'); */
   
 @layer base {
   :root {
@@ -67,15 +67,11 @@
   }
 }
 
-/* @layer base {
+@layer base {
   * {
-    @apply border-border font-jetBrains;
+    @apply border-border;
   }
   body {
     @apply bg-background text-foreground;
   }
-}
- */
-.min-font-size {
-  font-size: 16px;
 }

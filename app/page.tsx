@@ -375,11 +375,11 @@ export default function ThreadedDocument() {
                 {editingMessage === message.id ? (
                   <>
                     <Button size="sm" variant="ghost" onClick={() => confirmEditingMessage(threadId, message.id)}>
-                      <Check className="h-4 w-4" />
+                      <Check className="h-4 w-4 mr-2" />
                       {!isMobile && <MenubarShortcut>Ctrl + ↵</MenubarShortcut>}
                     </Button>
                     <Button size="sm" variant="ghost" onClick={cancelEditingMessage}>
-                      <X className="h-4 w-4" />
+                      <X className="h-4 w-4 mr-2" />
                       {!isMobile && <MenubarShortcut>Esc</MenubarShortcut>}
                     </Button>
                   </>
