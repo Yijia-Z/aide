@@ -1076,7 +1076,7 @@ export default function ThreadedDocument() {
   // Render model configuration
   function renderModelConfig() {
     return (
-      <div className={`flex flex-col relative sm:h-full h-[calc(91vh)]`}>
+      <div className="flex flex-col relative h-[calc(97vh)]">
         <div className="flex items-center justify-between pb-10 space-x-2 absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-background/100 to-background/0 backdrop-blur-[1px">
           <Select value={selectedModel} onValueChange={setSelectedModel}>
             <SelectTrigger>
