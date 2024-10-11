@@ -808,13 +808,15 @@ export default function ThreadedDocument() {
   }, []);
 
   const deleteThread = useCallback((threadId: string) => {
-    setThreads((prev: Thread[]) =>
-      prev.filter((thread) => thread.id !== threadId)
-    );
-    if (currentThread === threadId) {
-      setCurrentThread(null);
-    }
-  }, []);
+    setThreads((prev: Thread[]) => {
+      const updatedThreads = prev.filter((thread) => thread.id !== threadId);
+      // If we're deleting the current thread, set currentThread to null or the first available thread
+      if (currentThread === threadId) {
+        setCurrentThread(updatedThreads.length > 0 ? updatedThreads[0].id : null);
+      }
+      return updatedThreads;
+    });
+  }, [currentThread]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
