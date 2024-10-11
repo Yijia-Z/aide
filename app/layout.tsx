@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+// import { Inter } from "next/font/google";
 import "./globals.css";
 import localfont from 'next/font/local'
 
-const inter = Inter({ subsets: ["latin"] });
+// const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "AIDE",
@@ -17,7 +17,6 @@ export const metadata: Metadata = {
     url: "https://aide.zy-j.com",
     images: [{ url: "https://zy-j.com/images/avatar.png" }],
   },
-  viewport: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no",
 };
 
 const jetBrainsMono = localfont({

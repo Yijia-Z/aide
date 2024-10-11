@@ -1,6 +1,6 @@
 # AIDE - Interactive Threaded Chat Interface
 
-AIDE is a Next.js project that provides an interactive threaded chat interface, allowing users to engage in conversations with AI models. The project is bootstrapped with `create-next-app` and leverages various technologies and libraries to enhance user experience and functionality.
+AIDE is a Next.js project that provides an interactive threaded chat interface, allowing power users to engage in advanced conversations with LLM models.
 
 ## Getting Started
 
@@ -16,7 +16,6 @@ pnpm dev
 bun dev
 ```
 
-
 Open [http://localhost:3000](http://localhost:3000) in your browser to view the application.
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
@@ -24,24 +23,10 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 ## Features
 
 - **Interactive Chat Interface**: Engage in threaded conversations with AI assistance.
-- **Model Configuration**: Customize AI models for your responses.
+- **Efficient UX Design**: Manage conversation structures with easy controls and accessibility.
+- **Model Configuration**: Customize online or locally deployed LLM models for your responses.
 - **Responsive Design**: Optimized for both desktop and mobile views.
-- **Font Optimization**: Uses `next/font` for automatic optimization and loading of custom Google Fonts.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - Learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - An interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out the [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details.
+- **SGLang support**: Utilize SGLang syntax abilities to power automatic tasks.
 
 ## Backend
 
@@ -60,7 +45,7 @@ The backend is powered by FastAPI, providing a robust and scalable API for handl
 To start the FastAPI server, ensure you have the required dependencies installed and run:
 
 ```bash
-uvicorn backend.main:app --host 0.0.0.0 --port 8000
+npm run backend
 ```
 
 ## Contributing

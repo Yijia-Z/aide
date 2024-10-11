@@ -7,14 +7,17 @@ export default function manifest(): MetadataRoute.Manifest {
         description: 'An interactive threaded chat interface',
         start_url: '/',
         display: 'standalone',
-        background_color: '#ffffff',
-        theme_color: '#000000',
         icons: [
             {
-                src: 'https://zy-j.com/images/avatar.png',
-                sizes: '192x192',
-                type: 'image/png',
+                "sizes": "192x192",
+                "src": "/android-chrome-192x192.png",
+                "type": "image/png"
             },
+            {
+                "sizes": "512x512",
+                "src": "/android-chrome-512x512.png",
+                "type": "image/png"
+            }
         ],
     }
 }
