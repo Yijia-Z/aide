@@ -1,6 +1,10 @@
 "use client";
+
 import React, { useState, useCallback, useRef, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
+import { useMediaQuery } from "usehooks-ts";
+import { cn } from "@/lib/utils";
+
 import {
   ChevronDown,
   ChevronRight,
@@ -16,7 +20,7 @@ import {
   PinOff,
   Sparkle,
 } from "lucide-react";
-import { useMediaQuery } from "usehooks-ts";
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -73,6 +77,7 @@ interface Model {
   maxTokens: number;
 }
 
+// Recursive function to find all parent messages for a given message
 function findAllParentMessages(
   threads: Thread[],
   currentThreadId: string | null,
@@ -110,6 +115,8 @@ function findAllParentMessages(
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 console.log("API Base URL:", apiBaseUrl);
+
+// Function to generate AI response
 async function generateAIResponse(
   prompt: string,
   model: Model,
@@ -167,9 +174,6 @@ export default function ThreadedDocument() {
   const [editingMessage, setEditingMessage] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState("");
   const replyBoxRef = useRef<HTMLDivElement>(null);
-  // const [newMessageContent, setNewMessageContent] = useState("");
-  // const [selectedThreads, setSelectedThreads] = useState<string[]>([])
-  // const newMessageInputRef = useRef<HTMLTextAreaElement>(null)
 
   const [models, setModels] = useState<Model[]>([
     {
@@ -189,29 +193,39 @@ export default function ThreadedDocument() {
 
   const isMobile = useMediaQuery("(max-width: 768px)");
 
+  // Focus on thread title input when editing
   useEffect(() => {
     if (editingThreadTitle && threadTitleInputRef.current) {
       threadTitleInputRef.current.focus();
     }
   }, [editingThreadTitle]);
 
+  // Scroll to selected message
   useEffect(() => {
     if (selectedMessage) {
       const messageElement = document.getElementById(
         `message-${selectedMessage}`
       );
       if (messageElement) {
-        messageElement.scrollIntoView({ behavior: "smooth" });
+        messageElement.scrollIntoView({
+          behavior: "smooth",
+          block: "start"
+        });
       }
     }
   }, [selectedMessage]);
 
+  // Scroll to reply box when replying
   useEffect(() => {
     if (replyBoxRef.current) {
-      replyBoxRef.current.scrollIntoView({ behavior: "smooth" });
+      replyBoxRef.current.scrollIntoView({
+        behavior: "smooth",
+        block: "end"
+      });
     }
   }, [replyingTo]);
 
+  // Connect to backend on component mount
   useEffect(() => {
     const connectToBackend = async () => {
       try {
@@ -220,21 +234,22 @@ export default function ThreadedDocument() {
           { method: "GET" }
         );
         if (response.ok) {
-          console.log("connect to back！");
+          console.log("Connected to backend!");
           setIsConnected(true);
         } else {
-          console.error("fail。");
+          console.error("Failed to connect to backend.");
           setIsConnected(false);
         }
       } catch (error) {
-        console.error("error:", error);
+        console.error("Error connecting to backend:", error);
         setIsConnected(false);
       }
     };
 
-    connectToBackend(); // Call the connection function when the component loads
-  }, []); // Empty dependency array, ensures it only executes once when the component first loads
+    connectToBackend();
+  }, []);
 
+  // Add a new thread
   const addThread = useCallback(() => {
     const newThread: Thread = {
       id: Date.now().toString(),
@@ -244,9 +259,10 @@ export default function ThreadedDocument() {
     };
     setThreads((prev: any) => [...prev, newThread]);
     setCurrentThread(newThread.id);
-    setEditingThreadTitle(newThread.id); // Set editingThreadTitle to the new thread's ID
+    setEditingThreadTitle(newThread.id);
   }, []);
 
+  // Edit thread title
   const editThreadTitle = useCallback((threadId: string, newTitle: string) => {
     setThreads((prev: Thread[]) =>
       prev.map((thread) =>
@@ -255,6 +271,7 @@ export default function ThreadedDocument() {
     );
   }, []);
 
+  // Add a new message to a thread
   const addMessage = useCallback(
     (
       threadId: string,
@@ -295,8 +312,9 @@ export default function ThreadedDocument() {
       );
     },
     [models, selectedModel]
-  ); // Add models and selectedModel to the dependency array
+  );
 
+  // Toggle message collapse state
   const toggleCollapse = useCallback((threadId: string, messageId: string) => {
     setThreads((prev: Thread[]) =>
       prev.map((thread) => {
@@ -314,6 +332,7 @@ export default function ThreadedDocument() {
     );
   }, []);
 
+  // Delete a message
   const deleteMessage = useCallback(
     (threadId: string, messageId: string, deleteChildren: boolean) => {
       setThreads((prev: Thread[]) =>
@@ -322,10 +341,8 @@ export default function ThreadedDocument() {
           const removeMessage = (messages: Message[]): Message[] => {
             return messages.reduce((acc: Message[], message) => {
               if (message.id === messageId) {
-                // If deleteChildren is false, add the message's replies to the accumulator
                 return deleteChildren ? acc : [...acc, ...message.replies];
               }
-              // Otherwise, keep the message and recursively process its replies
               return [
                 ...acc,
                 { ...message, replies: removeMessage(message.replies) },
@@ -339,28 +356,49 @@ export default function ThreadedDocument() {
     []
   );
 
+  // Start editing a message
   const startEditingMessage = useCallback((message: Message) => {
     setEditingMessage(message.id);
     setEditingContent(message.content);
   }, []);
 
+  // Cancel editing a message
   const cancelEditingMessage = useCallback(() => {
+    setThreads((prev: Thread[]) =>
+      prev.map((thread) => {
+        const removeEmptyMessage = (messages: Message[]): Message[] => {
+          return messages.reduce((acc: Message[], message) => {
+            if (message.id === editingMessage) {
+              if (message.content.trim() === '') {
+                return acc;
+              }
+            }
+            return [...acc, { ...message, replies: removeEmptyMessage(message.replies) }];
+          }, []);
+        };
+        return { ...thread, messages: removeEmptyMessage(thread.messages) };
+      })
+    );
     setEditingMessage(null);
     setEditingContent("");
-  }, []);
+  }, [editingMessage]);
 
+  // Confirm editing a message
   const confirmEditingMessage = useCallback(
     (threadId: string, messageId: string) => {
       setThreads((prev: Thread[]) =>
         prev.map((thread) => {
           if (thread.id !== threadId) return thread;
           const editMessage = (messages: Message[]): Message[] => {
-            return messages.map((message) => {
+            return messages.reduce((acc: Message[], message) => {
               if (message.id === messageId) {
-                return { ...message, content: editingContent };
+                if (editingContent.trim() === '') {
+                  return acc;
+                }
+                return [...acc, { ...message, content: editingContent }];
               }
-              return { ...message, replies: editMessage(message.replies) };
-            });
+              return [...acc, { ...message, replies: editMessage(message.replies) }];
+            }, []);
           };
           return { ...thread, messages: editMessage(thread.messages) };
         })
@@ -371,13 +409,12 @@ export default function ThreadedDocument() {
     [editingContent]
   );
 
-
+  // Add an empty reply to a message
   const addEmptyReply = useCallback(
     (threadId: string, parentId: string | null) => {
       const newMessageId = Date.now().toString();
       addMessage(threadId, parentId, "", "user", newMessageId);
 
-      // Start editing the new message immediately
       startEditingMessage({
         id: newMessageId,
         content: "",
@@ -391,13 +428,17 @@ export default function ThreadedDocument() {
           `message-${newMessageId}`
         );
         if (newMessageElement) {
-          newMessageElement.scrollIntoView({ behavior: "smooth" });
+          newMessageElement.scrollIntoView({
+            behavior: "smooth",
+            block: "end"
+          });
         }
       }, 100);
     },
     [addMessage, startEditingMessage]
   );
 
+  // Generate AI reply
   const generateAIReply = useCallback(
     async (threadId: string, messageId: string, count: number = 1) => {
       const thread = threads.find((t: { id: string }) => t.id === threadId);
@@ -418,7 +459,9 @@ export default function ThreadedDocument() {
             threadId,
             messageId
           );
-          addMessage(threadId, messageId, aiResponse, "ai");
+          const newMessageId = Date.now().toString();
+          addMessage(threadId, messageId, aiResponse, "ai", newMessageId);
+          setSelectedMessage(newMessageId);
         }
       } catch (error) {
         console.error("Failed to generate AI response:", error);
@@ -426,9 +469,10 @@ export default function ThreadedDocument() {
         setIsGenerating(false);
       }
     },
-    [threads, models, selectedModel, addMessage]
+    [threads, models, selectedModel, addMessage, setSelectedMessage]
   );
 
+  // Render a single message
   function renderMessage(
     message: Message,
     threadId: string,
@@ -460,31 +504,35 @@ export default function ThreadedDocument() {
         id={`message-${message.id}`}
       >
         <div
-          className={`flex items-start space-x-1 p-2 rounded hover:bg-gray-100 ${isSelectedOrParent ? "bg-gray-200" : ""
-            }`}
-          onClick={() => setSelectedMessage(message.id)}
+          className={`flex items-start space-x-1 p-1 rounded hover:bg-secondary/50 ${isSelectedOrParent ? "bg-muted" : "text-muted-foreground"}`}
+          onClick={() => {
+            setSelectedMessage(message.id);
+            if (message.isCollapsed) {
+              toggleCollapse(threadId, message.id);
+            }
+          }}
         >
           <Button
             variant="ghost"
             size="sm"
-            className="w-3 h-3 p-0 min-w-3"
+            className="w-4 h-4 p-0 min-w-4 rounded-sm hover:bg-secondary bg-background border border-border"
             onClick={(e) => {
               e.stopPropagation();
               toggleCollapse(threadId, message.id);
             }}
           >
             {message.isCollapsed ? (
-              <ChevronRight className="h-3 w-3" />
+              <ChevronRight />
             ) : (
-              <ChevronDown className="h-3 w-3" />
+              <ChevronDown />
             )}
           </Button>
-          <div className="flex-grow overflow-hidden">
-            <div className="flex flex-col p-1">
+          <div className="flex-grow p-1 overflow-hidden ">
+            <div className="flex flex-col">
               <span
                 className={`font-bold ${message.publisher === "ai"
-                  ? "text-blue-600"
-                  : "text-green-600"
+                  ? "text-blue-800"
+                  : "text-green-800"
                   }`}
               >
                 {parentId === null ||
@@ -502,7 +550,11 @@ export default function ThreadedDocument() {
                 <Textarea
                   value={editingContent}
                   onChange={(e) => setEditingContent(e.target.value)}
-                  className="min-font-size flex-grow mt-1"
+                  className="min-font-size font-serif flex-grow mt-1 p-0"
+                  style={{
+                    minHeight: Math.min(Math.max(20, editingContent.split('\n').length * 10), 500),
+                    maxHeight: '500px'
+                  }}
                   autoFocus
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && e.ctrlKey) {
@@ -515,7 +567,7 @@ export default function ThreadedDocument() {
               ) : (
                 <div
                   className="whitespace-pre-wrap break-words overflow-hidden mt-1"
-                  onDoubleClick={() => setEditingMessage(message.id)}
+                  onDoubleClick={() => startEditingMessage(message)}
                 >
                   {message.isCollapsed ? (
                     `${message.content.split("\n")[0].slice(0, 50)}${message.content.length > 50 ? "..." : ""
@@ -525,7 +577,7 @@ export default function ThreadedDocument() {
                       : ""
                     }`
                   ) : (
-                    <div className="markdown-content">
+                    <div className="markdown-content font-serif">
                       <ReactMarkdown>
                         {message.content.replace(/\n\s*\n/g, "\n")}
                       </ReactMarkdown>
@@ -539,27 +591,34 @@ export default function ThreadedDocument() {
                 {editingMessage === message.id ? (
                   <>
                     <Button
+                      className="hover:bg-background"
                       size="sm"
                       variant="ghost"
                       onClick={() =>
                         confirmEditingMessage(threadId, message.id)
                       }
                     >
-                      <Check className="h-4 w-4 mr-2" />
-                      {!isMobile && <MenubarShortcut>Ctrl + ↵</MenubarShortcut>}
+                      <Check className="h-4 w-4" />
+                      <span className="hidden sm:inline ml-2">
+                        <MenubarShortcut>Ctrl↵</MenubarShortcut>
+                      </span>
                     </Button>
                     <Button
+                      className="hover:bg-background"
                       size="sm"
                       variant="ghost"
                       onClick={cancelEditingMessage}
                     >
-                      <X className="h-4 w-4 mr-2" />
-                      {!isMobile && <MenubarShortcut>Esc</MenubarShortcut>}
+                      <X className="h-4 w-4" />
+                      <span className="hidden sm:inline ml-2">
+                        <MenubarShortcut>Esc</MenubarShortcut>
+                      </span>
                     </Button>
                   </>
                 ) : (
                   <>
                     <Button
+                      className="h-10 hover:bg-background"
                       size="sm"
                       variant="ghost"
                       onClick={() => addEmptyReply(threadId, message.id)}
@@ -567,9 +626,14 @@ export default function ThreadedDocument() {
                       <MessageSquare className="h-4 w-4" />
                       <span className="hidden sm:inline ml-2">Reply</span>
                     </Button>
-                    <Menubar className="bg-transparent">
+                    <Menubar className="p-0 border-none bg-transparent">
                       <MenubarMenu>
-                        <MenubarTrigger className="bg-transparent">
+                        <MenubarTrigger
+                          className={cn(
+                            "h-10 rounded-lg hover:bg-background",
+                            isGenerating && "animate-pulse bg-blue-200 dark:bg-blue-900"
+                          )}
+                        >
                           <Sparkle className="h-4 w-4" />
                           <span className="hidden sm:inline ml-2">
                             Generate
@@ -609,6 +673,7 @@ export default function ThreadedDocument() {
                       </MenubarMenu>
                     </Menubar>
                     <Button
+                      className="h-10 hover:bg-background"
                       size="sm"
                       variant="ghost"
                       onClick={() => startEditingMessage(message)}
@@ -616,9 +681,9 @@ export default function ThreadedDocument() {
                       <Edit className="h-4 w-4" />
                       <span className="hidden sm:inline ml-2">Edit</span>
                     </Button>
-                    <Menubar className="bg-transparent">
+                    <Menubar className="p-0 border-none bg-transparent">
                       <MenubarMenu>
-                        <MenubarTrigger className="bg-transparent">
+                        <MenubarTrigger className="h-10 hover:bg-background">
                           <Trash className="h-4 w-4" />
                           <span className="hidden sm:inline ml-2">Delete</span>
                         </MenubarTrigger>
@@ -711,6 +776,7 @@ export default function ThreadedDocument() {
       setModels((prev: any[]) =>
         prev.filter((model: { id: string }) => model.id !== id)
       );
+      // If the deleted model was selected, switch to the first available model
       if (selectedModel === id) {
         setSelectedModel(models[0].id);
       }
@@ -757,6 +823,7 @@ export default function ThreadedDocument() {
       const currentThreadData = threads.find((t) => t.id === currentThread);
       if (!currentThreadData) return;
 
+      // Helper function to find a message and its parent in the thread
       const findMessageAndParent = (
         messages: Message[],
         targetId: string,
@@ -780,6 +847,7 @@ export default function ThreadedDocument() {
       );
       if (!currentMessage) return;
 
+      // Helper function to get sibling messages
       const getSiblings = (parent: Message | null): Message[] => {
         if (!parent) return currentThreadData.messages;
         return parent.replies;
@@ -880,6 +948,7 @@ export default function ThreadedDocument() {
     deleteMessage,
   ]);
 
+  // Sort threads with pinned threads at the top
   const sortedThreads = threads.sort(
     (a: { isPinned: any }, b: { isPinned: any }) => {
       if (a.isPinned && !b.isPinned) return -1;
@@ -887,14 +956,19 @@ export default function ThreadedDocument() {
       return 0;
     }
   );
-
+  // Render the list of threads
   function renderThreadsList() {
     return (
       <>
         <div className="flex items-center justify-between space-x-2">
-          <h2 className="text-xl font-bold pl-2">Threads</h2>
-          <Button size="default" onClick={addThread}>
+          <h2 className="text-xl text-muted-foreground font-serif font-bold pl-2">Threads</h2>
+          <Button
+            className="bg-background hover:bg-secondary text-primary border border-border"
+            size="default"
+            onClick={addThread}
+          >
             <ListPlus className="h-4 w-4" />
+            <span className="ml-2 hidden md:inline">New Thread</span>
           </Button>
         </div>
         <ScrollArea className="h-[calc(100vh-10rem)] mt-2">
@@ -902,9 +976,9 @@ export default function ThreadedDocument() {
             {sortedThreads.map((thread) => (
               <div
                 key={thread.id}
-                className={`p-2 cursor-pointer rounded mb-2 ${currentThread === thread.id
-                  ? "bg-gray-200"
-                  : "hover:bg-gray-100"
+                className={`font-serif p-2 cursor-pointer rounded mb-2 ${currentThread === thread.id
+                    ? "bg-secondary"
+                    : "hover:bg-secondary text-muted-foreground"
                   }`}
               >
                 <div className="flex items-center space-x-2">
@@ -919,7 +993,7 @@ export default function ThreadedDocument() {
                         onChange={(e) =>
                           editThreadTitle(thread.id, e.target.value)
                         }
-                        className="min-font-size"
+                        className="min-font-size flex-grow h-8 p-1"
                         onBlur={() => setEditingThreadTitle(null)}
                         onKeyDown={(e) => {
                           if (e.key === "Enter") {
@@ -963,21 +1037,27 @@ export default function ThreadedDocument() {
     );
   }
 
+  // Render messages for the current thread
   function renderMessages() {
     const currentThreadData = threads.find((t) => t.id === currentThread);
     return currentThread ? (
       <div
-        className={`flex flex-col ${isMobile ? "h-[calc(90vh)]" : "h-full"}`}
+        className={`flex flex-col relative ${isMobile ? "h-[calc(90vh)]" : "h-full"}`}
       >
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold pl-2">
+        <div className="flex items-center justify-between pb-2 absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-background/100 to-background/0 backdrop-blur-[3px]">
+          <h1 className="text-2xl font-serif font-bold pl-2">
             {currentThreadData?.title}
           </h1>
           <Button
+            className="bg-background hover:bg-secondary text-primary border border-border"
             size="default"
-            onClick={() => addEmptyReply(currentThread, null)}
+            onClick={(e) => {
+              e.stopPropagation();
+              addEmptyReply(currentThread, null);
+            }}
           >
             <MessageSquarePlus className="h-4 w-4" />
+            <span className="ml-2 hidden md:inline">New Message</span>
           </Button>
         </div>
         <ScrollArea className="flex-grow">
@@ -990,11 +1070,12 @@ export default function ThreadedDocument() {
       </div>
     ) : (
       <div className="flex items-center justify-center h-full">
-        <p className="text-gray-500">Select a thread to view messages</p>
+        <p className="text-muted-foreground">Select a thread to view messages</p>
       </div>
     );
   }
 
+  // Render model configuration
   function renderModelConfig() {
     return (
       <>
@@ -1011,8 +1092,13 @@ export default function ThreadedDocument() {
               ))}
             </SelectContent>
           </Select>
-          <Button size="default" onClick={addNewModel}>
+          <Button
+            className="bg-background hover:bg-secondary text-primary border border-border"
+            size="default"
+            onClick={addNewModel}
+          >
             <Plus className="h-4 w-4" />
+            <span className="ml-2 hidden md:inline">New Model</span>
           </Button>
         </div>
         <ScrollArea className="h-[calc(100vh-10rem)] mt-2">
@@ -1038,10 +1124,11 @@ export default function ThreadedDocument() {
                     </Button>
                   </div>
                   {editingModel?.id === model.id ? (
-                    <div className="space-y-2">
+                    // Render editable fields when the model is being edited
+                    <div className="space-y-2 text-muted-foreground">
                       <Label>Name</Label>
                       <Input
-                        className="min-font-size"
+                        className="min-font-size text-foreground"
                         value={editingModel?.name}
                         onChange={(e: { target: { value: any } }) =>
                           handleModelChange("name", e.target.value)
@@ -1049,7 +1136,7 @@ export default function ThreadedDocument() {
                       />
                       <Label>Base Model</Label>
                       <Input
-                        className="min-font-size"
+                        className="min-font-size text-foreground"
                         value={editingModel?.baseModel}
                         onChange={(e: { target: { value: any } }) =>
                           handleModelChange("baseModel", e.target.value)
@@ -1057,7 +1144,7 @@ export default function ThreadedDocument() {
                       />
                       <Label>System Prompt</Label>
                       <Textarea
-                        className="min-font-size"
+                        className="min-font-size text-foreground"
                         value={editingModel?.systemPrompt}
                         onChange={(e: { target: { value: any } }) =>
                           handleModelChange("systemPrompt", e.target.value)
@@ -1074,7 +1161,7 @@ export default function ThreadedDocument() {
                               parseFloat(e.target.value)
                             )
                           }
-                          className="min-font-size w-18 h-6 text-right text-xs"
+                          className="min-font-size text-foreground w-15 h-6 text-left text-xs"
                           step="0.01"
                           min="0"
                           max="1"
@@ -1103,7 +1190,7 @@ export default function ThreadedDocument() {
                               parseInt(e.target.value)
                             )
                           }
-                          className="min-font-size w-18 h-6 text-right text-xs"
+                          className="min-font-size text-foreground w-15 h-6 text-left text-xs"
                           step="10"
                           min="1"
                           max="4096"
@@ -1145,6 +1232,7 @@ export default function ThreadedDocument() {
                       </div>
                     </div>
                   ) : (
+                    // Display model details when not editing
                     <div>
                       <p>Base Model: {model.baseModel}</p>
                       <p>Temperature: {model.temperature}</p>
@@ -1163,6 +1251,7 @@ export default function ThreadedDocument() {
   return (
     <div className="h-screen flex flex-col md:flex-row p-2">
       {isMobile ? (
+        // Mobile layout with tabs for threads, messages, and models
         <Tabs
           value={activeTab}
           onValueChange={(value) =>
@@ -1186,6 +1275,7 @@ export default function ThreadedDocument() {
           </TabsContent>
         </Tabs>
       ) : (
+        // Desktop layout with resizable panels
         <ResizablePanelGroup direction="horizontal" className="h-full">
           <ResizablePanel defaultSize={25} minSize={20} maxSize={50}>
             <Tabs
