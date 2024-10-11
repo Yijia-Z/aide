@@ -1264,7 +1264,7 @@ export default function ThreadedDocument() {
               onValueChange={(value) =>
                 setActiveTab(value as "threads" | "models")
               }
-              className="w-full h-full flex flex-col"
+              className="w-full flex flex-col"
             >
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="threads">Threads</TabsTrigger>
