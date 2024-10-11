@@ -226,7 +226,7 @@ export default function ThreadedDocument() {
     };
 
     connectToBackend();
-  }, []);
+  }, [isConnected]);
 
   // Add a new thread
   const addThread = useCallback(() => {
@@ -417,6 +417,18 @@ export default function ThreadedDocument() {
     [addMessage, startEditingMessage]
   );
 
+  const findMessageById = useCallback(
+    (messages: Message[], id: string): Message | null => {
+      for (const message of messages) {
+        if (message.id === id) return message;
+        const found = findMessageById(message.replies, id);
+        if (found) return found;
+      }
+      return null;
+    },
+    []
+  );
+
   // Generate AI reply
   const generateAIReply = useCallback(
     async (threadId: string, messageId: string, count: number = 1) => {
@@ -448,7 +460,7 @@ export default function ThreadedDocument() {
         setIsGenerating(false);
       }
     },
-    [threads, models, selectedModel, addMessage, setSelectedMessage]
+    [threads, models, selectedModel, addMessage, setSelectedMessage, findMessageById]
   );
 
   // Render a single message
@@ -718,17 +730,6 @@ export default function ThreadedDocument() {
       }
     }, [handleSendMessage])
    */
-  const findMessageById = useCallback(
-    (messages: Message[], id: string): Message | null => {
-      for (const message of messages) {
-        if (message.id === id) return message;
-        const found = findMessageById(message.replies, id);
-        if (found) return found;
-      }
-      return null;
-    },
-    []
-  );
 
   const handleModelChange = useCallback(
     (field: keyof Model, value: string | number) => {
@@ -926,6 +927,7 @@ export default function ThreadedDocument() {
     addEmptyReply,
     startEditingMessage,
     deleteMessage,
+    findMessageById,
   ]);
 
   // Sort threads with pinned threads at the top
@@ -956,11 +958,7 @@ export default function ThreadedDocument() {
             {sortedThreads.map((thread) => (
               <div
                 key={thread.id}
-                className={`font-serif p-2 cursor-pointer rounded mb-2 ${currentThread === thread.id
-                  ? "bg-secondary"
-                  : "hover:bg-secondary text-muted-foreground"
-                  }`}
-              >
+                className={`font-serif p-2 cursor-pointer rounded mb-2 ${currentThread === thread.id ? "bg-secondary" : "hover:bg-secondary text-muted-foreground"}`}>
                 <div className="flex items-center space-x-2">
                   <div
                     className="flex-grow"
@@ -1059,7 +1057,7 @@ export default function ThreadedDocument() {
   function renderModelConfig() {
     return (
       <div className="flex flex-col relative h-[calc(97vh)]">
-        <div className="flex items-center justify-between pb-10 space-x-2 absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-background/100 to-background/0 backdrop-blur-[1px">
+        <div className="flex items-center justify-between pb-10 space-x-2 absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-background/100 to-background/0 backdrop-blur-[1px]">
           <Select value={selectedModel} onValueChange={setSelectedModel}>
             <SelectTrigger>
               <SelectValue placeholder="Select a model" />
