@@ -226,7 +226,7 @@ export default function ThreadedDocument() {
     };
 
     connectToBackend();
-  }, []);
+  }, [isConnected]);
 
   // Add a new thread
   const addThread = useCallback(() => {
@@ -417,6 +417,18 @@ export default function ThreadedDocument() {
     [addMessage, startEditingMessage]
   );
 
+  const findMessageById = useCallback(
+    (messages: Message[], id: string): Message | null => {
+      for (const message of messages) {
+        if (message.id === id) return message;
+        const found = findMessageById(message.replies, id);
+        if (found) return found;
+      }
+      return null;
+    },
+    []
+  );
+
   // Generate AI reply
   const generateAIReply = useCallback(
     async (threadId: string, messageId: string, count: number = 1) => {
@@ -448,7 +460,7 @@ export default function ThreadedDocument() {
         setIsGenerating(false);
       }
     },
-    [threads, models, selectedModel, addMessage, setSelectedMessage]
+    [threads, models, selectedModel, addMessage, setSelectedMessage, findMessageById]
   );
 
   // Render a single message
@@ -578,7 +590,7 @@ export default function ThreadedDocument() {
                       }
                     >
                       <Check className="h-4 w-4" />
-                      <span className="hidden sm:inline ml-2">
+                      <span className="hidden md:inline ml-2">
                         <MenubarShortcut>Ctrl↵</MenubarShortcut>
                       </span>
                     </Button>
@@ -589,7 +601,7 @@ export default function ThreadedDocument() {
                       onClick={cancelEditingMessage}
                     >
                       <X className="h-4 w-4" />
-                      <span className="hidden sm:inline ml-2">
+                      <span className="hidden md:inline ml-2">
                         <MenubarShortcut>Esc</MenubarShortcut>
                       </span>
                     </Button>
@@ -603,7 +615,7 @@ export default function ThreadedDocument() {
                       onClick={() => addEmptyReply(threadId, message.id)}
                     >
                       <MessageSquare className="h-4 w-4" />
-                      <span className="hidden sm:inline ml-2">Reply</span>
+                      <span className="hidden md:inline ml-2">Reply</span>
                     </Button>
                     <Menubar className="p-0 border-none bg-transparent">
                       <MenubarMenu>
@@ -614,7 +626,7 @@ export default function ThreadedDocument() {
                           )}
                         >
                           <Sparkle className="h-4 w-4" />
-                          <span className="hidden sm:inline ml-2">
+                          <span className="hidden md:inline ml-2">
                             Generate
                           </span>
                         </MenubarTrigger>
@@ -625,7 +637,7 @@ export default function ThreadedDocument() {
                             }
                           >
                             Once
-                            <span className="hidden sm:inline ml-2"><MenubarShortcut>⎇G</MenubarShortcut></span>
+                            <span className="hidden md:inline ml-2"><MenubarShortcut>⎇G</MenubarShortcut></span>
                           </MenubarItem>
                           <MenubarItem
                             onClick={() =>
@@ -640,9 +652,11 @@ export default function ThreadedDocument() {
                                 "How many times do you want to generate?",
                                 "5"
                               );
-                              const numTimes = parseInt(times || "1", 10);
-                              if (!isNaN(numTimes) && numTimes > 0) {
+                              const numTimes = parseInt(times || "0", 10);
+                              if (!isNaN(numTimes) && numTimes > 0 && numTimes <= 10) {
                                 generateAIReply(threadId, message.id, numTimes);
+                              } else if (numTimes > 10) {
+                                generateAIReply(threadId, message.id, 10);
                               }
                             }}
                           >
@@ -658,13 +672,13 @@ export default function ThreadedDocument() {
                       onClick={() => startEditingMessage(message)}
                     >
                       <Edit className="h-4 w-4" />
-                      <span className="hidden sm:inline ml-2">Edit</span>
+                      <span className="hidden md:inline ml-2">Edit</span>
                     </Button>
                     <Menubar className="p-0 border-none bg-transparent">
                       <MenubarMenu>
                         <MenubarTrigger className="h-10 hover:bg-background">
                           <Trash className="h-4 w-4" />
-                          <span className="hidden sm:inline ml-2">Delete</span>
+                          <span className="hidden md:inline ml-2">Delete</span>
                         </MenubarTrigger>
                         <MenubarContent>
                           <MenubarItem
@@ -673,7 +687,7 @@ export default function ThreadedDocument() {
                             }
                           >
                             Keep Children
-                            <span className="hidden sm:inline ml-2"><MenubarShortcut>⌦</MenubarShortcut></span>
+                            <span className="hidden md:inline ml-2"><MenubarShortcut>⌦</MenubarShortcut></span>
                           </MenubarItem>
                           <MenubarItem
                             onClick={() =>
@@ -681,7 +695,7 @@ export default function ThreadedDocument() {
                             }
                           >
                             With Children
-                            <span className="hidden sm:inline ml-2"><MenubarShortcut>⇧⌦</MenubarShortcut></span>
+                            <span className="hidden md:inline ml-2"><MenubarShortcut>⇧⌦</MenubarShortcut></span>
                           </MenubarItem>
                         </MenubarContent>
                       </MenubarMenu>
@@ -698,37 +712,7 @@ export default function ThreadedDocument() {
           )}
       </div>
     );
-  } /*   const handleSendMessage = useCallback(async () => {
-      if (currentThread && newMessageContent.trim()) {
-        const newMessageId = Date.now().toString(); // Generate a new ID for the message
-        addMessage(currentThread, replyingTo, newMessageContent, 'user', newMessageId);
-        setNewMessageContent('');
-        setSelectedMessage(newMessageId); // Set the current selected message as the sent message
-        setReplyingTo(newMessageId); // Set replyingTo to the new message ID
-        if (newMessageInputRef.current) {
-          newMessageInputRef.current.focus();
-        }
-      }
-    }, [currentThread, replyingTo, newMessageContent, addMessage]);
-  
-    const handleKeyPress = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault()
-        handleSendMessage()
-      }
-    }, [handleSendMessage])
-   */
-  const findMessageById = useCallback(
-    (messages: Message[], id: string): Message | null => {
-      for (const message of messages) {
-        if (message.id === id) return message;
-        const found = findMessageById(message.replies, id);
-        if (found) return found;
-      }
-      return null;
-    },
-    []
-  );
+  }
 
   const handleModelChange = useCallback(
     (field: keyof Model, value: string | number) => {
@@ -926,6 +910,7 @@ export default function ThreadedDocument() {
     addEmptyReply,
     startEditingMessage,
     deleteMessage,
+    findMessageById,
   ]);
 
   // Sort threads with pinned threads at the top
@@ -956,11 +941,7 @@ export default function ThreadedDocument() {
             {sortedThreads.map((thread) => (
               <div
                 key={thread.id}
-                className={`font-serif p-2 cursor-pointer rounded mb-2 ${currentThread === thread.id
-                  ? "bg-secondary"
-                  : "hover:bg-secondary text-muted-foreground"
-                  }`}
-              >
+                className={`font-serif p-2 cursor-pointer rounded mb-2 ${currentThread === thread.id ? "bg-secondary" : "hover:bg-secondary text-muted-foreground"}`}>
                 <div className="flex items-center space-x-2">
                   <div
                     className="flex-grow"
@@ -1058,8 +1039,8 @@ export default function ThreadedDocument() {
   // Render model configuration
   function renderModelConfig() {
     return (
-      <div className="flex flex-col relative h-[calc(97vh)]">
-        <div className="flex items-center justify-between pb-10 space-x-2 absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-background/100 to-background/0 backdrop-blur-[1px">
+      <div className="flex flex-col relative h-[calc(97vh)] overflow-clip">
+        <div className="flex items-center justify-between pb-10 space-x-2 absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-background/100 to-background/0 backdrop-blur-[1px]">
           <Select value={selectedModel} onValueChange={setSelectedModel}>
             <SelectTrigger>
               <SelectValue placeholder="Select a model" />
@@ -1272,13 +1253,10 @@ export default function ThreadedDocument() {
                 <TabsTrigger value="threads">Threads</TabsTrigger>
                 <TabsTrigger value="models">Models</TabsTrigger>
               </TabsList>
-              <TabsContent
-                value="threads"
-                className="flex-grow overflow-y-auto"
-              >
+              <TabsContent value="threads" className="flex-grow overflow-y-clip">
                 {renderThreadsList()}
               </TabsContent>
-              <TabsContent value="models" className="flex-grow overflow-y-auto">
+              <TabsContent value="models" className="flex-grow overflow-y-clip">
                 {renderModelConfig()}
               </TabsContent>
             </Tabs>
