@@ -1216,13 +1216,13 @@ export default function ThreadedDocument() {
           }
           className="w-full flex flex-col h-full"
         >
-          <TabsContent value="threads" className="flex-grow overflow-y-clip absolute top-0 left-2 right-2">
+          <TabsContent value="threads" className="overflow-y-clip absolute top-0 left-2 right-2" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
             {renderThreadsList()}
           </TabsContent>
-          <TabsContent value="messages" className="flex-grow overflow-y-clip absolute top-0 left-2 right-2">
+          <TabsContent value="messages" className="overflow-y-clip absolute top-0 left-2 right-2" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
             {renderMessages()}
           </TabsContent>
-          <TabsContent value="models" className="flex-grow overflow-y-clip absolute top-0 left-2 right-2">
+          <TabsContent value="models" className="overflow-y-clip absolute top-0 left-2 right-2" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
             {renderModelConfig()}
           </TabsContent>
           <TabsList className="grid bg-background/30 backdrop-blur-[5px] w-full fixed bottom-0 left-0 right-0 pb-14 grid-cols-3">
@@ -1264,7 +1264,7 @@ export default function ThreadedDocument() {
             </Tabs>
           </ResizablePanel>
           <ResizableHandle withHandle className="mx-2" />
-          <ResizablePanel defaultSize={75}>
+          <ResizablePanel defaultSize={69}>
             <div className="h-full overflow-y-auto">{renderMessages()}</div>
           </ResizablePanel>
         </ResizablePanelGroup>

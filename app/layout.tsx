@@ -11,7 +11,6 @@ export const metadata: Metadata = {
   keywords: "chat, AI, LLM, thread, conversation, language models",
   authors: [{ name: "yijia zhao" }, { name: "jiawei wen" }, { name: "alex huper" }],
   appleWebApp: {
-    capable: true,
     statusBarStyle: "black-translucent",
   },
   twitter: {
@@ -22,7 +21,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: "AIDE",
-    description: "Engage in threaded conversations with AI assistance",
+    description: "Engage in threaded conversations with AI as sistance",
     type: "website",
     url: "https://aide.zy-j.com",
     images: [{ url: "/android-chrome-512x512.png" }],
