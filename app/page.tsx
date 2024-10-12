@@ -1199,8 +1199,15 @@ export default function ThreadedDocument() {
   }
 
   return (
-    <div className="h-screen flex flex-col md:flex-row p-2 overflow-hidden">
-      <div className="sm:hidden bg-transparent">
+    <div className="h-screen flex flex-col md:flex-row p-2 overflow-hidden ">
+      <div
+        className="sm:hidden bg-transparent"
+        style={{
+          paddingTop: 'env(safe-area-inset-top)',
+          paddingLeft: 'env(safe-area-inset-left)',
+          paddingRight: 'env(safe-area-inset-right)',
+        }}
+      >
         {/* Mobile layout with tabs for threads, messages, and models */}
         <Tabs
           value={activeTab}
@@ -1208,11 +1215,6 @@ export default function ThreadedDocument() {
             setActiveTab(value as "threads" | "messages" | "models")
           }
           className="w-full flex flex-col h-full"
-          style={{
-            paddingTop: 'env(safe-area-inset-top)',
-            paddingLeft: 'env(safe-area-inset-left)',
-            paddingRight: 'env(safe-area-inset-right)',
-          }}
         >
           <TabsContent value="threads" className="flex-grow overflow-y-auto">
             {renderThreadsList()}
