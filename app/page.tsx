@@ -1216,13 +1216,13 @@ export default function ThreadedDocument() {
           }
           className="w-full flex flex-col h-full"
         >
-          <TabsContent value="threads" className="flex-grow overflow-y-auto">
+          <TabsContent value="threads" className="flex-grow overflow-y-clip absolute top-0 left-2 right-2">
             {renderThreadsList()}
           </TabsContent>
-          <TabsContent value="messages" className="flex-grow overflow-y-auto">
+          <TabsContent value="messages" className="flex-grow overflow-y-clip absolute top-0 left-2 right-2">
             {renderMessages()}
           </TabsContent>
-          <TabsContent value="models" className="flex-grow overflow-y-auto">
+          <TabsContent value="models" className="flex-grow overflow-y-clip absolute top-0 left-2 right-2">
             {renderModelConfig()}
           </TabsContent>
           <TabsList className="grid bg-background/30 backdrop-blur-[5px] w-full fixed bottom-0 left-0 right-0 pb-14 grid-cols-3">
