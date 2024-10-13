@@ -137,9 +137,12 @@ async function generateAIResponse(
     throw new Error("Failed to generate AI response");
   }
 
-  const data = await response.json();
-  console.log(data);
-  return apiBaseUrl ? data.response : data.choices[0].message.content;
+  const reader = response.body?.getReader();
+  if (!reader) {
+    throw new Error("Failed to get response reader");
+  }
+
+  return reader;
 }
 
 export default function ThreadedDocument() {
@@ -429,6 +432,24 @@ export default function ThreadedDocument() {
     []
   );
 
+  // Update message content
+  const updateMessageContent = useCallback((threadId: string, messageId: string, content: string) => {
+    setThreads((prev: Thread[]) =>
+      prev.map((thread) => {
+        if (thread.id !== threadId) return thread;
+        const updateContent = (messages: Message[]): Message[] => {
+          return messages.map((message) => {
+            if (message.id === messageId) {
+              return { ...message, content };
+            }
+            return { ...message, replies: updateContent(message.replies) };
+          });
+        };
+        return { ...thread, messages: updateContent(thread.messages) };
+      })
+    );
+  }, []);
+
   // Generate AI reply
   const generateAIReply = useCallback(
     async (threadId: string, messageId: string, count: number = 1) => {
@@ -443,16 +464,35 @@ export default function ThreadedDocument() {
         const model =
           models.find((m: { id: any }) => m.id === selectedModel) || models[0];
         for (let i = 0; i < count; i++) {
-          const aiResponse = await generateAIResponse(
+          const reader = await generateAIResponse(
             message.content,
             model,
             threads,
             threadId,
             messageId
           );
+
           const newMessageId = Date.now().toString();
-          addMessage(threadId, messageId, aiResponse, "ai", newMessageId);
+          addMessage(threadId, messageId, "", "ai", newMessageId);
           setSelectedMessage(newMessageId);
+
+          let fullResponse = "";
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            const chunk = new TextDecoder().decode(value);
+            console.log(chunk);
+            const lines = chunk.split("data: ");
+            for (const line of lines) {
+              const data = line.replace(/\n\n$/, '');
+              if (data === "[DONE]") {
+                break;
+              }
+              fullResponse += data;
+              updateMessageContent(threadId, newMessageId, fullResponse);
+            }
+          }
         }
       } catch (error) {
         console.error("Failed to generate AI response:", error);
@@ -460,8 +500,9 @@ export default function ThreadedDocument() {
         setIsGenerating(false);
       }
     },
-    [threads, models, selectedModel, addMessage, setSelectedMessage, findMessageById]
+    [threads, models, selectedModel, addMessage, setSelectedMessage, findMessageById, updateMessageContent]
   );
+
 
   // Render a single message
   function renderMessage(
@@ -568,7 +609,7 @@ export default function ThreadedDocument() {
                       : ""
                     }`
                   ) : (
-                    <div className="markdown-content font-serif">
+                    <div className="markdown-content font-serif white-space: pre-wrap;">
                       <ReactMarkdown>{message.content}</ReactMarkdown>
                     </div>
                   )}

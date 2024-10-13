@@ -15,10 +15,27 @@ export async function POST(req: NextRequest) {
             model: configuration.model,
             temperature: configuration.temperature,
             max_tokens: configuration.max_tokens,
+            stream: true, // Enable streaming
         };
 
-        const chatCompletion: OpenAI.Chat.ChatCompletion = await openai.chat.completions.create(params);
-        return NextResponse.json(chatCompletion);
+        const chatCompletion = await openai.chat.completions.create(params);
+
+        const stream = new ReadableStream({
+            async start(controller) {
+                for await (const chunk of chatCompletion) {
+                    controller.enqueue(new TextEncoder().encode(`data: ${chunk}\n\n`));
+                }
+                controller.close();
+            }
+        });
+
+        return new NextResponse(stream, {
+            headers: {
+                'Content-Type': 'text/event-stream',
+                'Cache-Control': 'no-cache',
+                'Connection': 'keep-alive',
+            },
+        });
     } catch (error) {
         return NextResponse.json({ error: (error as Error).message }, { status: 500 });
     }
