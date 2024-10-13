@@ -3,6 +3,7 @@
 import React, { useState, useCallback, useRef, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import { cn } from "@/lib/utils";
+import debounce from "lodash.debounce";
 
 import {
   ChevronDown,
@@ -106,7 +107,7 @@ async function generateAIResponse(
   replyingTo: string | null
 ) {
   const response = await fetch(
-    apiBaseUrl ? `${apiBaseUrl}/api/chat` : "/api/chat",
+    apiBaseUrl ? `${apiBaseUrl}/api/chat`: "/api/chat",
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -168,7 +169,7 @@ export default function ThreadedDocument() {
   ]);
   const [selectedModel, setSelectedModel] = useState<string>(models[0].id);
   const [editingModel, setEditingModel] = useState<Model | null>(null);
-
+  const [lastAttemptTime, setLastAttemptTime] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
 
@@ -208,38 +209,143 @@ export default function ThreadedDocument() {
   useEffect(() => {
     const connectToBackend = async () => {
       try {
-        const response = await fetch(
-          isConnected ? `${apiBaseUrl}/api/connect` : "/api/connect",
-          { method: "GET" }
-        );
+        const response = await fetch(`${apiBaseUrl}/api/connect`, {
+          method: "GET",
+        });
         if (response.ok) {
           console.log("Connected to backend!");
           setIsConnected(true);
         } else {
           console.error("Failed to connect to backend.");
-          setIsConnected(false);
         }
       } catch (error) {
         console.error("Error connecting to backend:", error);
-        setIsConnected(false);
+      } finally {
+        setLastAttemptTime(Date.now()); 
       }
     };
 
-    connectToBackend();
-  }, [isConnected]);
+    if (!isConnected && (!lastAttemptTime || Date.now() - lastAttemptTime >= 5000)) {
+      connectToBackend();
+    }
 
-  // Add a new thread
-  const addThread = useCallback(() => {
+    const intervalId = setInterval(() => {
+      if (!isConnected) {
+        connectToBackend();
+      }
+    }, 5000);
+
+    return () => clearInterval(intervalId);
+  }, [isConnected, lastAttemptTime, apiBaseUrl]);
+
+  const debouncedSaveThreads = useCallback(
+    debounce(async (threadsToSave) => {
+      try {
+        const savePromises = threadsToSave.map((thread) =>
+          fetch(
+            apiBaseUrl ? `${apiBaseUrl}/api/save_thread` : "/api/save_thread",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ threadId: thread.id, thread }),
+            }
+          ).then((response) => {
+            if (!response.ok) {
+              throw new Error(`保存线程 ${thread.id} 失败`);
+            }
+            return response.json();
+          })
+        );
+
+        const results = await Promise.all(savePromises);
+        console.log("所有线程已成功保存到后端。", results);
+      } catch (error) {
+        console.error("保存线程失败:", error);
+        // 可选：在此处添加用户通知，例如使用 toast 弹出错误信息
+      }
+    }, 2000), // 延迟2秒
+    [apiBaseUrl]
+  );
+
+  // 加载数据
+  useEffect(() => {
+    const loadThreads = async () => {
+      try {
+        const response = await fetch(
+          apiBaseUrl ? `${apiBaseUrl}/api/load_threads` : "/api/load_threads",
+          {
+            method: "GET",
+          }
+        );
+        if (response.ok) {
+          const data = await response.json();
+          const loadedThreads: Thread[] = data.threads.map((t: any) => ({
+            id: t.threadId,
+            title: t.thread.title,
+            messages: t.thread.messages,
+            isPinned: t.thread.isPinned,
+          }));
+          setThreads(loadedThreads || []);
+          console.log(`成功加载 ${loadedThreads.length} 个线程。`);
+        } else {
+          throw new Error("加载线程数据失败");
+        }
+      } catch (error) {
+        console.error("加载线程数据失败:", error);
+      }
+    };
+
+    loadThreads();
+  }, [apiBaseUrl]);
+
+  // 保存线程数据，当 threads 变化时触发
+  useEffect(() => {
+    debouncedSaveThreads(threads);
+
+    // 清理防抖函数
+    return debouncedSaveThreads.cancel;
+  }, [threads, debouncedSaveThreads]);
+
+  // 添加一个新的线程
+  const addThread = useCallback(async () => {
     const newThread: Thread = {
       id: Date.now().toString(),
       title: "New Thread",
       messages: [],
       isPinned: false,
     };
+    
+    // 更新前端状态
     setThreads((prev: any) => [...prev, newThread]);
     setCurrentThread(newThread.id);
     setEditingThreadTitle(newThread.id);
-  }, []);
+
+    // 保存新线程到后端
+    try {
+      const response = await fetch(
+        apiBaseUrl ? `${apiBaseUrl}/api/save_thread` : "/api/save_thread",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ threadId: newThread.id, thread: newThread }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("保存线程失败");
+      }
+
+      const data = await response.json();
+      if (data.status !== "success") {
+        throw new Error("保存线程时收到非预期的响应");
+      }
+
+      console.log(`线程 ${newThread.id} 已成功保存到后端。`);
+    } catch (error) {
+      console.error("保存线程失败:", error);
+      // 可选：根据需要，您可以在这里添加用户通知，例如使用 toast 弹出错误信息
+    }
+  }, [apiBaseUrl]);
 
   // Edit thread title
   const editThreadTitle = useCallback((threadId: string, newTitle: string) => {
@@ -428,6 +534,86 @@ export default function ThreadedDocument() {
     },
     []
   );
+  useEffect(() => {
+    const loadThreads = async () => {
+      try {
+        const response = await fetch(
+          apiBaseUrl ? `${apiBaseUrl}/api/load_threads` : "/api/load_threads",
+          {
+            method: "GET",
+          }
+        );
+        if (response.ok) {
+          const data = await response.json();
+          setThreads(data.threads || []);
+        }
+      } catch (error) {
+        console.error("加载线程数据失败:", error);
+      }
+    };
+
+    const loadModels = async () => {
+      try {
+        const response = await fetch(
+          apiBaseUrl ? `${apiBaseUrl}/api/load_models` : "/api/load_models",
+          {
+            method: "GET",
+          }
+        );
+        if (response.ok) {
+          const data = await response.json();
+          setModels(data.models || []);
+        }
+      } catch (error) {
+        console.error("加载模型数据失败:", error);
+      }
+    };
+
+    loadThreads();
+    loadModels();
+  }, []);
+
+  // 保存线程数据
+  useEffect(() => {
+    const saveThread = async (thread) => {
+      try {
+        await fetch(
+          apiBaseUrl ? `${apiBaseUrl}/api/save_thread` : "/api/save_thread",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ threadId: thread.id, thread }),
+          }
+        );
+      } catch (error) {
+        console.error(`保存线程 ${thread.id} 数据失败:`, error);
+      }
+    };
+
+    threads.forEach((thread) => {
+      saveThread(thread);
+    });
+  }, [threads]);
+
+  // 保存模型数据
+  useEffect(() => {
+    const saveModels = async () => {
+      try {
+        await fetch(
+          apiBaseUrl ? `${apiBaseUrl}/api/save_models` : "/api/save_models",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ models }),
+          }
+        );
+      } catch (error) {
+        console.error("保存模型数据失败:", error);
+      }
+    };
+
+    saveModels();
+  }, [models]);
 
   // Generate AI reply
   const generateAIReply = useCallback(
