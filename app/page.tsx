@@ -3,8 +3,10 @@
 import React, { useState, useCallback, useRef, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import { cn } from "@/lib/utils";
+import { SelectModel } from "@/components/ui/select-model";
 
 import {
+  ChevronsUpDown,
   ChevronDown,
   ChevronRight,
   Edit,
@@ -22,6 +24,8 @@ import {
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -144,6 +148,7 @@ async function generateAIResponse(
 
 export default function ThreadedDocument() {
   const [activeTab, setActiveTab] = useState<"threads" | "messages" | "models">("messages");
+  const [comboBoxOpen, setComboBoxOpen] = useState(false);
 
   const [threads, setThreads] = useState<Thread[]>([]);
   const [currentThread, setCurrentThread] = useState<string | null>(null);
@@ -160,13 +165,22 @@ export default function ThreadedDocument() {
     {
       id: "1",
       name: "Default Model",
-      baseModel: "gpt-4o-mini",
+      baseModel: "gpt-4o-mini-test",
       systemPrompt: "You are a helpful assistant.",
       temperature: 0.7,
       maxTokens: 512,
     },
+    {
+      id: "2",
+      name: "Custom Model",
+      baseModel: "claudeai/gpt-4o-mini",
+      systemPrompt: "You are a helpful assistant.",
+      temperature: 0.7,
+      maxTokens: 512,
+    }
   ]);
   const [selectedModel, setSelectedModel] = useState<string>(models[0].id);
+  const [selectedBaseModel, setSelectedBaseModel] = useState<string>(models[0].baseModel);
   const [editingModel, setEditingModel] = useState<Model | null>(null);
 
   const [isConnected, setIsConnected] = useState(false);
@@ -738,7 +752,7 @@ export default function ThreadedDocument() {
       }
     },
     [editingModel]
-  );
+  ); 
 
   const saveModelChanges = useCallback(() => {
     if (editingModel) {
@@ -768,7 +782,7 @@ export default function ThreadedDocument() {
     const newModel: Model = {
       id: Date.now().toString(),
       name: "New Model",
-      baseModel: "gpt-4o-mini",
+      baseModel: "test",
       systemPrompt: "You are a helpful assistant.",
       temperature: 0.7,
       maxTokens: 1024,
@@ -1081,7 +1095,7 @@ export default function ThreadedDocument() {
         </div>
         <ScrollArea className="flex-grow">
           <div className="flex-grow overflow-y-auto mb-4">
-            {models.map((model) => (
+            {models && models.length > 0 && models.map((model) => (
               <div key={model.id} className="p-2 border rounded mb-2">
                 <div className="flex justify-between items-center mb-2">
                   <h3 className="font-bold">{model.name}</h3>
@@ -1104,13 +1118,18 @@ export default function ThreadedDocument() {
                       }
                     />
                     <Label>Base Model</Label>
-                    <Input
+                    {/* <Input
                       className="min-font-size text-foreground"
                       value={editingModel?.baseModel}
                       onChange={(e) =>
                         handleModelChange("baseModel", e.target.value)
                       }
-                    />
+                    /> */}
+                    {editingModel && (
+                      <SelectModel />
+                    )}
+                    
+                    
                     <Label>System Prompt</Label>
                     <Textarea
                       className="min-font-size text-foreground"
