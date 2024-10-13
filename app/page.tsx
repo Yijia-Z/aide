@@ -541,7 +541,7 @@ export default function ThreadedDocument() {
                 <Textarea
                   value={editingContent}
                   onChange={(e) => setEditingContent(e.target.value)}
-                  className="min-font-size font-serif flex-grow mt-1 p-0"
+                  className="min-font-size  flex-grow mt-1 p-0"
                   style={{
                     minHeight: Math.min(Math.max(20, editingContent.split('\n').length * 10), 500),
                     maxHeight: '500px'
@@ -568,7 +568,7 @@ export default function ThreadedDocument() {
                       : ""
                     }`
                   ) : (
-                    <div className="markdown-content font-serif">
+                    <div className="markdown-content ">
                       <ReactMarkdown>{message.content}</ReactMarkdown>
                     </div>
                   )}
@@ -931,7 +931,7 @@ export default function ThreadedDocument() {
     return (
       <div className="flex flex-col relative h-[calc(97vh)]">
         <div className="flex items-center justify-between pb-10 space-x-2 absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-background/100 to-background/00 backdrop-blur-[1px]">
-          <h2 className="text-2xl font-serif font-bold pl-2">Threads</h2>
+          <h2 className="text-2xl font-bold pl-2">Threads</h2>
           <Button
             className="bg-background hover:bg-secondary text-primary border border-border"
             size="default"
@@ -946,7 +946,7 @@ export default function ThreadedDocument() {
             {sortedThreads.map((thread) => (
               <div
                 key={thread.id}
-                className={`font-serif p-2 cursor-pointer rounded mb-2 ${currentThread === thread.id ? "bg-secondary" : "hover:bg-secondary text-muted-foreground"}`}>
+                className={` p-2 cursor-pointer rounded mb-2 ${currentThread === thread.id ? "bg-secondary" : "hover:bg-secondary text-muted-foreground"}`}>
                 <div className="flex items-center space-x-2">
                   <div
                     className="flex-grow"
@@ -1009,7 +1009,7 @@ export default function ThreadedDocument() {
     return currentThread ? (
       <div className={`flex flex-col relative sm:h-full h-[calc(97vh)] hide-scrollbar`}>
         <div className="flex items-center justify-between pb-10 space-x-2 absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-background/100 to-background/0 backdrop-blur-[1px]">
-          <h1 className="text-2xl font-serif font-bold pl-2">
+          <h1 className="text-2xl  font-bold pl-2">
             {currentThreadData?.title}
           </h1>
           {currentThread && (
