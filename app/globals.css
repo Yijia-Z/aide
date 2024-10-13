@@ -80,3 +80,69 @@
   -ms-overflow-style: none; /* IE and Edge */
   scrollbar-width: none; /* Firefox */
 }
+
+/* Markdown content styles */
+.markdown-content {
+  @apply text-foreground;
+}
+
+.markdown-content h1 {
+  @apply text-3xl font-bold mt-4 mb-2;
+}
+
+.markdown-content h2 {
+  @apply text-2xl font-semibold mt-3 mb-2;
+}
+
+.markdown-content h3 {
+  @apply text-xl font-medium mt-2 mb-1;
+}
+
+.markdown-content p {
+  @apply mb-1;
+}
+
+.markdown-content ul,
+.markdown-content ol {
+  @apply mb-1 pl-6;
+}
+
+.markdown-content ul {
+  @apply list-disc;
+}
+
+.markdown-content ol {
+  @apply list-decimal;
+}
+
+.markdown-content li {
+  @apply mb-1;
+}
+
+.markdown-content a {
+  @apply text-blue-500 hover:underline;
+}
+
+.markdown-content blockquote {
+  @apply border-l-4 border-border pl-4 italic my-1;
+}
+
+.markdown-content code {
+  @apply bg-background rounded px-1 py-0.5 font-mono text-sm;
+}
+
+.markdown-content pre {
+  @apply bg-background rounded p-4 overflow-x-auto mb-2;
+}
+
+.markdown-content pre code {
+  @apply bg-transparent p-0;
+}
+
+.markdown-content img {
+  @apply w-auto h-auto my-2;
+}
+
+.markdown-content hr {
+  @apply my-4 border-t border-gray-300 dark:border-gray-700;
+}

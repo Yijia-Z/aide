@@ -548,7 +548,7 @@ export default function ThreadedDocument() {
                   }}
                   autoFocus
                   onKeyDown={(e) => {
-                    if (e.key === "Enter" && e.ctrlKey) {
+                    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
                       confirmEditingMessage(threadId, message.id);
                     } else if (e.key === "Escape") {
                       cancelEditingMessage();
@@ -569,9 +569,7 @@ export default function ThreadedDocument() {
                     }`
                   ) : (
                     <div className="markdown-content font-serif">
-                      <ReactMarkdown>
-                        {message.content.replace(/\n\s*\n/g, "\n")}
-                      </ReactMarkdown>
+                      <ReactMarkdown>{message.content}</ReactMarkdown>
                     </div>
                   )}
                 </div>
@@ -591,7 +589,7 @@ export default function ThreadedDocument() {
                     >
                       <Check className="h-4 w-4" />
                       <span className="hidden md:inline ml-2">
-                        <MenubarShortcut>Ctrl↵</MenubarShortcut>
+                        <MenubarShortcut>⌘↵</MenubarShortcut>
                       </span>
                     </Button>
                     <Button
@@ -820,38 +818,42 @@ export default function ThreadedDocument() {
       switch (event.key) {
         case "ArrowLeft":
           // Select parent message
-          if (parentMessage) {
+          if (parentMessage && editingMessage !== selectedMessage) {
             setSelectedMessage(parentMessage.id);
           }
           break;
         case "ArrowRight":
           // Select first child message
-          if (currentMessage.replies.length > 0) {
+          if (currentMessage.replies.length > 0 && editingMessage !== selectedMessage) {
             setSelectedMessage(currentMessage.replies[0].id);
           }
           break;
         case "ArrowUp":
           // Select previous sibling
-          const siblings = getSiblings(parentMessage);
-          const currentIndex = siblings.findIndex(
-            (m) => m.id === currentMessage.id
-          );
-          if (currentIndex > 0) {
-            setSelectedMessage(siblings[currentIndex - 1].id);
+          if (editingMessage !== selectedMessage) {
+            const siblings = getSiblings(parentMessage);
+            const currentIndex = siblings.findIndex(
+              (m) => m.id === currentMessage.id
+            );
+            if (currentIndex > 0) {
+              setSelectedMessage(siblings[currentIndex - 1].id);
+            }
           }
           break;
         case "ArrowDown":
           // Select next sibling
-          const nextSiblings = getSiblings(parentMessage);
-          const nextIndex = nextSiblings.findIndex(
-            (m) => m.id === currentMessage.id
-          );
-          if (nextIndex < nextSiblings.length - 1) {
-            setSelectedMessage(nextSiblings[nextIndex + 1].id);
+          if (editingMessage !== selectedMessage) {
+            const nextSiblings = getSiblings(parentMessage);
+            const nextIndex = nextSiblings.findIndex(
+              (m) => m.id === currentMessage.id
+            );
+            if (nextIndex < nextSiblings.length - 1) {
+              setSelectedMessage(nextSiblings[nextIndex + 1].id);
+            }
           }
           break;
         case "r":
-          if (event.altKey) {
+          if (event.altKey && editingMessage !== selectedMessage) {
             // Alt+R for replying to a message
             event.preventDefault();
             if (currentThread) {
@@ -860,7 +862,7 @@ export default function ThreadedDocument() {
           }
           break;
         case "g":
-          if (event.altKey) {
+          if (event.altKey && editingMessage !== selectedMessage) {
             // Alt+G for generating AI reply
             event.preventDefault();
             if (currentThread) {
@@ -870,25 +872,28 @@ export default function ThreadedDocument() {
           break;
         case "Insert":
           // Insert for editing a message
-          const currentThreadData = threads.find((t) => t.id === currentThread);
-          if (currentThreadData) {
-            const message = findMessageById(
-              currentThreadData.messages,
-              selectedMessage
-            );
-            if (message) {
-              startEditingMessage(message);
+          if (editingMessage !== selectedMessage) {
+            const currentThreadData = threads.find((t) => t.id === currentThread);
+            if (currentThreadData) {
+              const message = findMessageById(
+                currentThreadData.messages,
+                selectedMessage
+              );
+              if (message) {
+                startEditingMessage(message);
+              }
             }
           }
           break;
         case "Delete":
-          // Delete for deleting a message
-          if (currentThread) {
+        case "Backspace":
+          // Delete or Backspace for deleting a message
+          if (currentThread && editingMessage !== selectedMessage) {
             if (event.shiftKey) {
-              // Shift+Delete to delete the message and its children
+              // Shift+Delete/Backspace to delete the message and its children
               deleteMessage(currentThread, selectedMessage, true);
             } else {
-              // Regular Delete to delete only the message
+              // Regular Delete/Backspace to delete only the message
               deleteMessage(currentThread, selectedMessage, false);
             }
           }
@@ -1002,7 +1007,7 @@ export default function ThreadedDocument() {
   function renderMessages() {
     const currentThreadData = threads.find((t) => t.id === currentThread);
     return currentThread ? (
-      <div className={`flex flex-col relative sm:h-full h-[calc(97vh)]`}>
+      <div className={`flex flex-col relative sm:h-full h-[calc(97vh)] hide-scrollbar`}>
         <div className="flex items-center justify-between pb-10 space-x-2 absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-background/100 to-background/0 backdrop-blur-[1px]">
           <h1 className="text-2xl font-serif font-bold pl-2">
             {currentThreadData?.title}
