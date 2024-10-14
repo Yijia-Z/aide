@@ -1,7 +1,11 @@
 "use client";
 
 import React, { useState, useCallback, useRef, useEffect } from "react";
-import ReactMarkdown from "react-markdown";
+import Markdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import rehypeRaw from 'rehype-raw';
+// import { Light as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { cn } from "@/lib/utils";
 
 import {
@@ -30,6 +34,7 @@ import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/componen
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Slider } from "@/components/ui/slider";
 import { Menubar, MenubarContent, MenubarItem, MenubarMenu, MenubarSeparator, MenubarShortcut, MenubarTrigger } from "@/components/ui/menubar";
+import { gruvboxDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 
 const MESSAGE_INDENT = 12; // Constant value for indentation
 
@@ -482,7 +487,7 @@ export default function ThreadedDocument() {
             if (done) break;
 
             const chunk = new TextDecoder().decode(value);
-            console.log(chunk);
+            // console.log(chunk);
             const lines = chunk.split("data: ");
             for (const line of lines) {
               const data = line.replace(/\n\n$/, '');
@@ -584,8 +589,8 @@ export default function ThreadedDocument() {
                   onChange={(e) => setEditingContent(e.target.value)}
                   className="min-font-size font-serif flex-grow mt-1 p-0"
                   style={{
-                    minHeight: Math.min(Math.max(20, editingContent.split('\n').length * 10), 500),
-                    maxHeight: '500px'
+                    minHeight: Math.min(Math.max(20, editingContent.split('\n').length * 20), window.innerHeight * 0.5),
+                    maxHeight: '50vh'
                   }}
                   autoFocus
                   onKeyDown={(e) => {
@@ -609,8 +614,34 @@ export default function ThreadedDocument() {
                       : ""
                     }`
                   ) : (
-                    <div className="markdown-content font-serif white-space: pre-wrap;">
-                      <ReactMarkdown>{message.content}</ReactMarkdown>
+                    <div className="markdown-content font-serif">
+                      <Markdown
+                        remarkPlugins={[remarkGfm]}
+                        rehypePlugins={[rehypeRaw]}
+                        components={{
+                          code({ node, inline, className, children, ...props }: any) {
+                            const match = /language-(\w+)/.exec(className || '');
+                            return !inline && match ? (
+                              <SyntaxHighlighter
+                                style={gruvboxDark}
+                                language={match[1]}
+                                showLineNumbers
+                                wrapLines
+                                wrapLongLines
+                                {...props}
+                              >
+                                {String(children).replace(/\n$/, '')}
+                              </SyntaxHighlighter>
+                            ) : (
+                              <code className={className} {...props}>
+                                {children}
+                              </code>
+                            );
+                          },
+                        }}
+                      >
+                        {message.content}
+                      </Markdown>
                     </div>
                   )}
                 </div>
@@ -629,8 +660,8 @@ export default function ThreadedDocument() {
                       }
                     >
                       <Check className="h-4 w-4" />
-                      <span className="hidden md:inline ml-2">
-                        <MenubarShortcut>⌘↵</MenubarShortcut>
+                      <span className="hidden md:inline ml-auto">
+                        <MenubarShortcut>⌘ ↩</MenubarShortcut>
                       </span>
                     </Button>
                     <Button
@@ -640,7 +671,7 @@ export default function ThreadedDocument() {
                       onClick={cancelEditingMessage}
                     >
                       <X className="h-4 w-4" />
-                      <span className="hidden md:inline ml-2">
+                      <span className="hidden md:inline ml-auto">
                         <MenubarShortcut>Esc</MenubarShortcut>
                       </span>
                     </Button>
@@ -676,7 +707,7 @@ export default function ThreadedDocument() {
                             }
                           >
                             Once
-                            <span className="hidden md:inline ml-2"><MenubarShortcut>⎇G</MenubarShortcut></span>
+                            <MenubarShortcut className="ml-auto">⎇ G</MenubarShortcut>
                           </MenubarItem>
                           <MenubarItem
                             onClick={() =>
@@ -726,7 +757,7 @@ export default function ThreadedDocument() {
                             }
                           >
                             Keep Children
-                            <span className="hidden md:inline ml-2"><MenubarShortcut>⌦</MenubarShortcut></span>
+                            <span className="hidden md:inline ml-auto"><MenubarShortcut>⌫</MenubarShortcut></span>
                           </MenubarItem>
                           <MenubarItem
                             onClick={() =>
@@ -734,7 +765,7 @@ export default function ThreadedDocument() {
                             }
                           >
                             With Children
-                            <span className="hidden md:inline ml-2"><MenubarShortcut>⇧⌦</MenubarShortcut></span>
+                            <span className="hidden md:inline ml-auto"><MenubarShortcut>⇧ ⌫</MenubarShortcut></span>
                           </MenubarItem>
                         </MenubarContent>
                       </MenubarMenu>
@@ -950,6 +981,7 @@ export default function ThreadedDocument() {
     };
   }, [
     selectedMessage,
+    editingMessage,
     currentThread,
     threads,
     generateAIReply,
