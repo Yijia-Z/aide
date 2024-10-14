@@ -132,7 +132,7 @@
 }
 
 .markdown-content pre {
-  @apply bg-background rounded p-4 overflow-x-auto mb-2;
+  @apply bg-transparent rounded overflow-auto;
 }
 
 .markdown-content pre code {
