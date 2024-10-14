@@ -4,7 +4,6 @@ import React, { useState, useCallback, useRef, useEffect } from "react";
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
-// import { Light as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { cn } from "@/lib/utils";
 
@@ -652,7 +651,7 @@ export default function ThreadedDocument() {
                 {editingMessage === message.id ? (
                   <>
                     <Button
-                      className="hover:bg-background"
+                      className="hover:bg-background space-x-2"
                       size="sm"
                       variant="ghost"
                       onClick={() =>
@@ -665,7 +664,7 @@ export default function ThreadedDocument() {
                       </span>
                     </Button>
                     <Button
-                      className="hover:bg-background"
+                      className="hover:bg-background space-x-2"
                       size="sm"
                       variant="ghost"
                       onClick={cancelEditingMessage}
