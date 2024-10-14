@@ -588,7 +588,7 @@ export default function ThreadedDocument() {
                   onChange={(e) => setEditingContent(e.target.value)}
                   className="min-font-size font-serif flex-grow mt-1 p-0"
                   style={{
-                    minHeight: Math.min(Math.max(20, editingContent.split('\n').length * 20), window.innerHeight * 0.5),
+                    minHeight: Math.min(Math.max(20, editingContent.split('\n').length * 20, editingContent.length * 0.25), window.innerHeight * 0.5),
                     maxHeight: '50vh'
                   }}
                   autoFocus

@@ -6,22 +6,22 @@ import { ThemeProvider } from "@/components/theme-provider"
 
 
 export const metadata: Metadata = {
-  title: "AIDE",
-  description: "An interactive threaded chat interface",
+  title: "Aide",
+  description: "A dynamic platform for musing and conversing language models",
   keywords: "chat, AI, LLM, thread, conversation, language models",
-  authors: [{ name: "yijia zhao" }, { name: "jiawei wen" }, { name: "alex huper" }],
+  authors: [{ name: "yijia zhao" }, { name: "jiawei weng" }, { name: "wilhelm huper" }],
   appleWebApp: {
     statusBarStyle: "black-translucent",
   },
   twitter: {
     card: "summary_large_image",
     title: "AIDE",
-    description: "An interactive threaded chat interface",
+    description: "Dive into engaging threaded conversations with AI assistance",
     images: ["/android-chrome-512x512.png"],
   },
   openGraph: {
     title: "AIDE",
-    description: "Engage in threaded conversations with AI as sistance",
+    description: "Dive into engaging threaded conversations with AI assistance",
     type: "website",
     url: "https://aide.zy-j.com",
     images: [{ url: "/android-chrome-512x512.png" }],
