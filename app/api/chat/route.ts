@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
             model: configuration.model,
             temperature: configuration.temperature,
             max_tokens: configuration.max_tokens,
-            stream: true, // Enable streaming
+            stream: true,
         };
 
         const chatCompletion = await openai.chat.completions.create(params);
@@ -23,7 +23,10 @@ export async function POST(req: NextRequest) {
         const stream = new ReadableStream({
             async start(controller) {
                 for await (const chunk of chatCompletion) {
-                    controller.enqueue(new TextEncoder().encode(`data: ${chunk}\n\n`));
+                    const content = chunk.choices[0]?.delta?.content;
+                    const finishReason = chunk.choices[0]?.finish_reason;
+                    const data = finishReason === 'stop' ? "data: [DONE]" : `data: ${content}\n\n`;
+                    controller.enqueue(new TextEncoder().encode(data));
                 }
                 controller.close();
             }
