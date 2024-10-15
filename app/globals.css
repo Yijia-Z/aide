@@ -134,7 +134,7 @@
 }
 
 .markdown-content code {
-  @apply bg-background rounded px-1 py-0.5 font-mono text-sm;
+  @apply bg-background rounded px-1 font-mono text-sm text-muted-foreground;
 }
 
 .markdown-content pre {

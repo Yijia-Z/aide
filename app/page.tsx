@@ -647,7 +647,7 @@ export default function ThreadedDocument() {
                 />
               ) : (
                 <div
-                  className="whitespace-pre-wrap break-words overflow-hidden mt-1"
+                  className="whitespace-normal break-words overflow-hidden mt-1"
                   onDoubleClick={() => startEditingMessage(message)}
                 >
                   {message.isCollapsed ? (
@@ -702,7 +702,7 @@ export default function ThreadedDocument() {
               )}
             </div>
             {!message.isCollapsed && selectedMessage === message.id && (
-              <div className="mt-2 space-x-2 flex flex-wrap items-center">
+              <div className="mt-2 space-x-2 flex flex-wrap items-center select-none">
                 {editingMessage === message.id ? (
                   <>
                     <Button
@@ -1078,7 +1078,7 @@ export default function ThreadedDocument() {
   function renderThreadsList() {
     return (
       <div className="flex flex-col relative h-[calc(97vh)]">
-        <div className="top-bar bg-gradient-to-b from-background/100 to-background/00">
+        <div className="top-bar bg-gradient-to-b from-background/100 to-background/00 select-none">
           <h2 className="text-2xl font-serif font-bold pl-2">Threads</h2>
           <Button
             className="bg-background hover:bg-secondary text-primary border border-border"
@@ -1168,7 +1168,7 @@ export default function ThreadedDocument() {
           </h1>
           {currentThread && (
             <Button
-              className="bg-background hover:bg-secondary text-primary border border-border"
+              className="bg-background hover:bg-secondary text-primary border border-border select-none"
               size="default"
               onClick={(e) => {
                 e.stopPropagation();
@@ -1189,9 +1189,22 @@ export default function ThreadedDocument() {
         </ScrollArea>
       </div>
     ) : (
-      <div className="flex items-center justify-center h-full">
-        <p className="text-muted-foreground">
-          Select a thread to view messages
+      <div className="flex items-center justify-center h-full select-none">
+        <div className="hidden sm:block">
+          <p className="text-muted-foreground">
+            <span>Select a thread to view messages</span><br />
+            <span>Arrow keys to navigate messages</span><br />
+            <span>Alt+R to reply</span><br />
+            <span>Alt+G to generate AI reply</span><br />
+            <span>Insert / Double-click to edit message</span><br />
+            <span>Delete to delete message</span><br />
+            <span>Shift+Delete to delete with children</span><br />
+            <span>Enter to confirm edit</span><br />
+            <span>Escape to cancel edit</span>
+          </p>
+        </div>
+        <p className="sm:hidden text-muted-foreground">
+
         </p>
       </div>
     );
@@ -1200,7 +1213,7 @@ export default function ThreadedDocument() {
   // Render model configuration
   function renderModelConfig() {
     return (
-      <div className="flex flex-col relative h-[calc(97vh)] overflow-clip">
+      <div className="flex flex-col relative h-[calc(97vh)] overflow-clip select-none">
         <div className="top-bar bg-gradient-to-b from-background/100 to-background/00">
           <Select value={selectedModel} onValueChange={setSelectedModel}>
             <SelectTrigger>
@@ -1408,7 +1421,8 @@ export default function ThreadedDocument() {
             left-0 
             right-0 
             pb-14 
-            grid-cols-3"
+            grid-cols-3
+            select-none"
           >
             <TabsTrigger
               value="threads"
@@ -1450,7 +1464,7 @@ export default function ThreadedDocument() {
               }
               className="w-full h-full flex flex-col"
             >
-              <TabsList className="grid w-full grid-cols-2">
+              <TabsList className="grid w-full grid-cols-2 select-none">
                 <TabsTrigger value="threads">Threads</TabsTrigger>
                 <TabsTrigger value="models">Models</TabsTrigger>
               </TabsList>
