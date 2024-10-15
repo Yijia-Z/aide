@@ -39,6 +39,16 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
+const serif = localfont({
+  src: [
+    {
+      path: "../public/fonts/AnticSlab-Regular.ttf",
+      weight: "400",
+    },
+  ],
+  variable: "--font-serif",
+});
+
 const jetBrainsMono = localfont({
   src: [
     {
@@ -49,13 +59,14 @@ const jetBrainsMono = localfont({
   variable: "--font-jetbrains-mono",
 });
 
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${jetBrainsMono.variable}`}>
+    <html lang="en" className={`${jetBrainsMono.variable} ${serif.variable}`}>
       <head>
         <meta name="mobile-web-app-capable" content="yes" />
       </head>
