@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
-import OpenAI from 'openai';
+import { NextRequest, NextResponse } from "next/server";
+import OpenAI from "openai";
 
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
@@ -25,21 +25,25 @@ export async function POST(req: NextRequest) {
                 for await (const chunk of chatCompletion) {
                     const content = chunk.choices[0]?.delta?.content;
                     const finishReason = chunk.choices[0]?.finish_reason;
-                    const data = finishReason === 'stop' ? "data: [DONE]" : `data: ${content}\n\n`;
+                    const data =
+                        finishReason === "stop" ? "data: [DONE]" : `data: ${content}\n\n`;
                     controller.enqueue(new TextEncoder().encode(data));
                 }
                 controller.close();
-            }
+            },
         });
 
         return new NextResponse(stream, {
             headers: {
-                'Content-Type': 'text/event-stream',
-                'Cache-Control': 'no-cache',
-                'Connection': 'keep-alive',
+                "Content-Type": "text/event-stream",
+                "Cache-Control": "no-cache",
+                Connection: "keep-alive",
             },
         });
     } catch (error) {
-        return NextResponse.json({ error: (error as Error).message }, { status: 500 });
+        return NextResponse.json(
+            { error: (error as Error).message },
+            { status: 500 }
+        );
     }
 }

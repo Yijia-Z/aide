@@ -67,9 +67,15 @@
     @apply bg-background text-foreground;
   }
 }
+
+.top-bar {
+  @apply flex items-center justify-between pb-10 space-x-2 absolute top-0 left-0 right-0 z-10 backdrop-blur-[1px];
+}
+
 .min-font-size {
   font-size: 16px;
 }
+
 /* Hide scrollbar for Chrome, Safari and Opera */
 .hide-scrollbar::-webkit-scrollbar {
   display: none;

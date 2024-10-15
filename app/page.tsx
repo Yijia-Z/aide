@@ -1,10 +1,12 @@
 "use client";
 
 import React, { useState, useCallback, useRef, useEffect } from "react";
-import Markdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import rehypeRaw from 'rehype-raw';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import Markdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import rehypeRaw from "rehype-raw";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { gruvboxDark } from "react-syntax-highlighter/dist/esm/styles/prism";
+
 import { cn } from "@/lib/utils";
 
 import {
@@ -27,13 +29,30 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Slider } from "@/components/ui/slider";
-import { Menubar, MenubarContent, MenubarItem, MenubarMenu, MenubarSeparator, MenubarShortcut, MenubarTrigger } from "@/components/ui/menubar";
-import { gruvboxDark } from "react-syntax-highlighter/dist/esm/styles/prism";
+import {
+  Menubar,
+  MenubarContent,
+  MenubarItem,
+  MenubarMenu,
+  MenubarSeparator,
+  MenubarShortcut,
+  MenubarTrigger,
+} from "@/components/ui/menubar";
 
 const MESSAGE_INDENT = 12; // Constant value for indentation
 
@@ -150,7 +169,7 @@ async function generateAIResponse(
 }
 
 export default function ThreadedDocument() {
-  const [activeTab, setActiveTab] = useState<"threads" | "messages" | "models">("messages");
+  const [activeTab, setActiveTab] = useState<"threads" | "messages" | "models">("threads");
 
   const [threads, setThreads] = useState<Thread[]>([]);
   const [currentThread, setCurrentThread] = useState<string | null>(null);
@@ -195,7 +214,7 @@ export default function ThreadedDocument() {
       if (messageElement) {
         messageElement.scrollIntoView({
           behavior: "smooth",
-          block: "start"
+          block: "start",
         });
       }
     }
@@ -206,7 +225,7 @@ export default function ThreadedDocument() {
     if (replyBoxRef.current) {
       replyBoxRef.current.scrollIntoView({
         behavior: "smooth",
-        block: "end"
+        block: "end",
       });
     }
   }, [replyingTo]);
@@ -355,11 +374,14 @@ export default function ThreadedDocument() {
         const removeEmptyMessage = (messages: Message[]): Message[] => {
           return messages.reduce((acc: Message[], message) => {
             if (message.id === editingMessage) {
-              if (message.content.trim() === '') {
+              if (message.content.trim() === "") {
                 return acc;
               }
             }
-            return [...acc, { ...message, replies: removeEmptyMessage(message.replies) }];
+            return [
+              ...acc,
+              { ...message, replies: removeEmptyMessage(message.replies) },
+            ];
           }, []);
         };
         return { ...thread, messages: removeEmptyMessage(thread.messages) };
@@ -378,12 +400,15 @@ export default function ThreadedDocument() {
           const editMessage = (messages: Message[]): Message[] => {
             return messages.reduce((acc: Message[], message) => {
               if (message.id === messageId) {
-                if (editingContent.trim() === '') {
+                if (editingContent.trim() === "") {
                   return acc;
                 }
                 return [...acc, { ...message, content: editingContent }];
               }
-              return [...acc, { ...message, replies: editMessage(message.replies) }];
+              return [
+                ...acc,
+                { ...message, replies: editMessage(message.replies) },
+              ];
             }, []);
           };
           return { ...thread, messages: editMessage(thread.messages) };
@@ -416,7 +441,7 @@ export default function ThreadedDocument() {
         if (newMessageElement) {
           newMessageElement.scrollIntoView({
             behavior: "smooth",
-            block: "end"
+            block: "end",
           });
         }
       }, 100);
@@ -437,22 +462,25 @@ export default function ThreadedDocument() {
   );
 
   // Update message content
-  const updateMessageContent = useCallback((threadId: string, messageId: string, content: string) => {
-    setThreads((prev: Thread[]) =>
-      prev.map((thread) => {
-        if (thread.id !== threadId) return thread;
-        const updateContent = (messages: Message[]): Message[] => {
-          return messages.map((message) => {
-            if (message.id === messageId) {
-              return { ...message, content };
-            }
-            return { ...message, replies: updateContent(message.replies) };
-          });
-        };
-        return { ...thread, messages: updateContent(thread.messages) };
-      })
-    );
-  }, []);
+  const updateMessageContent = useCallback(
+    (threadId: string, messageId: string, content: string) => {
+      setThreads((prev: Thread[]) =>
+        prev.map((thread) => {
+          if (thread.id !== threadId) return thread;
+          const updateContent = (messages: Message[]): Message[] => {
+            return messages.map((message) => {
+              if (message.id === messageId) {
+                return { ...message, content };
+              }
+              return { ...message, replies: updateContent(message.replies) };
+            });
+          };
+          return { ...thread, messages: updateContent(thread.messages) };
+        })
+      );
+    },
+    []
+  );
 
   // Generate AI reply
   const generateAIReply = useCallback(
@@ -489,7 +517,7 @@ export default function ThreadedDocument() {
             // console.log(chunk);
             const lines = chunk.split("data: ");
             for (const line of lines) {
-              const data = line.replace(/\n\n$/, '');
+              const data = line.replace(/\n\n$/, "");
               if (data === "[DONE]") {
                 break;
               }
@@ -504,9 +532,16 @@ export default function ThreadedDocument() {
         setIsGenerating(false);
       }
     },
-    [threads, models, selectedModel, addMessage, setSelectedMessage, findMessageById, updateMessageContent]
+    [
+      threads,
+      models,
+      selectedModel,
+      addMessage,
+      setSelectedMessage,
+      findMessageById,
+      updateMessageContent,
+    ]
   );
-
 
   // Render a single message
   function renderMessage(
@@ -540,7 +575,14 @@ export default function ThreadedDocument() {
         id={`message-${message.id}`}
       >
         <div
-          className={`flex items-start space-x-1 p-1 rounded hover:bg-secondary/50 ${isSelectedOrParent ? "bg-muted" : "text-muted-foreground"}`}
+          className={`flex 
+            items-start 
+            space-x-1 
+            p-1 
+            rounded 
+            hover:bg-secondary/50 
+            ${isSelectedOrParent ? "bg-muted" : "text-muted-foreground"}
+          `}
           onClick={() => {
             setSelectedMessage(message.id);
             if (message.isCollapsed) {
@@ -557,11 +599,7 @@ export default function ThreadedDocument() {
               toggleCollapse(threadId, message.id);
             }}
           >
-            {message.isCollapsed ? (
-              <ChevronRight />
-            ) : (
-              <ChevronDown />
-            )}
+            {message.isCollapsed ? <ChevronRight /> : <ChevronDown />}
           </Button>
           <div className="flex-grow p-1 overflow-hidden ">
             <div className="flex flex-col">
@@ -588,8 +626,15 @@ export default function ThreadedDocument() {
                   onChange={(e) => setEditingContent(e.target.value)}
                   className="min-font-size font-serif flex-grow mt-1 p-0"
                   style={{
-                    minHeight: Math.min(Math.max(20, editingContent.split('\n').length * 20, editingContent.length * 0.25), window.innerHeight * 0.5),
-                    maxHeight: '50vh'
+                    minHeight: Math.min(
+                      Math.max(
+                        20,
+                        editingContent.split("\n").length * 20,
+                        editingContent.length * 0.25
+                      ),
+                      window.innerHeight * 0.5
+                    ),
+                    maxHeight: "50vh",
                   }}
                   autoFocus
                   onKeyDown={(e) => {
@@ -606,8 +651,10 @@ export default function ThreadedDocument() {
                   onDoubleClick={() => startEditingMessage(message)}
                 >
                   {message.isCollapsed ? (
-                    `${message.content.split("\n")[0].slice(0, 50)}${message.content.length > 50 ? "..." : ""
-                    }${totalReplies > 0
+                    `
+                    ${message.content.split("\n")[0].slice(0, 50)}
+                    ${message.content.length > 50 ? "..." : ""}
+                    ${totalReplies > 0
                       ? ` (${totalReplies} ${totalReplies === 1 ? "reply" : "replies"
                       })`
                       : ""
@@ -618,18 +665,26 @@ export default function ThreadedDocument() {
                         remarkPlugins={[remarkGfm]}
                         rehypePlugins={[rehypeRaw]}
                         components={{
-                          code({ node, inline, className, children, ...props }: any) {
-                            const match = /language-(\w+)/.exec(className || '');
+                          code({
+                            node,
+                            inline,
+                            className,
+                            children,
+                            ...props
+                          }: any) {
+                            const match = /language-(\w+)/.exec(
+                              className || ""
+                            );
                             return !inline && match ? (
                               <SyntaxHighlighter
+                                PreTag={'pre'}
                                 style={gruvboxDark}
                                 language={match[1]}
                                 showLineNumbers
                                 wrapLines
-                                wrapLongLines
                                 {...props}
                               >
-                                {String(children).replace(/\n$/, '')}
+                                {String(children).replace(/\n$/, "")}
                               </SyntaxHighlighter>
                             ) : (
                               <code className={className} {...props}>
@@ -691,7 +746,8 @@ export default function ThreadedDocument() {
                         <MenubarTrigger
                           className={cn(
                             "h-10 rounded-lg hover:bg-background",
-                            isGenerating && "animate-pulse bg-blue-200 dark:bg-blue-900"
+                            isGenerating &&
+                            "animate-pulse bg-blue-200 dark:bg-blue-900"
                           )}
                         >
                           <Sparkle className="h-4 w-4" />
@@ -706,7 +762,9 @@ export default function ThreadedDocument() {
                             }
                           >
                             Once
-                            <MenubarShortcut className="ml-auto">⎇ G</MenubarShortcut>
+                            <MenubarShortcut className="ml-auto">
+                              ⎇ G
+                            </MenubarShortcut>
                           </MenubarItem>
                           <MenubarItem
                             onClick={() =>
@@ -722,7 +780,11 @@ export default function ThreadedDocument() {
                                 "5"
                               );
                               const numTimes = parseInt(times || "0", 10);
-                              if (!isNaN(numTimes) && numTimes > 0 && numTimes <= 10) {
+                              if (
+                                !isNaN(numTimes) &&
+                                numTimes > 0 &&
+                                numTimes <= 10
+                              ) {
                                 generateAIReply(threadId, message.id, numTimes);
                               } else if (numTimes > 10) {
                                 generateAIReply(threadId, message.id, 10);
@@ -756,7 +818,9 @@ export default function ThreadedDocument() {
                             }
                           >
                             Keep Children
-                            <span className="hidden md:inline ml-auto"><MenubarShortcut>⌫</MenubarShortcut></span>
+                            <span className="hidden md:inline ml-auto">
+                              <MenubarShortcut>⌫</MenubarShortcut>
+                            </span>
                           </MenubarItem>
                           <MenubarItem
                             onClick={() =>
@@ -764,7 +828,9 @@ export default function ThreadedDocument() {
                             }
                           >
                             With Children
-                            <span className="hidden md:inline ml-auto"><MenubarShortcut>⇧ ⌫</MenubarShortcut></span>
+                            <span className="hidden md:inline ml-auto">
+                              <MenubarShortcut>⇧ ⌫</MenubarShortcut>
+                            </span>
                           </MenubarItem>
                         </MenubarContent>
                       </MenubarMenu>
@@ -839,15 +905,20 @@ export default function ThreadedDocument() {
     );
   }, []);
 
-  const deleteThread = useCallback((threadId: string) => {
-    setThreads((prev: Thread[]) => {
-      const updatedThreads = prev.filter((thread) => thread.id !== threadId);
-      if (currentThread === threadId) {
-        setCurrentThread(updatedThreads.length > 0 ? updatedThreads[0].id : null);
-      }
-      return updatedThreads;
-    });
-  }, [currentThread]);
+  const deleteThread = useCallback(
+    (threadId: string) => {
+      setThreads((prev: Thread[]) => {
+        const updatedThreads = prev.filter((thread) => thread.id !== threadId);
+        if (currentThread === threadId) {
+          setCurrentThread(
+            updatedThreads.length > 0 ? updatedThreads[0].id : null
+          );
+        }
+        return updatedThreads;
+      });
+    },
+    [currentThread]
+  );
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -895,7 +966,10 @@ export default function ThreadedDocument() {
           break;
         case "ArrowRight":
           // Select first child message
-          if (currentMessage.replies.length > 0 && editingMessage !== selectedMessage) {
+          if (
+            currentMessage.replies.length > 0 &&
+            editingMessage !== selectedMessage
+          ) {
             setSelectedMessage(currentMessage.replies[0].id);
           }
           break;
@@ -944,7 +1018,9 @@ export default function ThreadedDocument() {
         case "Insert":
           // Insert for editing a message
           if (editingMessage !== selectedMessage) {
-            const currentThreadData = threads.find((t) => t.id === currentThread);
+            const currentThreadData = threads.find(
+              (t) => t.id === currentThread
+            );
             if (currentThreadData) {
               const message = findMessageById(
                 currentThreadData.messages,
@@ -1002,7 +1078,7 @@ export default function ThreadedDocument() {
   function renderThreadsList() {
     return (
       <div className="flex flex-col relative h-[calc(97vh)]">
-        <div className="flex items-center justify-between pb-10 space-x-2 absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-background/100 to-background/00 backdrop-blur-[1px]">
+        <div className="top-bar bg-gradient-to-b from-background/100 to-background/00">
           <h2 className="text-2xl font-serif font-bold pl-2">Threads</h2>
           <Button
             className="bg-background hover:bg-secondary text-primary border border-border"
@@ -1018,7 +1094,11 @@ export default function ThreadedDocument() {
             {sortedThreads.map((thread) => (
               <div
                 key={thread.id}
-                className={`font-serif p-2 cursor-pointer rounded mb-2 ${currentThread === thread.id ? "bg-secondary" : "hover:bg-secondary text-muted-foreground"}`}>
+                className={`font-serif p-2 cursor-pointer rounded mb-2 ${currentThread === thread.id
+                  ? "bg-secondary"
+                  : "hover:bg-secondary text-muted-foreground"
+                  }`}
+              >
                 <div className="flex items-center space-x-2">
                   <div
                     className="flex-grow"
@@ -1079,8 +1159,10 @@ export default function ThreadedDocument() {
   function renderMessages() {
     const currentThreadData = threads.find((t) => t.id === currentThread);
     return currentThread ? (
-      <div className={`flex flex-col relative sm:h-full h-[calc(97vh)] hide-scrollbar`}>
-        <div className="flex items-center justify-between pb-10 space-x-2 absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-background/100 to-background/0 backdrop-blur-[1px]">
+      <div
+        className={`flex flex-col relative sm:h-full h-[calc(97vh)] hide-scrollbar`}
+      >
+        <div className="top-bar bg-gradient-to-b from-background/100 to-background/00">
           <h1 className="text-2xl font-serif font-bold pl-2">
             {currentThreadData?.title}
           </h1>
@@ -1108,7 +1190,9 @@ export default function ThreadedDocument() {
       </div>
     ) : (
       <div className="flex items-center justify-center h-full">
-        <p className="text-muted-foreground">Select a thread to view messages</p>
+        <p className="text-muted-foreground">
+          Select a thread to view messages
+        </p>
       </div>
     );
   }
@@ -1117,7 +1201,7 @@ export default function ThreadedDocument() {
   function renderModelConfig() {
     return (
       <div className="flex flex-col relative h-[calc(97vh)] overflow-clip">
-        <div className="flex items-center justify-between pb-10 space-x-2 absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-background/100 to-background/0 backdrop-blur-[1px]">
+        <div className="top-bar bg-gradient-to-b from-background/100 to-background/00">
           <Select value={selectedModel} onValueChange={setSelectedModel}>
             <SelectTrigger>
               <SelectValue placeholder="Select a model" />
@@ -1280,9 +1364,9 @@ export default function ThreadedDocument() {
       <div
         className="sm:hidden bg-transparent"
         style={{
-          paddingTop: 'env(safe-area-inset-top)',
-          paddingLeft: 'env(safe-area-inset-left)',
-          paddingRight: 'env(safe-area-inset-right)',
+          paddingTop: "env(safe-area-inset-top)",
+          paddingLeft: "env(safe-area-inset-left)",
+          paddingRight: "env(safe-area-inset-right)",
         }}
       >
         {/* Mobile layout with tabs for threads, messages, and models */}
@@ -1293,29 +1377,67 @@ export default function ThreadedDocument() {
           }
           className="w-full flex flex-col h-full"
         >
-          <TabsContent value="threads" className="overflow-y-clip absolute top-0 left-2 right-2" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+          <TabsContent
+            value="threads"
+            className="overflow-y-clip absolute top-0 left-2 right-2"
+            style={{ paddingTop: "env(safe-area-inset-top)" }}
+          >
             {renderThreadsList()}
           </TabsContent>
-          <TabsContent value="messages" className="overflow-y-clip absolute top-0 left-2 right-2" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+          <TabsContent
+            value="messages"
+            className="overflow-y-clip absolute top-0 left-2 right-2"
+            style={{ paddingTop: "env(safe-area-inset-top)" }}
+          >
             {renderMessages()}
           </TabsContent>
-          <TabsContent value="models" className="overflow-y-clip absolute top-0 left-2 right-2" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+          <TabsContent
+            value="models"
+            className="overflow-y-clip absolute top-0 left-2 right-2"
+            style={{ paddingTop: "env(safe-area-inset-top)" }}
+          >
             {renderModelConfig()}
           </TabsContent>
-          <TabsList className="grid bg-background/30 backdrop-blur-[5px] w-full fixed bottom-0 left-0 right-0 pb-14 grid-cols-3">
-            <TabsTrigger value="threads" className="data-[state=active]:bg-secondary">Threads</TabsTrigger>
-            <TabsTrigger value="messages" className="data-[state=active]:bg-secondary">Messages</TabsTrigger>
-            <TabsTrigger value="models" className="data-[state=active]:bg-secondary">Models</TabsTrigger>
+          <TabsList
+            className="grid 
+            bg-background/30 
+            backdrop-blur-[5px] 
+            w-full 
+            fixed 
+            bottom-0 
+            left-0 
+            right-0 
+            pb-14 
+            grid-cols-3"
+          >
+            <TabsTrigger
+              value="threads"
+              className="data-[state=active]:bg-secondary"
+            >
+              Threads
+            </TabsTrigger>
+            <TabsTrigger
+              value="messages"
+              className="data-[state=active]:bg-secondary"
+            >
+              Messages
+            </TabsTrigger>
+            <TabsTrigger
+              value="models"
+              className="data-[state=active]:bg-secondary"
+            >
+              Models
+            </TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
       <div
         className="hidden sm:block w-full h-full"
         style={{
-          paddingTop: 'env(safe-area-inset-top)',
-          paddingBottom: 'env(safe-area-inset-bottom)',
-          paddingLeft: 'env(safe-area-inset-left)',
-          paddingRight: 'env(safe-area-inset-right)',
+          paddingTop: "env(safe-area-inset-top)",
+          paddingBottom: "env(safe-area-inset-bottom)",
+          paddingLeft: "env(safe-area-inset-left)",
+          paddingRight: "env(safe-area-inset-right)",
         }}
       >
         {/* Desktop layout with resizable panels */}
@@ -1332,7 +1454,10 @@ export default function ThreadedDocument() {
                 <TabsTrigger value="threads">Threads</TabsTrigger>
                 <TabsTrigger value="models">Models</TabsTrigger>
               </TabsList>
-              <TabsContent value="threads" className="flex-grow overflow-y-clip">
+              <TabsContent
+                value="threads"
+                className="flex-grow overflow-y-clip"
+              >
                 {renderThreadsList()}
               </TabsContent>
               <TabsContent value="models" className="flex-grow overflow-y-clip">
