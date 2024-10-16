@@ -10,6 +10,10 @@ import { gruvboxDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { cn } from "@/lib/utils";
 
 import {
+  ArrowUp,
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight,
   ChevronDown,
   ChevronRight,
   Edit,
@@ -564,8 +568,40 @@ export default function ThreadedDocument() {
         0
       );
     };
+    const findMessageAndParent = (
+      messages: Message[],
+      targetId: string,
+      parent: Message | null = null
+    ): [Message | null, Message | null] => {
+      for (const message of messages) {
+        if (message.id === targetId) return [message, parent];
+        const [found, foundParent] = findMessageAndParent(
+          message.replies,
+          targetId,
+          message
+        );
+        if (found) return [found, foundParent];
+      }
+      return [null, null];
+    };
 
+    const getSiblings = (parent: Message | null): Message[] => {
+      if (!parent) return currentThreadData?.messages || [];
+      return parent.replies;
+    };
     const totalReplies = getTotalReplies(message);
+
+    const currentThreadData = threads.find((t) => t.id === currentThread);
+    if (!currentThreadData) return null;
+
+    const [currentMessage, parentMessage] = findMessageAndParent(
+      currentThreadData.messages,
+      message.id
+    );
+    if (!currentMessage) return null;
+
+    const siblings = getSiblings(parentMessage);
+    const currentIndex = siblings.findIndex((m) => m.id === currentMessage.id);
 
     return (
       <div
@@ -576,13 +612,13 @@ export default function ThreadedDocument() {
       >
         <div
           className={`flex 
-            items-start 
-            space-x-1 
-            p-1 
-            rounded 
-            hover:bg-secondary/50 
-            ${isSelectedOrParent ? "bg-muted" : "text-muted-foreground"}
-          `}
+          items-start 
+          space-x-1 
+          p-1 
+          rounded 
+          hover:bg-secondary/50 
+          ${isSelectedOrParent ? "bg-muted" : "text-muted-foreground"}
+        `}
           onClick={() => {
             setSelectedMessage(message.id);
             if (message.isCollapsed) {
@@ -592,35 +628,92 @@ export default function ThreadedDocument() {
         >
           <div className="flex-grow p-0 overflow-hidden">
             <div className="flex flex-col">
-              <div className="flex items-center space-x-2 pl-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="w-4 h-4 p-0 min-w-4 rounded-sm hover:bg-secondary bg-background border border-border"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleCollapse(threadId, message.id);
-                  }}
-                >
-                  {message.isCollapsed ? <ChevronRight /> : <ChevronDown />}
-                </Button>
-                <span
-                  className={`font-bold ${message.publisher === "ai"
-                    ? "text-blue-800"
-                    : "text-green-800"
-                    }`}
-                >
-                  {parentId === null ||
-                    message.publisher !==
-                    findMessageById(
-                      threads.find((t) => t.id === currentThread)?.messages || [],
-                      parentId
-                    )?.publisher
-                    ? message.publisher === "ai"
-                      ? message.modelName || "AI"
-                      : "User"
-                    : null}
-                </span>
+              <div className="flex items-center justify-between pl-1">
+                <div className="flex items-center space-x-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-6 h-6 p-0 rounded-sm hover:bg-secondary bg-background border border-border"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleCollapse(threadId, message.id);
+                    }}
+                  >
+                    {message.isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  </Button>
+                  <span
+                    className={`font-bold ${message.publisher === "ai"
+                      ? "text-blue-600"
+                      : "text-green-600"
+                      }`}
+                  >
+                    {parentId === null ||
+                      message.publisher !==
+                      findMessageById(
+                        threads.find((t) => t.id === currentThread)?.messages || [],
+                        parentId
+                      )?.publisher
+                      ? message.publisher === "ai"
+                        ? message.modelName || "AI"
+                        : "User"
+                      : null}
+                  </span>
+                </div>
+                {/* New navigation controls */}
+                <div className={`flex space-x-1 ${isSelectedOrParent || isSelected ? 'opacity-100' : 'opacity-0 hover:opacity-100'} transition-opacity duration-200`}>
+                  {parentMessage && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-6 h-6 p-0"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedMessage(parentMessage.id);
+                      }}
+                    >
+                      <ArrowLeft className="h-4 w-4" />
+                    </Button>
+                  )}
+                  {currentMessage.replies.length > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-6 h-6 p-0"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedMessage(currentMessage.replies[0].id);
+                      }}
+                    >
+                      <ArrowRight className="h-4 w-4" />
+                    </Button>
+                  )}
+                  {siblings[currentIndex - 1] && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-6 h-6 p-0"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedMessage(siblings[currentIndex - 1].id);
+                      }}
+                    >
+                      <ArrowUp className="h-4 w-4" />
+                    </Button>
+                  )}
+                  {siblings[currentIndex + 1] && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-6 h-6 p-0"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedMessage(siblings[currentIndex + 1].id);
+                      }}
+                    >
+                      <ArrowDown className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
               </div>
               {editingMessage === message.id ? (
                 <Textarea
@@ -1095,11 +1188,11 @@ export default function ThreadedDocument() {
           </Button>
         </div>
         <ScrollArea className="flex-auto" onClick={() => setCurrentThread(null)}>
-          <div className="mb-4">
+          <div className="my-2">
             {sortedThreads.map((thread) => (
               <div
                 key={thread.id}
-                className={`font-serif px-1 cursor-pointer rounded mb-1 ${currentThread === thread.id
+                className={`font-serif px-1 cursor-pointer rounded mb-2 ${currentThread === thread.id
                   ? "bg-secondary"
                   : "hover:bg-secondary text-muted-foreground"
                   }`}
@@ -1108,27 +1201,45 @@ export default function ThreadedDocument() {
                   setCurrentThread(thread.id);
                 }}
               >
-                <div className="flex items-center space-x-2">
-                  <div className="flex-grow">
-                    {editingThreadTitle === thread.id ? (
+                <div className="flex-grow">
+                  {editingThreadTitle === thread.id ? (
+                    <div className="flex items-center justify-between">
                       <Input
                         ref={threadTitleInputRef}
                         value={thread.title}
                         onChange={(e) =>
                           editThreadTitle(thread.id, e.target.value)
                         }
-                        className="min-font-size flex-grow h-8 p-1"
-                        onBlur={() => setEditingThreadTitle(null)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            setEditingThreadTitle(null);
-                          }
-                        }}
+                        className="min-font-size flex-grow h-8 p-1 my-1"
                         onClick={(e) => e.stopPropagation()}
+                        maxLength={64}
                       />
-                    ) : (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingThreadTitle(null);
+                        }}
+                      >
+                        <Check className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          editThreadTitle(thread.id, thread.title); // Reset to original title
+                          setEditingThreadTitle(null);
+                        }}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between">
                       <span
-                        className="pl-1"
+                        className="pl-1 flex-grow"
                         onDoubleClick={(e) => {
                           e.stopPropagation();
                           setEditingThreadTitle(thread.id);
@@ -1136,32 +1247,34 @@ export default function ThreadedDocument() {
                       >
                         {thread.title}
                       </span>
-                    )}
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleThreadPin(thread.id);
-                    }}
-                  >
-                    {thread.isPinned ? (
-                      <PinOff className="h-4 w-4" />
-                    ) : (
-                      <Pin className="h-4 w-4" />
-                    )}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      deleteThread(thread.id);
-                    }}
-                  >
-                    <Trash className="h-4 w-4" />
-                  </Button>
+                      <div className="flex items-center">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleThreadPin(thread.id);
+                          }}
+                        >
+                          {thread.isPinned ? (
+                            <PinOff className="h-4 w-4" />
+                          ) : (
+                            <Pin className="h-4 w-4" />
+                          )}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteThread(thread.id);
+                          }}
+                        >
+                          <Trash className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -1179,8 +1292,10 @@ export default function ThreadedDocument() {
         className={`flex flex-col relative sm:h-full h-[calc(97vh)] hide-scrollbar`}
       >
         <div className="top-bar bg-gradient-to-b from-background/100 to-background/00">
-          <h1 className="text-2xl font-serif font-bold pl-2">
-            {currentThreadData?.title}
+          <h1 className="text-2xl font-serif font-bold pl-2 overflow-hidden">
+            <span className="block truncate text-2xl sm:text-sm md:text-base lg:text-xl xl:text-2xl">
+              {currentThreadData?.title}
+            </span>
           </h1>
           {currentThread && (
             <Button
@@ -1262,7 +1377,7 @@ export default function ThreadedDocument() {
           </Button>
         </div>
         <ScrollArea className="flex-grow">
-          <div className="flex-grow overflow-y-auto mb-4">
+          <div className="flex-grow overflow-y-auto my-2">
             {models.map((model) => (
               <div key={model.id} className="p-2 border rounded mb-2">
                 <div className="flex justify-between items-center mb-2">
