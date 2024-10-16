@@ -590,41 +590,43 @@ export default function ThreadedDocument() {
             }
           }}
         >
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-4 h-4 p-0 min-w-4 rounded-sm hover:bg-secondary bg-background border border-border"
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleCollapse(threadId, message.id);
-            }}
-          >
-            {message.isCollapsed ? <ChevronRight /> : <ChevronDown />}
-          </Button>
-          <div className="flex-grow p-1 overflow-hidden ">
+          <div className="flex-grow p-0 overflow-hidden">
             <div className="flex flex-col">
-              <span
-                className={`font-bold ${message.publisher === "ai"
-                  ? "text-blue-800"
-                  : "text-green-800"
-                  }`}
-              >
-                {parentId === null ||
-                  message.publisher !==
-                  findMessageById(
-                    threads.find((t) => t.id === currentThread)?.messages || [],
-                    parentId
-                  )?.publisher
-                  ? message.publisher === "ai"
-                    ? message.modelName || "AI"
-                    : "User"
-                  : null}
-              </span>
+              <div className="flex items-center space-x-2 pl-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-4 h-4 p-0 min-w-4 rounded-sm hover:bg-secondary bg-background border border-border"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleCollapse(threadId, message.id);
+                  }}
+                >
+                  {message.isCollapsed ? <ChevronRight /> : <ChevronDown />}
+                </Button>
+                <span
+                  className={`font-bold ${message.publisher === "ai"
+                    ? "text-blue-800"
+                    : "text-green-800"
+                    }`}
+                >
+                  {parentId === null ||
+                    message.publisher !==
+                    findMessageById(
+                      threads.find((t) => t.id === currentThread)?.messages || [],
+                      parentId
+                    )?.publisher
+                    ? message.publisher === "ai"
+                      ? message.modelName || "AI"
+                      : "User"
+                    : null}
+                </span>
+              </div>
               {editingMessage === message.id ? (
                 <Textarea
                   value={editingContent}
                   onChange={(e) => setEditingContent(e.target.value)}
-                  className="min-font-size font-serif flex-grow mt-1 p-0"
+                  className="min-font-size font-serif flex-grow w-auto m-1 p-0"
                   style={{
                     minHeight: Math.min(
                       Math.max(
@@ -647,7 +649,7 @@ export default function ThreadedDocument() {
                 />
               ) : (
                 <div
-                  className="whitespace-normal break-words overflow-hidden mt-1"
+                  className="whitespace-normal break-words overflow-hidden pt-1 pl-1"
                   onDoubleClick={() => startEditingMessage(message)}
                 >
                   {message.isCollapsed ? (
@@ -702,7 +704,7 @@ export default function ThreadedDocument() {
               )}
             </div>
             {!message.isCollapsed && selectedMessage === message.id && (
-              <div className="mt-2 space-x-2 flex flex-wrap items-center select-none">
+              <div className="space-x-2 flex flex-wrap items-center select-none">
                 {editingMessage === message.id ? (
                   <>
                     <Button
@@ -1097,7 +1099,7 @@ export default function ThreadedDocument() {
             {sortedThreads.map((thread) => (
               <div
                 key={thread.id}
-                className={`font-serif p-2 cursor-pointer rounded mb-2 ${currentThread === thread.id
+                className={`font-serif px-1 cursor-pointer rounded mb-1 ${currentThread === thread.id
                   ? "bg-secondary"
                   : "hover:bg-secondary text-muted-foreground"
                   }`}
@@ -1216,14 +1218,14 @@ export default function ThreadedDocument() {
             <span>  Delete                ┃ Delete message</span><br />
             <span>  Shift+Delete          ┃ Delete with children</span>
           </p>
-          <div className="mt-4 text-center text-sm text-muted-foreground">
+          <div className="mt-4 text-center text-sm text-muted-foreground font-serif">
             <span>Select a thread to view messages.</span><br />
             <a href="https://github.com/yijia-z/aide" target="_blank" rel="noopener noreferrer" className="hover:underline">GitHub</a>
             <span className="mx-2">|</span>
             <a href="mailto:z@zy-j.com" className="hover:underline">Contact</a>
           </div>
         </div>
-        <div className="sm:hidden fixed bottom-20 left-0 right-0 p-4 text-center text-sm text-muted-foreground bg-background">
+        <div className="sm:hidden fixed bottom-20 left-0 right-0 p-4 text-center text-sm text-muted-foreground bg-background font-serif">
           <span>Select a thread to view messages.</span><br />
           <a href="https://github.com/yijia-z/aide" target="_blank" rel="noopener noreferrer" className="hover:underline">GitHub</a>
           <span className="mx-2">|</span>
@@ -1404,26 +1406,24 @@ export default function ThreadedDocument() {
           onValueChange={(value) =>
             setActiveTab(value as "threads" | "messages" | "models")
           }
-          className="w-full flex flex-col h-full"
+          className="w-full flex flex-col"
+          style={{ paddingTop: "env(safe-area-inset-top)" }}
         >
           <TabsContent
             value="threads"
             className="overflow-y-clip absolute top-0 left-2 right-2"
-            style={{ paddingTop: "env(safe-area-inset-top)" }}
           >
             {renderThreadsList()}
           </TabsContent>
           <TabsContent
             value="messages"
             className="overflow-y-clip absolute top-0 left-2 right-2"
-            style={{ paddingTop: "env(safe-area-inset-top)" }}
           >
             {renderMessages()}
           </TabsContent>
           <TabsContent
             value="models"
             className="overflow-y-clip absolute top-0 left-2 right-2"
-            style={{ paddingTop: "env(safe-area-inset-top)" }}
           >
             {renderModelConfig()}
           </TabsContent>

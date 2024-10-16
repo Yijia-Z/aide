@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { Viewport } from "next";
 import "./globals.css";
-import localfont from "next/font/local";
 import { ThemeProvider } from "@/components/theme-provider";
+import { Averia_Serif_Libre } from 'next/font/google';
+import localfont from "next/font/local";
 
 export const metadata: Metadata = {
   title: "Aide",
@@ -39,14 +40,10 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-const serif = localfont({
-  src: [
-    {
-      path: "../public/fonts/AnticSlab-Regular.ttf",
-      weight: "400",
-    },
-  ],
-  variable: "--font-serif",
+const serif = Averia_Serif_Libre({
+  subsets: ['latin'],
+  variable: '--font-serif',
+  weight: '300'
 });
 
 const jetBrainsMono = localfont({
@@ -58,7 +55,6 @@ const jetBrainsMono = localfont({
   ],
   variable: "--font-jetbrains-mono",
 });
-
 
 export default function RootLayout({
   children,
