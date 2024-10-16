@@ -1078,7 +1078,10 @@ export default function ThreadedDocument() {
   function renderThreadsList() {
     return (
       <div className="flex flex-col relative h-[calc(97vh)]">
-        <div className="top-bar bg-gradient-to-b from-background/100 to-background/00 select-none">
+        <div
+          className="top-bar bg-gradient-to-b from-background/100 to-background/00 select-none"
+          onClick={() => setCurrentThread(null)}
+        >
           <h2 className="text-2xl font-serif font-bold pl-2">Threads</h2>
           <Button
             className="bg-background hover:bg-secondary text-primary border border-border"
@@ -1089,7 +1092,7 @@ export default function ThreadedDocument() {
             <span className="ml-2 hidden md:inline">New Thread</span>
           </Button>
         </div>
-        <ScrollArea className="flex-grow">
+        <ScrollArea className="flex-auto" onClick={() => setCurrentThread(null)}>
           <div className="mb-4">
             {sortedThreads.map((thread) => (
               <div
@@ -1098,12 +1101,13 @@ export default function ThreadedDocument() {
                   ? "bg-secondary"
                   : "hover:bg-secondary text-muted-foreground"
                   }`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setCurrentThread(thread.id);
+                }}
               >
                 <div className="flex items-center space-x-2">
-                  <div
-                    className="flex-grow"
-                    onClick={() => setCurrentThread(thread.id)}
-                  >
+                  <div className="flex-grow">
                     {editingThreadTitle === thread.id ? (
                       <Input
                         ref={threadTitleInputRef}
@@ -1118,11 +1122,15 @@ export default function ThreadedDocument() {
                             setEditingThreadTitle(null);
                           }
                         }}
+                        onClick={(e) => e.stopPropagation()}
                       />
                     ) : (
                       <span
                         className="pl-1"
-                        onDoubleClick={() => setEditingThreadTitle(thread.id)}
+                        onDoubleClick={(e) => {
+                          e.stopPropagation();
+                          setEditingThreadTitle(thread.id);
+                        }}
                       >
                         {thread.title}
                       </span>
@@ -1131,7 +1139,10 @@ export default function ThreadedDocument() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => toggleThreadPin(thread.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleThreadPin(thread.id);
+                    }}
                   >
                     {thread.isPinned ? (
                       <PinOff className="h-4 w-4" />
@@ -1142,7 +1153,10 @@ export default function ThreadedDocument() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => deleteThread(thread.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteThread(thread.id);
+                    }}
                   >
                     <Trash className="h-4 w-4" />
                   </Button>
@@ -1191,21 +1205,30 @@ export default function ThreadedDocument() {
     ) : (
       <div className="flex items-center justify-center h-full select-none">
         <div className="hidden sm:block">
-          <p className="text-muted-foreground">
-            <span>Select a thread to view messages</span><br />
-            <span>Arrow keys to navigate messages</span><br />
-            <span>Alt+R to reply</span><br />
-            <span>Alt+G to generate AI reply</span><br />
-            <span>Insert / Double-click to edit message</span><br />
-            <span>Delete to delete message</span><br />
-            <span>Shift+Delete to delete with children</span><br />
-            <span>Enter to confirm edit</span><br />
-            <span>Escape to cancel edit</span>
+          <p className="text-sm text-muted-foreground whitespace-pre">
+            <span>  ←/→ Arrow keys        ┃ Navigate parent/children</span><br />
+            <span>  ↑/↓ Arrow keys        ┃ Navigate on same level</span><br />
+            <span>  Alt+R                 ┃ Reply</span><br />
+            <span>  Alt+G                 ┃ Generate AI reply</span><br />
+            <span>  Insert/Double-click   ┃ Edit message</span><br />
+            <span>  Enter                 ┃ Confirm edit</span><br />
+            <span>  Escape                ┃ Cancel edit</span><br />
+            <span>  Delete                ┃ Delete message</span><br />
+            <span>  Shift+Delete          ┃ Delete with children</span>
           </p>
+          <div className="mt-4 text-center text-sm text-muted-foreground">
+            <span>Select a thread to view messages.</span><br />
+            <a href="https://github.com/yijia-z/aide" target="_blank" rel="noopener noreferrer" className="hover:underline">GitHub</a>
+            <span className="mx-2">|</span>
+            <a href="mailto:z@zy-j.com" className="hover:underline">Contact</a>
+          </div>
         </div>
-        <p className="sm:hidden text-muted-foreground">
-
-        </p>
+        <div className="sm:hidden fixed bottom-20 left-0 right-0 p-4 text-center text-sm text-muted-foreground bg-background">
+          <span>Select a thread to view messages.</span><br />
+          <a href="https://github.com/yijia-z/aide" target="_blank" rel="noopener noreferrer" className="hover:underline">GitHub</a>
+          <span className="mx-2">|</span>
+          <a href="mailto:z@zy-j.com" className="hover:underline">Contact</a>
+        </div>
       </div>
     );
   }
@@ -1374,14 +1397,7 @@ export default function ThreadedDocument() {
 
   return (
     <div className="h-screen flex flex-col md:flex-row p-2 overflow-hidden ">
-      <div
-        className="sm:hidden bg-transparent"
-        style={{
-          paddingTop: "env(safe-area-inset-top)",
-          paddingLeft: "env(safe-area-inset-left)",
-          paddingRight: "env(safe-area-inset-right)",
-        }}
-      >
+      <div className="sm:hidden bg-transparent">
         {/* Mobile layout with tabs for threads, messages, and models */}
         <Tabs
           value={activeTab}
