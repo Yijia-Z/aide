@@ -66,7 +66,7 @@ export default function RootLayout({
       <head>
         <meta name="mobile-web-app-capable" content="yes" />
       </head>
-      <body className={`font-sans`}>
+      <body className={`font-sans overflow-hidden`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"
