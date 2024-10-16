@@ -1407,23 +1407,25 @@ export default function ThreadedDocument() {
             setActiveTab(value as "threads" | "messages" | "models")
           }
           className="w-full flex flex-col"
-          style={{ paddingTop: "env(safe-area-inset-top)" }}
         >
           <TabsContent
             value="threads"
-            className="overflow-y-clip absolute top-0 left-2 right-2"
+            className="overflow-y-clip fixed top-0 left-2 right-2 pb-20"
+            style={{ paddingTop: "env(safe-area-inset-top)" }}
           >
             {renderThreadsList()}
           </TabsContent>
           <TabsContent
             value="messages"
-            className="overflow-y-clip absolute top-0 left-2 right-2"
+            className="overflow-y-clip fixed top-0 left-2 right-2 pb-20"
+            style={{ paddingTop: "env(safe-area-inset-top)" }}
           >
             {renderMessages()}
           </TabsContent>
           <TabsContent
             value="models"
-            className="overflow-y-clip absolute top-0 left-2 right-2"
+            className="overflow-y-clip fixed top-0 left-2 right-2 pb-20"
+            style={{ paddingTop: "env(safe-area-inset-top)" }}
           >
             {renderModelConfig()}
           </TabsContent>

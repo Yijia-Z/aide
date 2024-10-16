@@ -105,12 +105,12 @@
 }
 
 .markdown-content p {
-  @apply mb-1;
+  @apply mb-1.5;
 }
 
 .markdown-content ul,
 .markdown-content ol {
-  @apply mb-1 pl-4;
+  @apply mb-1 pl-5;
 }
 
 .markdown-content ul {
