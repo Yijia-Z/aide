@@ -24,6 +24,7 @@ const config = {
       fontFamily: {
         sans: ["var(--font-jetbrains-mono)", "sans-serif"],
         mono: ["var(--font-jetbrains-mono)", "monospace"],
+        serif: ["var(--font-serif)", "serif"],
       },
       colors: {
         border: "hsl(var(--border))",

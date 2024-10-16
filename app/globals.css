@@ -69,7 +69,7 @@
 }
 
 .top-bar {
-  @apply flex items-center justify-between pb-10 space-x-2 absolute top-0 left-0 right-0 z-10 backdrop-blur-[1px];
+  @apply flex items-center justify-between pb-8 space-x-2 absolute top-0 left-0 right-0 z-10 backdrop-blur-[1px];
 }
 
 .min-font-size {
@@ -93,15 +93,15 @@
 }
 
 .markdown-content h1 {
-  @apply text-3xl font-bold mt-4 mb-2;
+  @apply text-2xl font-bold mt-4 mb-2;
 }
 
 .markdown-content h2 {
-  @apply text-2xl font-semibold mt-3 mb-2;
+  @apply text-xl font-semibold mt-3 mb-2;
 }
 
 .markdown-content h3 {
-  @apply text-xl font-medium mt-2 mb-1;
+  @apply text-lg font-medium mt-2 mb-1;
 }
 
 .markdown-content p {
@@ -110,7 +110,7 @@
 
 .markdown-content ul,
 .markdown-content ol {
-  @apply mb-1 pl-6;
+  @apply mb-1 pl-4;
 }
 
 .markdown-content ul {

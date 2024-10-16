@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { Viewport } from "next";
 import "./globals.css";
-import localfont from "next/font/local";
 import { ThemeProvider } from "@/components/theme-provider";
+import { Averia_Serif_Libre } from 'next/font/google';
+import localfont from "next/font/local";
 
 export const metadata: Metadata = {
   title: "Aide",
@@ -39,6 +40,12 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
+const serif = Averia_Serif_Libre({
+  subsets: ['latin'],
+  variable: '--font-serif',
+  weight: '300'
+});
+
 const jetBrainsMono = localfont({
   src: [
     {
@@ -55,7 +62,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${jetBrainsMono.variable}`}>
+    <html lang="en" className={`${jetBrainsMono.variable} ${serif.variable}`}>
       <head>
         <meta name="mobile-web-app-capable" content="yes" />
       </head>
