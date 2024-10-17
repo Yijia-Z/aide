@@ -534,17 +534,15 @@ export default function ThreadedDocument() {
         isCollapsed: false,
       });
 
-      setTimeout(() => {
-        const newMessageElement = document.getElementById(
-          `message-${newMessageId}`
-        );
-        if (newMessageElement) {
-          newMessageElement.scrollIntoView({
-            behavior: "smooth",
-            block: "end",
-          });
-        }
-      }, 100);
+      const newMessageElement = document.getElementById(
+        `message-${newMessageId}`
+      );
+      if (newMessageElement) {
+        newMessageElement.scrollIntoView({
+          behavior: "smooth",
+          block: "end",
+        });
+      }
     },
     [addMessage, startEditingMessage]
   );
