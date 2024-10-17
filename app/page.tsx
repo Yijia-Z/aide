@@ -27,6 +27,7 @@ import {
   Pin,
   PinOff,
   Sparkle,
+  Copy,
 } from "lucide-react";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -628,7 +629,7 @@ export default function ThreadedDocument() {
         >
           <div className="flex-grow p-0 overflow-hidden">
             <div className="flex flex-col">
-              <div className="flex items-center justify-between pl-1">
+              <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <Button
                     variant="ghost"
@@ -771,16 +772,30 @@ export default function ThreadedDocument() {
                               className || ""
                             );
                             return !inline && match ? (
-                              <SyntaxHighlighter
-                                PreTag={'pre'}
-                                style={gruvboxDark}
-                                language={match[1]}
-                                showLineNumbers
-                                wrapLines
-                                {...props}
-                              >
-                                {String(children).replace(/\n$/, "")}
-                              </SyntaxHighlighter>
+                              <div className="relative">
+                                <div className="absolute -top-6 w-full text-muted-foreground flex justify-between items-center p-0 text-xs">
+                                  <span>{match[1]}</span>
+                                  <Button
+                                    className="w-6 h-6 p-0"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => navigator.clipboard.writeText(String(children).replace(/\n$/, ""))}
+                                  >
+                                    <Copy className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                                <SyntaxHighlighter
+                                  className='text-xs'
+                                  PreTag={'pre'}
+                                  style={gruvboxDark}
+                                  language={match[1]}
+                                  // showLineNumbers
+                                  wrapLines
+                                  {...props}
+                                >
+                                  {String(children).replace(/\n$/, "")}
+                                </SyntaxHighlighter>
+                              </div>
                             ) : (
                               <code className={className} {...props}>
                                 {children}
@@ -1220,6 +1235,7 @@ export default function ThreadedDocument() {
                         onClick={(e) => {
                           e.stopPropagation();
                           setEditingThreadTitle(null);
+                          setCurrentThread(thread.id);
                         }}
                       >
                         <Check className="h-4 w-4" />

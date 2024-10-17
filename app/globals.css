@@ -138,7 +138,7 @@
 }
 
 .markdown-content pre {
-  @apply bg-transparent rounded overflow-auto;
+  @apply bg-transparent rounded overflow-auto pt-6;
 }
 
 .markdown-content pre code {
