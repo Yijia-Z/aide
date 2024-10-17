@@ -69,7 +69,7 @@
 }
 
 .top-bar {
-  @apply flex items-center justify-between pb-8 space-x-2 absolute top-0 left-0 right-0 z-10 backdrop-blur-[1px];
+  @apply flex items-center justify-between pb-4 space-x-2 absolute top-0 left-0 right-0 z-10;
 }
 
 .min-font-size {

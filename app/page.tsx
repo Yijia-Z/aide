@@ -1386,7 +1386,10 @@ export default function ThreadedDocument() {
   function renderThreadsList() {
     return (
       <div className="flex flex-col relative h-[calc(97vh)]">
-        <div className="top-bar bg-gradient-to-b from-background/100 to-background/00 select-none">
+        <div className="top-bar bg-gradient-to-b from-background/100 to-background/00 select-none" style={{
+          mask: 'linear-gradient(black, black, transparent)',
+          backdropFilter: 'blur(1px)'
+        }}>
           <h2 className="text-2xl font-serif font-bold pl-2">Threads</h2>
           <Button
             className="bg-background hover:bg-secondary text-primary border border-border"
@@ -1514,7 +1517,10 @@ export default function ThreadedDocument() {
       <div
         className={`flex flex-col relative sm:h-full h-[calc(97vh)] hide-scrollbar`}
       >
-        <div className="top-bar bg-gradient-to-b from-background/100 to-background/00">
+        <div className="top-bar bg-gradient-to-b from-background/100 to-background/00" style={{
+          mask: 'linear-gradient(black, black, transparent)',
+          backdropFilter: 'blur(1px)'
+        }}>
           <h1 className="text-2xl font-serif font-bold pl-2 overflow-hidden">
             <span className="block truncate text-2xl sm:text-sm md:text-base lg:text-xl xl:text-2xl">
               {currentThreadData?.title}
@@ -1577,7 +1583,11 @@ export default function ThreadedDocument() {
   function renderModelConfig() {
     return (
       <div className="flex flex-col relative h-[calc(97vh)] overflow-clip select-none">
-        <div className="top-bar bg-gradient-to-b from-background/100 to-background/00">
+        <div className="top-bar bg-gradient-to-b from-background/100 to-background/00"
+          style={{
+            mask: 'linear-gradient(black, black, transparent)',
+            backdropFilter: 'blur(1px)'
+          }}>
           <Select value={selectedModel} onValueChange={setSelectedModel}>
             <SelectTrigger>
               <SelectValue placeholder="Select a model" />
@@ -1769,8 +1779,8 @@ export default function ThreadedDocument() {
           </TabsContent>
           <TabsList
             className="grid 
-            bg-background/30 
-            backdrop-blur-[5px] 
+            bg-background/50 
+            backdrop-blur-[3px] 
             w-full 
             fixed 
             bottom-0 
