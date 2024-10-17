@@ -4,6 +4,8 @@ from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.responses import StreamingResponse
+
 import sglang as sgl
 from dotenv import load_dotenv
 import traceback
@@ -173,7 +175,7 @@ async def chat(request: ChatRequest, req: Request):
         logger.info(body.decode('utf-8'))
 
         logger.info("recv req:")
-        logger.info(request.json())
+        logger.info(request.model_dump_json())
 
         logger.info(f"Received model ID from req: {request.configuration.model}")
         logger.info(f"Available models those def above: {list(models.keys())}")
@@ -182,26 +184,29 @@ async def chat(request: ChatRequest, req: Request):
             logger.error("Invalid model ID received.")
             raise HTTPException(status_code=400, detail="Invalid model ID")
 
-        response = multi_turn_question.run(
-            request.messages,
-            request.configuration.model,
-            request.configuration.max_tokens,
-            request.configuration.temperature
-        )
+        async def generate_response():
+            state = multi_turn_question.run(
+                request.messages,
+                request.configuration.model,
+                request.configuration.max_tokens,
+                request.configuration.temperature,
+                stream=True
+            )
 
-        # print resp
-        logger.info("resp:")
-        logger.info(response["response"])
+            async for chunk in state.text_async_iter(var_name="response"):
+                yield f"data: {chunk}\n\n"
 
-        return ChatResponse(response=response["response"])
+            yield "data: [DONE]\n\n"
+
+        return StreamingResponse(generate_response(), media_type="text/event-stream")
 
     except HTTPException as he:
         logger.error(f"HTTPException: {he.detail}")
         raise he
     except Exception as e:
-        logger.error(f"error msg：{str(e)}")
-        traceback.print_exc()  # print all
-        raise HTTPException(status_code=500, detail="error from backend")
+        logger.error(f"Error message: {str(e)}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail="Error from backend")
 
 # run backend
 if __name__ == "__main__":
