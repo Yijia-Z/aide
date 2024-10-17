@@ -179,6 +179,7 @@ export default function ThreadedDocument() {
   const [threads, setThreads] = useState<Thread[]>([]);
   const [currentThread, setCurrentThread] = useState<string | null>(null);
   const [editingThreadTitle, setEditingThreadTitle] = useState<string | null>(null);
+  const [originalThreadTitle, setOriginalThreadTitle] = useState<string>("");
   const threadTitleInputRef = useRef<HTMLInputElement>(null);
 
   const [selectedMessage, setSelectedMessage] = useState<string | null>(null);
@@ -267,9 +268,10 @@ export default function ThreadedDocument() {
       messages: [],
       isPinned: false,
     };
-    setThreads((prev: any) => [...prev, newThread]);
+    setThreads((prev: Thread[]) => [...prev, newThread]);
     setCurrentThread(newThread.id);
     setEditingThreadTitle(newThread.id);
+    setOriginalThreadTitle("New Thread");
   }, []);
 
   // Edit thread title
@@ -1032,6 +1034,7 @@ export default function ThreadedDocument() {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (editingThreadTitle) return; // Prevent hotkeys when editing thread title
       if (!selectedMessage || !currentThread) return;
 
       const currentThreadData = threads.find((t) => t.id === currentThread);
@@ -1168,6 +1171,7 @@ export default function ThreadedDocument() {
     selectedMessage,
     editingMessage,
     currentThread,
+    editingThreadTitle,
     threads,
     generateAIReply,
     addEmptyReply,
@@ -1188,10 +1192,7 @@ export default function ThreadedDocument() {
   function renderThreadsList() {
     return (
       <div className="flex flex-col relative h-[calc(97vh)]">
-        <div
-          className="top-bar bg-gradient-to-b from-background/100 to-background/00 select-none"
-          onClick={() => setCurrentThread(null)}
-        >
+        <div className="top-bar bg-gradient-to-b from-background/100 to-background/00 select-none">
           <h2 className="text-2xl font-serif font-bold pl-2">Threads</h2>
           <Button
             className="bg-background hover:bg-secondary text-primary border border-border"
@@ -1202,7 +1203,13 @@ export default function ThreadedDocument() {
             <span className="ml-2 hidden md:inline">New Thread</span>
           </Button>
         </div>
-        <ScrollArea className="flex-auto" onClick={() => setCurrentThread(null)}>
+        <ScrollArea className="flex-auto" onClick={() => {
+          setCurrentThread(null);
+          if (editingThreadTitle) {
+            editThreadTitle(editingThreadTitle, originalThreadTitle);
+            setEditingThreadTitle(null);
+          }
+        }}>
           <div className="my-2">
             {sortedThreads.map((thread) => (
               <div
@@ -1228,6 +1235,12 @@ export default function ThreadedDocument() {
                         className="min-font-size flex-grow h-8 p-1 my-1"
                         onClick={(e) => e.stopPropagation()}
                         maxLength={64}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            setEditingThreadTitle(null);
+                          }
+                        }}
                       />
                       <Button
                         size="sm"
@@ -1245,7 +1258,7 @@ export default function ThreadedDocument() {
                         variant="ghost"
                         onClick={(e) => {
                           e.stopPropagation();
-                          editThreadTitle(thread.id, thread.title); // Reset to original title
+                          editThreadTitle(thread.id, originalThreadTitle);
                           setEditingThreadTitle(null);
                         }}
                       >
@@ -1253,14 +1266,14 @@ export default function ThreadedDocument() {
                       </Button>
                     </div>
                   ) : (
-                    <div className="flex items-center justify-between">
-                      <span
-                        className="pl-1 flex-grow"
-                        onDoubleClick={(e) => {
-                          e.stopPropagation();
-                          setEditingThreadTitle(thread.id);
-                        }}
-                      >
+                    <div
+                      className="flex items-center justify-between"
+                      onDoubleClick={(e) => {
+                        e.stopPropagation();
+                        setEditingThreadTitle(thread.id);
+                      }}
+                    >
+                      <span className="pl-1 flex-grow">
                         {thread.title}
                       </span>
                       <div className="flex items-center">
