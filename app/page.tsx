@@ -1034,7 +1034,7 @@ export default function ThreadedDocument() {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (editingThreadTitle) return; // Prevent hotkeys when editing thread title
+      if (editingThreadTitle || editingModel) return;
       if (!selectedMessage || !currentThread) return;
 
       const currentThreadData = threads.find((t) => t.id === currentThread);
