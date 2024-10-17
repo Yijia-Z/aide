@@ -148,7 +148,6 @@ async function generateAIResponse(
 
 export default function ThreadedDocument() {
   const [activeTab, setActiveTab] = useState<"threads" | "messages" | "models">("messages");
-  const [comboBoxOpen, setComboBoxOpen] = useState(false);
 
   const [threads, setThreads] = useState<Thread[]>([]);
   const [currentThread, setCurrentThread] = useState<string | null>(null);
@@ -1126,7 +1125,12 @@ export default function ThreadedDocument() {
                       }
                     /> */}
                     {editingModel && (
-                      <SelectModel />
+                      <SelectModel
+                        value={editingModel.baseModel}
+                        onValueChange={(value: string) =>
+                          handleModelChange("baseModel", value)
+                        }
+                      />
                     )}
                     
                     

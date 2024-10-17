@@ -19,11 +19,13 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 
+
+// @Yijia should we keep the models here or in the parent component?
 const models = [
   {
     id: "1",
     name: "Default Model",
-    baseModel: "gpt-4o-mini-test",
+    baseModel: "gpt-4o-mini",
     systemPrompt: "You are a helpful assistant.",
     temperature: 0.7,
     maxTokens: 512,
@@ -38,20 +40,13 @@ const models = [
   }
 ]
 
-interface Model {
-  id: string;
-  name: string;
-  baseModel: string;
-  systemPrompt: string;
-  temperature: number;
-  maxTokens: number;
+interface SelectModelProps {
+  value: string;
+  onValueChange: (value: string) => void;
 }
 
-
-
-export function SelectModel() {
-  const [open, setOpen] = React.useState(false)
-  const [value, setValue] = React.useState("")
+export function SelectModel({ value, onValueChange }: SelectModelProps) {
+  const [open, setOpen] = React.useState(false);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -60,7 +55,7 @@ export function SelectModel() {
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-[200px] justify-between"
+          className="w-full justify-between"
         >
           {value
             ? models.find((model) => model.baseModel === value)?.baseModel
@@ -68,7 +63,7 @@ export function SelectModel() {
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[200px] p-0">
+      <PopoverContent className="w-full p-0">
         <Command>
           <CommandInput placeholder="Search model..." />
           <CommandList>
@@ -79,14 +74,14 @@ export function SelectModel() {
                   key={model.baseModel}
                   value={model.baseModel}
                   onSelect={(currentValue) => {
-                    setValue(currentValue === value ? "" : currentValue)
-                    setOpen(false)
+                    onValueChange(currentValue);
+                    setOpen(false);
                   }}
                 >
                   <Check
                     className={cn(
                       "mr-2 h-4 w-4",
-                      value === model.id ? "opacity-100" : "opacity-0"
+                      value === model.baseModel ? "opacity-100" : "opacity-0"
                     )}
                   />
                   {model.baseModel}
@@ -97,5 +92,5 @@ export function SelectModel() {
         </Command>
       </PopoverContent>
     </Popover>
-  )
+  );
 }
