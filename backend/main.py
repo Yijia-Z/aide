@@ -11,6 +11,8 @@ from dotenv import load_dotenv
 import traceback
 import logging
 from pathlib import Path
+from typing import Dict
+import json
 # log
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -27,6 +29,10 @@ if not dotenv_path.exists():
 
 load_dotenv(dotenv_path=dotenv_path)
 
+data_folder = parent_dir / 'data'
+if not data_folder.exists():
+    data_folder.mkdir()
+    logger.info(f"创建 data 文件夹：{data_folder}")
 app = FastAPI()
 origins = os.getenv("ALLOWED_ORIGINS", "")
 allowed_origins = [origin.strip() for origin in origins.split(",") if origin.strip()]
@@ -85,7 +91,9 @@ class Configuration(BaseModel):
 class ChatRequest(BaseModel):
     messages: List[Message]  
     configuration: Configuration  
-
+class ThreadData(BaseModel):
+    threadId: str
+    thread: Dict
 # resp model
 class ChatResponse(BaseModel):
     response: str
@@ -114,6 +122,54 @@ async def connect():
     logger.info("connected!。")
     return JSONResponse(content={"message": "successful"}, status_code=200)
 
+@app.post("/api/save_thread")
+async def save_thread(thread_data: ThreadData):
+    try:
+        thread_id = thread_data.threadId
+        thread = thread_data.thread
+
+        thread_file = data_folder / f"{thread_id}.json"
+        with thread_file.open("w", encoding="utf-8") as f:
+            json.dump(thread, f, ensure_ascii=False, indent=4)
+        logger.info(f"成功保存线程 {thread_id} 数据。")
+        return {"status": "success"}
+    except Exception as e:
+        logger.error(f"保存线程数据失败: {str(e)}")
+        raise HTTPException(status_code=500, detail="保存线程数据失败")
+
+# load threads
+@app.get("/api/load_threads")
+async def load_threads():
+    try:
+        threads = []
+        for thread_file in data_folder.glob("*.json"):
+        
+            if thread_file.name == "models.json":
+                continue
+            with thread_file.open("r", encoding="utf-8") as f:
+                thread = json.load(f)
+                threads.append(thread)
+        logger.info(f"成功加载 {len(threads)} 个线程。")
+        return {"threads": threads}
+    except Exception as e:
+        logger.error(f"加载线程数据失败: {str(e)}")
+        raise HTTPException(status_code=500, detail="加载线程数据失败")
+    
+@app.delete("/api/delete_thread/{thread_id}")
+async def delete_thread(thread_id: str):
+    try:
+        thread_file = data_folder / f"{thread_id}.json"
+        if thread_file.exists():
+            thread_file.unlink()
+            logger.info(f"成功删除线程 {thread_id} 数据。")
+            return {"status": "success", "message": f"线程 {thread_id} 已删除"}
+        else:
+            logger.error(f"线程 {thread_id} 不存在。")
+            raise HTTPException(status_code=404, detail="线程不存在")
+    except Exception as e:
+        logger.error(f"删除线程数据失败: {str(e)}")
+        raise HTTPException(status_code=500, detail="删除线程数据失败")
+    
 @app.get("/api/models", response_model=List[Configuration])
 async def get_models():
     logger.info("backend:get modellist。")
@@ -167,9 +223,11 @@ async def chat(request: ChatRequest, req: Request):
         traceback.print_exc()
         raise HTTPException(status_code=500, detail="Error from backend")
 
-# 启动服务器
+# run backend
 if __name__ == "__main__":
     logger.info("start FastAPI server...")
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
     logger.info("Loaded API Key:", openai_api_key)
+    print("Allowed origins:", allowed_origins)
+

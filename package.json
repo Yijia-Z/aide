@@ -28,6 +28,7 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.0.0",
     "file-saver": "^2.0.5",
+    "lodash.debounce": "^4.0.8",
     "lucide-react": "^0.378.0",
     "next": "^14.2.15",
     "next-themes": "^0.3.0",
@@ -50,6 +51,7 @@
   },
   "devDependencies": {
     "@types/file-saver": "^2.0.7",
+    "@types/lodash.debounce": "^4.0.9",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-beautiful-dnd": "^13.1.8",

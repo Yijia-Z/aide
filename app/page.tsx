@@ -8,6 +8,7 @@ import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { gruvboxDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 
 import { cn } from "@/lib/utils";
+import debounce from "lodash.debounce";
 
 import {
   ArrowUp,
@@ -200,7 +201,7 @@ export default function ThreadedDocument() {
   ]);
   const [selectedModel, setSelectedModel] = useState<string>(models[0].id);
   const [editingModel, setEditingModel] = useState<Model | null>(null);
-
+  const [lastAttemptTime, setLastAttemptTime] = useState<number | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
 
@@ -240,28 +241,102 @@ export default function ThreadedDocument() {
   useEffect(() => {
     const connectToBackend = async () => {
       try {
-        const response = await fetch(
-          isConnected ? `${apiBaseUrl}/api/connect` : "/api/connect",
-          { method: "GET" }
-        );
+        const response = await fetch(`${apiBaseUrl}/api/connect`, {
+          method: "GET",
+        });
         if (response.ok) {
           console.log("Connected to backend!");
           setIsConnected(true);
         } else {
           console.error("Failed to connect to backend.");
-          setIsConnected(false);
         }
       } catch (error) {
         console.error("Error connecting to backend:", error);
-        setIsConnected(false);
+      } finally {
+        setLastAttemptTime(Date.now());
       }
     };
 
-    connectToBackend();
-  }, [isConnected]);
+    if (!isConnected && (!lastAttemptTime || Date.now() - lastAttemptTime >= 5000)) {
+      connectToBackend();
+    }
 
-  // Add a new thread
-  const addThread = useCallback(() => {
+    const intervalId = setInterval(() => {
+      if (!isConnected) {
+        connectToBackend();
+      }
+    }, 5000);
+
+    return () => clearInterval(intervalId);
+  }, [isConnected, lastAttemptTime]);
+
+  const debouncedSaveThreads = useCallback(
+    debounce(async (threadsToSave: Thread[]) => {
+      try {
+        const savePromises = threadsToSave.map((thread: Thread) =>
+          fetch(
+            apiBaseUrl ? `${apiBaseUrl}/api/save_thread` : "/api/save_thread",
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ threadId: thread.id, thread }),
+            }
+          ).then((response) => {
+            if (!response.ok) {
+              throw new Error(`Failed to save thread ${thread.id}`);
+            }
+            return response.json();
+          })
+        );
+
+        const results = await Promise.all(savePromises);
+        console.log("All threads have been successfully saved to the backend.", results);
+      } catch (error) {
+        console.error("Failed to save threads:", error);
+      }
+    }, 2000)// 2 seconds
+    , [apiBaseUrl]);
+
+  //load thread
+  useEffect(() => {
+    const loadThreads = async () => {
+      try {
+        const response = await fetch(
+          apiBaseUrl ? `${apiBaseUrl}/api/load_threads` : "/api/load_threads",
+          {
+            method: "GET",
+          }
+        );
+        if (response.ok) {
+          const data = await response.json();
+          const loadedThreads: Thread[] = data.threads.map((t: any) => ({
+            id: t.threadId,
+            title: t.thread.title,
+            messages: t.thread.messages,
+            isPinned: t.thread.isPinned,
+          }));
+          setThreads(loadedThreads || []);
+          console.log(`Successfully loaded ${loadedThreads.length} threads.`);
+        } else {
+          throw new Error("Failed to load thread data");
+        }
+      } catch (error) {
+        console.error("Load failed:", error);
+      }
+    };
+
+    loadThreads();
+  }, []);
+
+  useEffect(() => {
+    debouncedSaveThreads(threads);
+
+
+    return debouncedSaveThreads.cancel;
+  }, [threads, debouncedSaveThreads]);
+
+  // add new thread
+  const addThread = useCallback(async () => {
     const newThread: Thread = {
       id: Date.now().toString(),
       title: "New Thread",
@@ -281,8 +356,26 @@ export default function ThreadedDocument() {
         thread.id === threadId ? { ...thread, title: newTitle } : thread
       )
     );
+    saveThreadToBackend(threadId, { title: newTitle });
   }, []);
 
+  const saveThreadToBackend = async (threadId: string, updatedData: Partial<Thread>) => {
+    try {
+      const response = await fetch(
+        apiBaseUrl ? `${apiBaseUrl}/api/save_thread` : "/api/save_thread",
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ threadId, ...updatedData }),
+        }
+      );
+      if (!response.ok) {
+        throw new Error(`editthread ${threadId} fail`);
+      }
+    } catch (error) {
+      console.error(`update ${threadId} datafail:`, error);
+    }
+  };
   // Add a new message to a thread
   const addMessage = useCallback(
     (
@@ -467,6 +560,87 @@ export default function ThreadedDocument() {
     },
     []
   );
+
+  useEffect(() => {
+    const loadThreads = async () => {
+      try {
+        const response = await fetch(
+          apiBaseUrl ? `${apiBaseUrl}/api/load_threads` : "/api/load_threads",
+          {
+            method: "GET",
+          }
+        );
+        if (response.ok) {
+          const data = await response.json();
+          setThreads(data.threads || []);
+        }
+      } catch (error) {
+        console.error("Failed to load thread data:", error);
+      }
+    };
+
+    const loadModels = async () => {
+      try {
+        const response = await fetch(
+          apiBaseUrl ? `${apiBaseUrl}/api/load_models` : "/api/load_models",
+          {
+            method: "GET",
+          }
+        );
+        if (response.ok) {
+          const data = await response.json();
+          setModels(data.models || []);
+        }
+      } catch (error) {
+        console.error("Failed to load model data:", error);
+      }
+    };
+
+    loadThreads();
+    loadModels();
+  }, []);
+
+  // Save thread data
+  useEffect(() => {
+    const saveThread = async (thread: Thread) => {
+      try {
+        await fetch(
+          apiBaseUrl ? `${apiBaseUrl}/api/save_thread` : "/api/save_thread",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ threadId: thread.id, thread }),
+          }
+        );
+      } catch (error) {
+        console.error(`Failed to save thread ${thread.id} data:`, error);
+      }
+    };
+
+    threads.forEach((thread) => {
+      saveThread(thread);
+    });
+  }, [threads]);
+
+  // Save model data
+  useEffect(() => {
+    const saveModels = async () => {
+      try {
+        await fetch(
+          apiBaseUrl ? `${apiBaseUrl}/api/save_models` : "/api/save_models",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ models }),
+          }
+        );
+      } catch (error) {
+        console.error("Failed to save model data:", error);
+      }
+    };
+
+    saveModels();
+  }, [models]);
 
   // Update message content
   const updateMessageContent = useCallback(
@@ -1022,12 +1196,30 @@ export default function ThreadedDocument() {
       setThreads((prev: Thread[]) => {
         const updatedThreads = prev.filter((thread) => thread.id !== threadId);
         if (currentThread === threadId) {
-          setCurrentThread(
-            updatedThreads.length > 0 ? updatedThreads[0].id : null
-          );
+          setCurrentThread(updatedThreads.length > 0 ? updatedThreads[0].id : null);
         }
         return updatedThreads;
       });
+
+      const deleteThreadFromBackend = async () => {
+        try {
+          const response = await fetch(
+            apiBaseUrl ? `${apiBaseUrl}/api/delete_thread/${threadId}` : `/api/delete_thread/${threadId}`,
+            {
+              method: "DELETE",
+              headers: { "Content-Type": "application/json" },
+            }
+          );
+          if (!response.ok) {
+            throw new Error(`Failed to delete thread ${threadId}`);
+          }
+          console.log(`Thread ${threadId} has been successfully deleted.`);
+        } catch (error) {
+          console.error(`Failed to delete thread ${threadId} data:`, error);
+        }
+      };
+
+      deleteThreadFromBackend();
     },
     [currentThread]
   );
@@ -1189,6 +1381,7 @@ export default function ThreadedDocument() {
       return 0;
     }
   );
+
   // Render the list of threads
   function renderThreadsList() {
     return (
