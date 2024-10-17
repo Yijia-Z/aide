@@ -293,13 +293,13 @@ export default function ThreadedDocument() {
         console.log("所有线程已成功保存到后端。", results);
       } catch (error) {
         console.error("保存线程失败:", error);
-        // 可选：在此处添加用户通知，例如使用 toast 弹出错误信息
+       
       }
-    }, 2000), // 延迟2秒
+    }, 2000), // 2secs re
     [apiBaseUrl]
   );
 
-  // 加载数据
+  //load thread
   useEffect(() => {
     const loadThreads = async () => {
       try {
@@ -323,22 +323,22 @@ export default function ThreadedDocument() {
           throw new Error("加载线程数据失败");
         }
       } catch (error) {
-        console.error("加载线程数据失败:", error);
+        console.error("load failed:", error);
       }
     };
 
     loadThreads();
   }, [apiBaseUrl]);
 
-  // 保存线程数据，当 threads 变化时触发
+ 
   useEffect(() => {
     debouncedSaveThreads(threads);
 
-    // 清理防抖函数
+    
     return debouncedSaveThreads.cancel;
   }, [threads, debouncedSaveThreads]);
 
-  // 添加一个新的线程
+  // add new thread
   const addThread = useCallback(async () => {
     const newThread: Thread = {
       id: Date.now().toString(),
@@ -359,8 +359,26 @@ export default function ThreadedDocument() {
         thread.id === threadId ? { ...thread, title: newTitle } : thread
       )
     );
+    saveThreadToBackend(threadId, { title: newTitle });
   }, []);
 
+  const saveThreadToBackend = async (threadId: string, updatedData: Partial<Thread>) => {
+    try {
+      const response = await fetch(
+        apiBaseUrl ? `${apiBaseUrl}/api/save_thread` : "/api/save_thread",
+        {
+          method: "PUT", 
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ threadId, ...updatedData }),
+        }
+      );
+      if (!response.ok) {
+        throw new Error(`editthread ${threadId} fail`);
+      }
+    } catch (error) {
+      console.error(`update ${threadId} datafail:`, error);
+    }
+  };
   // Add a new message to a thread
   const addMessage = useCallback(
     (
@@ -1180,16 +1198,34 @@ export default function ThreadedDocument() {
       setThreads((prev: Thread[]) => {
         const updatedThreads = prev.filter((thread) => thread.id !== threadId);
         if (currentThread === threadId) {
-          setCurrentThread(
-            updatedThreads.length > 0 ? updatedThreads[0].id : null
-          );
+          setCurrentThread(updatedThreads.length > 0 ? updatedThreads[0].id : null);
         }
         return updatedThreads;
       });
+  
+      const deleteThreadFromBackend = async () => {
+        try {
+          const response = await fetch(
+            apiBaseUrl ? `${apiBaseUrl}/api/delete_thread/${threadId}` : `/api/delete_thread/${threadId}`,
+            {
+              method: "DELETE",
+              headers: { "Content-Type": "application/json" },
+            }
+          );
+          if (!response.ok) {
+            throw new Error(`删除线程 ${threadId} 失败`);
+          }
+          console.log(`线程 ${threadId} 已成功删除。`);
+        } catch (error) {
+          console.error(`删除线程 ${threadId} 数据失败:`, error);
+        }
+      };
+  
+      deleteThreadFromBackend();
     },
-    [currentThread]
+    [currentThread, threads, apiBaseUrl]
   );
-
+  
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (editingThreadTitle || editingModel) return;
@@ -1350,13 +1386,8 @@ export default function ThreadedDocument() {
   function renderThreadsList() {
     return (
       <div className="flex flex-col relative h-[calc(97vh)]">
-<<<<<<< HEAD
-        <div className="flex items-center justify-between pb-10 space-x-2 absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-background/100 to-background/00 backdrop-blur-[1px]">
-          <h2 className="text-2xl font-bold pl-2">Threads</h2>
-=======
         <div className="top-bar bg-gradient-to-b from-background/100 to-background/00 select-none">
           <h2 className="text-2xl font-serif font-bold pl-2">Threads</h2>
->>>>>>> b91b80b1538bd5d05b46938d84367f948052902d
           <Button
             className="bg-background hover:bg-secondary text-primary border border-border"
             size="default"

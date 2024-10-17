@@ -155,6 +155,21 @@ async def load_threads():
         logger.error(f"加载线程数据失败: {str(e)}")
         raise HTTPException(status_code=500, detail="加载线程数据失败")
     
+@app.delete("/api/delete_thread/{thread_id}")
+async def delete_thread(thread_id: str):
+    try:
+        thread_file = data_folder / f"{thread_id}.json"
+        if thread_file.exists():
+            thread_file.unlink()
+            logger.info(f"成功删除线程 {thread_id} 数据。")
+            return {"status": "success", "message": f"线程 {thread_id} 已删除"}
+        else:
+            logger.error(f"线程 {thread_id} 不存在。")
+            raise HTTPException(status_code=404, detail="线程不存在")
+    except Exception as e:
+        logger.error(f"删除线程数据失败: {str(e)}")
+        raise HTTPException(status_code=500, detail="删除线程数据失败")
+    
 @app.get("/api/models", response_model=List[Configuration])
 async def get_models():
     logger.info("backend:get modellist。")
