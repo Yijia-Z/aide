@@ -3,3 +3,4 @@ uvicorn
 sglang
 openai
 python-dotenv
+tiktoken
