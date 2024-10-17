@@ -268,7 +268,7 @@ export default function ThreadedDocument() {
     }, 5000);
 
     return () => clearInterval(intervalId);
-  }, [isConnected, lastAttemptTime, apiBaseUrl]);
+  }, [isConnected, lastAttemptTime]);
 
   const debouncedSaveThreads = useCallback(
     debounce(async (threadsToSave: Thread[]) => {
@@ -283,21 +283,19 @@ export default function ThreadedDocument() {
             }
           ).then((response) => {
             if (!response.ok) {
-              throw new Error(`保存线程 ${thread.id} 失败`);
+              throw new Error(`Failed to save thread ${thread.id}`);
             }
             return response.json();
           })
         );
 
         const results = await Promise.all(savePromises);
-        console.log("所有线程已成功保存到后端。", results);
+        console.log("All threads have been successfully saved to the backend.", results);
       } catch (error) {
-        console.error("保存线程失败:", error);
-
+        console.error("Failed to save threads:", error);
       }
-    }, 2000), // 2secs re
-    [apiBaseUrl]
-  );
+    }, 2000)// 2 seconds
+    , [apiBaseUrl]);
 
   //load thread
   useEffect(() => {
@@ -318,18 +316,17 @@ export default function ThreadedDocument() {
             isPinned: t.thread.isPinned,
           }));
           setThreads(loadedThreads || []);
-          console.log(`成功加载 ${loadedThreads.length} 个线程。`);
+          console.log(`Successfully loaded ${loadedThreads.length} threads.`);
         } else {
-          throw new Error("加载线程数据失败");
+          throw new Error("Failed to load thread data");
         }
       } catch (error) {
-        console.error("load failed:", error);
+        console.error("Load failed:", error);
       }
     };
 
     loadThreads();
-  }, [apiBaseUrl]);
-
+  }, []);
 
   useEffect(() => {
     debouncedSaveThreads(threads);
@@ -563,6 +560,7 @@ export default function ThreadedDocument() {
     },
     []
   );
+
   useEffect(() => {
     const loadThreads = async () => {
       try {
@@ -577,7 +575,7 @@ export default function ThreadedDocument() {
           setThreads(data.threads || []);
         }
       } catch (error) {
-        console.error("加载线程数据失败:", error);
+        console.error("Failed to load thread data:", error);
       }
     };
 
@@ -594,7 +592,7 @@ export default function ThreadedDocument() {
           setModels(data.models || []);
         }
       } catch (error) {
-        console.error("加载模型数据失败:", error);
+        console.error("Failed to load model data:", error);
       }
     };
 
@@ -602,7 +600,7 @@ export default function ThreadedDocument() {
     loadModels();
   }, []);
 
-  // 保存线程数据
+  // Save thread data
   useEffect(() => {
     const saveThread = async (thread: Thread) => {
       try {
@@ -615,7 +613,7 @@ export default function ThreadedDocument() {
           }
         );
       } catch (error) {
-        console.error(`保存线程 ${thread.id} 数据失败:`, error);
+        console.error(`Failed to save thread ${thread.id} data:`, error);
       }
     };
 
@@ -624,7 +622,7 @@ export default function ThreadedDocument() {
     });
   }, [threads]);
 
-  // 保存模型数据
+  // Save model data
   useEffect(() => {
     const saveModels = async () => {
       try {
@@ -637,7 +635,7 @@ export default function ThreadedDocument() {
           }
         );
       } catch (error) {
-        console.error("保存模型数据失败:", error);
+        console.error("Failed to save model data:", error);
       }
     };
 
@@ -1213,17 +1211,17 @@ export default function ThreadedDocument() {
             }
           );
           if (!response.ok) {
-            throw new Error(`删除线程 ${threadId} 失败`);
+            throw new Error(`Failed to delete thread ${threadId}`);
           }
-          console.log(`线程 ${threadId} 已成功删除。`);
+          console.log(`Thread ${threadId} has been successfully deleted.`);
         } catch (error) {
-          console.error(`删除线程 ${threadId} 数据失败:`, error);
+          console.error(`Failed to delete thread ${threadId} data:`, error);
         }
       };
 
       deleteThreadFromBackend();
     },
-    [currentThread, threads, apiBaseUrl]
+    [currentThread]
   );
 
   useEffect(() => {
@@ -1383,6 +1381,7 @@ export default function ThreadedDocument() {
       return 0;
     }
   );
+
   // Render the list of threads
   function renderThreadsList() {
     return (
