@@ -135,7 +135,7 @@ async function generateAIResponse(
   replyingTo: string | null
 ) {
   const response = await fetch(
-    apiBaseUrl ? `${apiBaseUrl}/api/chat`: "/api/chat",
+    apiBaseUrl ? `${apiBaseUrl}/api/chat` : "/api/chat",
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -201,7 +201,7 @@ export default function ThreadedDocument() {
   ]);
   const [selectedModel, setSelectedModel] = useState<string>(models[0].id);
   const [editingModel, setEditingModel] = useState<Model | null>(null);
-  const [lastAttemptTime, setLastAttemptTime] = useState(null);
+  const [lastAttemptTime, setLastAttemptTime] = useState<number | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
 
@@ -253,7 +253,7 @@ export default function ThreadedDocument() {
       } catch (error) {
         console.error("Error connecting to backend:", error);
       } finally {
-        setLastAttemptTime(Date.now()); 
+        setLastAttemptTime(Date.now());
       }
     };
 
@@ -271,9 +271,9 @@ export default function ThreadedDocument() {
   }, [isConnected, lastAttemptTime, apiBaseUrl]);
 
   const debouncedSaveThreads = useCallback(
-    debounce(async (threadsToSave) => {
+    debounce(async (threadsToSave: Thread[]) => {
       try {
-        const savePromises = threadsToSave.map((thread) =>
+        const savePromises = threadsToSave.map((thread: Thread) =>
           fetch(
             apiBaseUrl ? `${apiBaseUrl}/api/save_thread` : "/api/save_thread",
             {
@@ -293,7 +293,7 @@ export default function ThreadedDocument() {
         console.log("所有线程已成功保存到后端。", results);
       } catch (error) {
         console.error("保存线程失败:", error);
-       
+
       }
     }, 2000), // 2secs re
     [apiBaseUrl]
@@ -330,11 +330,11 @@ export default function ThreadedDocument() {
     loadThreads();
   }, [apiBaseUrl]);
 
- 
+
   useEffect(() => {
     debouncedSaveThreads(threads);
 
-    
+
     return debouncedSaveThreads.cancel;
   }, [threads, debouncedSaveThreads]);
 
@@ -367,7 +367,7 @@ export default function ThreadedDocument() {
       const response = await fetch(
         apiBaseUrl ? `${apiBaseUrl}/api/save_thread` : "/api/save_thread",
         {
-          method: "PUT", 
+          method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ threadId, ...updatedData }),
         }
@@ -604,7 +604,7 @@ export default function ThreadedDocument() {
 
   // 保存线程数据
   useEffect(() => {
-    const saveThread = async (thread) => {
+    const saveThread = async (thread: Thread) => {
       try {
         await fetch(
           apiBaseUrl ? `${apiBaseUrl}/api/save_thread` : "/api/save_thread",
@@ -1202,7 +1202,7 @@ export default function ThreadedDocument() {
         }
         return updatedThreads;
       });
-  
+
       const deleteThreadFromBackend = async () => {
         try {
           const response = await fetch(
@@ -1220,12 +1220,12 @@ export default function ThreadedDocument() {
           console.error(`删除线程 ${threadId} 数据失败:`, error);
         }
       };
-  
+
       deleteThreadFromBackend();
     },
     [currentThread, threads, apiBaseUrl]
   );
-  
+
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (editingThreadTitle || editingModel) return;
