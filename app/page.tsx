@@ -1173,6 +1173,7 @@ export default function ThreadedDocument() {
     currentThread,
     editingThreadTitle,
     threads,
+    editingModel,
     generateAIReply,
     addEmptyReply,
     startEditingMessage,
