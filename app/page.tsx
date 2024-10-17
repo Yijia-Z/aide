@@ -1366,14 +1366,14 @@ export default function ThreadedDocument() {
             <span>Select a thread to view messages.</span><br />
             <a href="https://github.com/yijia-z/aide" target="_blank" rel="noopener noreferrer" className="hover:underline">GitHub</a>
             <span className="mx-2">|</span>
-            <a href="mailto:z@zy-j.com" className="hover:underline">Contact</a>
+            <a href="mailto:z@zy-j.com" target="_blank" className="hover:underline">Contact</a>
           </div>
         </div>
         <div className="sm:hidden fixed bottom-20 left-0 right-0 p-4 text-center text-sm text-muted-foreground bg-background font-serif">
           <span>Select a thread to view messages.</span><br />
           <a href="https://github.com/yijia-z/aide" target="_blank" rel="noopener noreferrer" className="hover:underline">GitHub</a>
           <span className="mx-2">|</span>
-          <a href="mailto:z@zy-j.com" className="hover:underline">Contact</a>
+          <a href="mailto:z@zy-j.com" target="_blank" className="hover:underline">Contact</a>
         </div>
       </div>
     );
