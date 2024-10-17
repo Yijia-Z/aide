@@ -20,32 +20,44 @@ import {
 } from "@/components/ui/popover"
 
 
+
+
 // @Yijia should we keep the models here or in the parent component?
-const models = [
-  {
-    id: "1",
-    name: "Default Model",
-    baseModel: "gpt-4o-mini",
-    systemPrompt: "You are a helpful assistant.",
-    temperature: 0.7,
-    maxTokens: 512,
-  },
-  {
-    id: "2",
-    name: "Custom Model",
-    baseModel: "claudeai/gpt-4o-mini",
-    systemPrompt: "You are a helpful assistant.",
-    temperature: 0.7,
-    maxTokens: 512,
-  }
-]
+// const models = [
+//   {
+//     id: "1",
+//     name: "Default Model",
+//     baseModel: "gpt-4o-mini",
+//     systemPrompt: "You are a helpful assistant.",
+//     temperature: 0.7,
+//     maxTokens: 512,
+//   },
+//   {
+//     id: "2",
+//     name: "Custom Model",
+//     baseModel: "claudeai/gpt-4o-mini",
+//     systemPrompt: "You are a helpful assistant.",
+//     temperature: 0.7,
+//     maxTokens: 512,
+//   }
+// ]
+
+interface Model {
+  id: string;
+  name: string;
+  baseModel: string;
+  systemPrompt: string;
+  temperature: number;
+  maxTokens: number;
+}
 
 interface SelectModelProps {
   value: string;
   onValueChange: (value: string) => void;
+  models: Model[];
 }
 
-export function SelectModel({ value, onValueChange }: SelectModelProps) {
+export function SelectModel({ value, onValueChange, models }: SelectModelProps) {
   const [open, setOpen] = React.useState(false);
 
   return (

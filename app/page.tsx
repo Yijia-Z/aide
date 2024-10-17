@@ -1124,14 +1124,13 @@ export default function ThreadedDocument() {
                         handleModelChange("baseModel", e.target.value)
                       }
                     /> */}
-                    {editingModel && (
                       <SelectModel
                         value={editingModel.baseModel}
                         onValueChange={(value: string) =>
                           handleModelChange("baseModel", value)
                         }
+                        models={models}
                       />
-                    )}
                     
                     
                     <Label>System Prompt</Label>
