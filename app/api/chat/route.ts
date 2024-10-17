@@ -25,11 +25,15 @@ export async function POST(req: NextRequest) {
                 for await (const chunk of chatCompletion) {
                     const content = chunk.choices[0]?.delta?.content;
                     const finishReason = chunk.choices[0]?.finish_reason;
-                    const data =
-                        finishReason === "stop" ? "data: [DONE]" : `data: ${content}\n\n`;
-                    controller.enqueue(new TextEncoder().encode(data));
+                    if (finishReason === "stop") {
+                        controller.enqueue(new TextEncoder().encode("data: [DONE]\n\n"));
+                        controller.close();
+                        return;
+                    }
+                    if (content) {
+                        controller.enqueue(new TextEncoder().encode(`data: ${content}\n\n`));
+                    }
                 }
-                controller.close();
             },
         });
 
