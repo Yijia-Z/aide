@@ -100,7 +100,9 @@ def multi_turn_question(
     print(
         f"Debug: model_name={model_name}, temperature={temperature}, max_tokens={max_tokens}"
     )
-    s.set_options(model=model_name, temperature=temperature, max_tokens=max_tokens)
+    s.model = model_name
+    s.temperature = temperature
+    s.max_tokens = max_tokens
     for msg in messages:
         if msg.role == "system":
             s += sgl.system(msg.content)
@@ -244,10 +246,11 @@ async def save_models(request: Request):
 @app.post("/api/chat")
 async def chat(request: ChatRequest):
     try:
-
         model_name = request.configuration.model
         max_tokens = request.configuration.max_tokens
         temperature = request.configuration.temperature
+
+        logger.info(f"Generating response with model: {model_name}, max_tokens: {max_tokens}, temperature: {temperature}")
 
         async def generate_response():
             state = multi_turn_question.run(
@@ -264,7 +267,6 @@ async def chat(request: ChatRequest):
         logger.error(f"Error in /api/chat: {str(e)}")
         traceback.print_exc()
         raise HTTPException(status_code=500, detail="Backend error")
-
 
 if __name__ == "__main__":
     logger.info("Starting FastAPI server...")

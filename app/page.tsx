@@ -36,8 +36,19 @@ import {
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -88,8 +99,16 @@ interface Model {
   name: string;
   baseModel: string;
   systemPrompt: string;
-  temperature: number;
-  maxTokens: number;
+  parameters: {
+    context_length: number;
+    top_p: number;
+    temperature: number;
+  };
+  bounds?: {
+    context_length: number;
+    top_p: number;
+    temperature: number;
+  };
 }
 
 // Recursive function to find all parent messages for a given message
@@ -160,8 +179,8 @@ async function generateAIResponse(
         ],
         configuration: {
           model: model.baseModel,
-          temperature: model.temperature,
-          max_tokens: model.maxTokens,
+          temperature: model.parameters.temperature,
+          max_tokens: model.parameters.context_length,
         },
       }),
     }
@@ -180,77 +199,46 @@ async function generateAIResponse(
 }
 
 export default function ThreadedDocument() {
-  const [activeTab, setActiveTab] = useState<"threads" | "messages" | "models">("threads");
+  const [activeTab, setActiveTab] = useState<"threads" | "messages" | "models">(
+    "threads"
+  );
 
   const [threads, setThreads] = useState<Thread[]>([]);
   const [currentThread, setCurrentThread] = useState<string | null>(null);
-  const [editingThreadTitle, setEditingThreadTitle] = useState<string | null>(null);
+  const [editingThreadTitle, setEditingThreadTitle] = useState<string | null>(
+    null
+  );
   const [originalThreadTitle, setOriginalThreadTitle] = useState<string>("");
   const threadTitleInputRef = useRef<HTMLInputElement>(null);
-
 
   const [selectedMessage, setSelectedMessage] = useState<string | null>(null);
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [editingMessage, setEditingMessage] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState("");
   const replyBoxRef = useRef<HTMLDivElement>(null);
-  const [availableModels, setAvailableModels] = useState<string[]>([]);
-  const fetchAvailableModels = useCallback(async () => {
-    try {
-      const response = await fetch('https://openrouter.ai/api/v1/models', {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-      });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Failed to fetch available models from OpenRouter:', errorText);
-        throw new Error('Failed to fetch available models from OpenRouter');
-      }
-
-      const data = await response.json();
-      console.log('Received data from OpenRouter:', data);
-
-      if (!data.data) {
-        console.error('Response data does not contain "models" key.');
-        throw new Error('Invalid response format from OpenRouter');
-      }
-
-      const modelNames = data.data.map((model: any) => model.id);
-      setAvailableModels(modelNames);
-    } catch (error) {
-      console.error('Error fetching available models:', error);
-      setAvailableModels([]);
-    }
-  }, []);
-  useEffect(() => {
-    fetchAvailableModels();
-  }, [fetchAvailableModels]);
-
+  const [availableModels, setAvailableModels] = useState<Model[]>([]);
   const [models, setModels] = useState<Model[]>([
     {
       id: "1",
       name: "Default Model",
-      baseModel: "gpt-4o-mini-test",
+      baseModel: "openai/gpt-4o-mini",
       systemPrompt: "You are a helpful assistant.",
-      temperature: 0.7,
-      maxTokens: 512,
+      parameters: {
+        context_length: 4096,
+        top_p: 0,
+        temperature: 1,
+      },
+      bounds: {
+        context_length: 128000,
+        top_p: 1,
+        temperature: 1,
+      },
     },
-    {
-      id: "2",
-      name: "Custom Model",
-      baseModel: "claudeai/gpt-4o-mini",
-      systemPrompt: "You are a helpful assistant.",
-      temperature: 0.7,
-      maxTokens: 512,
-    }
   ]);
   const [selectedModel, setSelectedModel] = useState<string>(models[0].id);
-  const [selectedBaseModel, setSelectedBaseModel] = useState<string>(models[0].baseModel);
   const [editingModel, setEditingModel] = useState<Model | null>(null);
+
   const [lastAttemptTime, setLastAttemptTime] = useState<number | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -307,7 +295,10 @@ export default function ThreadedDocument() {
       }
     };
 
-    if (!isConnected && (!lastAttemptTime || Date.now() - lastAttemptTime >= 5000)) {
+    if (
+      !isConnected &&
+      (!lastAttemptTime || Date.now() - lastAttemptTime >= 5000)
+    ) {
       connectToBackend();
     }
 
@@ -340,12 +331,16 @@ export default function ThreadedDocument() {
         );
 
         const results = await Promise.all(savePromises);
-        console.log("All threads have been successfully saved to the backend.", results);
+        console.log(
+          "All threads have been successfully saved to the backend.",
+          results
+        );
       } catch (error) {
         console.error("Failed to save threads:", error);
       }
-    }, 2000)// 2 seconds
-    , [apiBaseUrl]);
+    }, 2000), // 2 seconds
+    [apiBaseUrl]
+  );
 
   //load thread
   useEffect(() => {
@@ -380,8 +375,6 @@ export default function ThreadedDocument() {
 
   useEffect(() => {
     debouncedSaveThreads(threads);
-
-
     return debouncedSaveThreads.cancel;
   }, [threads, debouncedSaveThreads]);
 
@@ -409,7 +402,10 @@ export default function ThreadedDocument() {
     saveThreadToBackend(threadId, { title: newTitle });
   }, []);
 
-  const saveThreadToBackend = async (threadId: string, updatedData: Partial<Thread>) => {
+  const saveThreadToBackend = async (
+    threadId: string,
+    updatedData: Partial<Thread>
+  ) => {
     try {
       const response = await fetch(
         apiBaseUrl ? `${apiBaseUrl}/api/save_thread` : "/api/save_thread",
@@ -609,6 +605,56 @@ export default function ThreadedDocument() {
     []
   );
 
+  const fetchAvailableModels = useCallback(async () => {
+    try {
+      const response = await fetch("https://openrouter.ai/api/v1/models", {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(
+          "Failed to fetch available models from OpenRouter:",
+          errorText
+        );
+        throw new Error("Failed to fetch available models from OpenRouter");
+      }
+
+      const data = await response.json();
+      console.log("Received data from OpenRouter:", data);
+
+      if (!data.data) {
+        console.error('Response data does not contain "data" key.');
+        throw new Error("Invalid response format from OpenRouter");
+      }
+
+      const modelData = data.data.map((model: any) => ({
+        id: model.id,
+        name: model.name,
+        baseModel: model.id,
+        systemPrompt: "",
+        parameters: {
+          context_length: 512,
+          top_p: 1,
+          temperature: 0.7,
+        },
+        bounds: {
+          context_length: model.context_length ?? 4096,
+          top_p: model.top_p ?? 1,
+          temperature: 1,
+        },
+      }));
+      setAvailableModels(modelData);
+    } catch (error) {
+      console.error("Error fetching available models:", error);
+      setAvailableModels([]);
+    }
+  }, []);
+
   useEffect(() => {
     const loadThreads = async () => {
       try {
@@ -669,6 +715,10 @@ export default function ThreadedDocument() {
       saveThread(thread);
     });
   }, [threads]);
+
+  useEffect(() => {
+    fetchAvailableModels();
+  }, [fetchAvailableModels]);
 
   // Save model data
   useEffect(() => {
@@ -864,7 +914,11 @@ export default function ThreadedDocument() {
                       toggleCollapse(threadId, message.id);
                     }}
                   >
-                    {message.isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                    {message.isCollapsed ? (
+                      <ChevronRight className="h-4 w-4" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4" />
+                    )}
                   </Button>
                   <span
                     className={`font-bold ${message.publisher === "ai"
@@ -875,7 +929,8 @@ export default function ThreadedDocument() {
                     {parentId === null ||
                       message.publisher !==
                       findMessageById(
-                        threads.find((t) => t.id === currentThread)?.messages || [],
+                        threads.find((t) => t.id === currentThread)?.messages ||
+                        [],
                         parentId
                       )?.publisher
                       ? message.publisher === "ai"
@@ -885,7 +940,12 @@ export default function ThreadedDocument() {
                   </span>
                 </div>
                 {/* New navigation controls */}
-                <div className={`flex space-x-1 ${isSelectedOrParent || isSelected ? 'opacity-100' : 'opacity-0 hover:opacity-100'} transition-opacity duration-200`}>
+                <div
+                  className={`flex space-x-1 ${isSelectedOrParent || isSelected
+                    ? "opacity-100"
+                    : "opacity-0 hover:opacity-100"
+                    } transition-opacity duration-200`}
+                >
                   {parentMessage && (
                     <Button
                       variant="ghost"
@@ -1006,14 +1066,18 @@ export default function ThreadedDocument() {
                                     className="w-6 h-6 p-0"
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => navigator.clipboard.writeText(String(children).replace(/\n$/, ""))}
+                                    onClick={() =>
+                                      navigator.clipboard.writeText(
+                                        String(children).replace(/\n$/, "")
+                                      )
+                                    }
                                   >
                                     <Copy className="h-4 w-4" />
                                   </Button>
                                 </div>
                                 <SyntaxHighlighter
-                                  className='text-xs'
-                                  PreTag={'pre'}
+                                  className="text-xs"
+                                  PreTag={"pre"}
                                   style={gruvboxDark}
                                   language={match[1]}
                                   // showLineNumbers
@@ -1194,9 +1258,53 @@ export default function ThreadedDocument() {
   }
 
   const handleModelChange = useCallback(
-    (field: keyof Model, value: string | number) => {
+    (
+      field: keyof Model,
+      value: string | number | Partial<Model["parameters"]>
+    ) => {
       if (editingModel) {
-        setEditingModel({ ...editingModel, [field]: value });
+        setEditingModel((prevModel) => {
+          if (!prevModel) return prevModel;
+          if (field === "parameters") {
+            const newParameters = {
+              ...prevModel.parameters,
+              ...(value as Partial<Model["parameters"]>),
+            };
+            const bounds = prevModel.bounds || {
+              context_length: 4096,
+              top_p: 1,
+              temperature: 1,
+            };
+            // Ensure the new values are within bounds
+            newParameters.context_length = Math.min(
+              Math.max(newParameters.context_length, 1),
+              bounds.context_length
+            );
+            newParameters.top_p = Math.min(
+              Math.max(newParameters.top_p, 0),
+              bounds.top_p
+            );
+            newParameters.temperature = Math.min(
+              Math.max(newParameters.temperature, 0),
+              bounds.temperature
+            );
+            return { ...prevModel, parameters: newParameters };
+          }
+          return { ...prevModel, [field]: value };
+        });
+      }
+    },
+    [editingModel]
+  );
+
+  const handleBaseModelChange = useCallback(
+    (baseModel: string, parameters: Model["parameters"]) => {
+      if (editingModel) {
+        setEditingModel({
+          ...editingModel,
+          baseModel,
+          parameters,
+        });
       }
     },
     [editingModel]
@@ -1232,8 +1340,11 @@ export default function ThreadedDocument() {
       name: "New Model",
       baseModel: "test",
       systemPrompt: "You are a helpful assistant.",
-      temperature: 0.7,
-      maxTokens: 1024,
+      parameters: {
+        context_length: 1024,
+        top_p: 0,
+        temperature: 0.7,
+      },
     };
     setModels((prev: any) => [...prev, newModel]);
     setEditingModel(newModel);
@@ -1254,7 +1365,9 @@ export default function ThreadedDocument() {
       setThreads((prev: Thread[]) => {
         const updatedThreads = prev.filter((thread) => thread.id !== threadId);
         if (currentThread === threadId) {
-          setCurrentThread(updatedThreads.length > 0 ? updatedThreads[0].id : null);
+          setCurrentThread(
+            updatedThreads.length > 0 ? updatedThreads[0].id : null
+          );
         }
         return updatedThreads;
       });
@@ -1262,7 +1375,9 @@ export default function ThreadedDocument() {
       const deleteThreadFromBackend = async () => {
         try {
           const response = await fetch(
-            apiBaseUrl ? `${apiBaseUrl}/api/delete_thread/${threadId}` : `/api/delete_thread/${threadId}`,
+            apiBaseUrl
+              ? `${apiBaseUrl}/api/delete_thread/${threadId}`
+              : `/api/delete_thread/${threadId}`,
             {
               method: "DELETE",
               headers: { "Content-Type": "application/json" },
@@ -1444,10 +1559,13 @@ export default function ThreadedDocument() {
   function renderThreadsList() {
     return (
       <div className="flex flex-col relative h-[calc(97vh)]">
-        <div className="top-bar bg-gradient-to-b from-background/100 to-background/00 select-none" style={{
-          mask: 'linear-gradient(black, black, transparent)',
-          backdropFilter: 'blur(1px)'
-        }}>
+        <div
+          className="top-bar bg-gradient-to-b from-background/100 to-background/00 select-none"
+          style={{
+            mask: "linear-gradient(black, black, transparent)",
+            backdropFilter: "blur(1px)",
+          }}
+        >
           <h2 className="text-2xl font-serif font-bold pl-2">Threads</h2>
           <Button
             className="bg-background hover:bg-secondary text-primary border border-border"
@@ -1458,13 +1576,16 @@ export default function ThreadedDocument() {
             <span className="ml-2 hidden md:inline">New Thread</span>
           </Button>
         </div>
-        <ScrollArea className="flex-auto" onClick={() => {
-          setCurrentThread(null);
-          if (editingThreadTitle) {
-            editThreadTitle(editingThreadTitle, originalThreadTitle);
-            setEditingThreadTitle(null);
-          }
-        }}>
+        <ScrollArea
+          className="flex-auto"
+          onClick={() => {
+            setCurrentThread(null);
+            if (editingThreadTitle) {
+              editThreadTitle(editingThreadTitle, originalThreadTitle);
+              setEditingThreadTitle(null);
+            }
+          }}
+        >
           <div className="my-2">
             {sortedThreads.map((thread) => (
               <div
@@ -1491,7 +1612,7 @@ export default function ThreadedDocument() {
                         onClick={(e) => e.stopPropagation()}
                         maxLength={64}
                         onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
+                          if (e.key === "Enter") {
                             e.preventDefault();
                             setEditingThreadTitle(null);
                           }
@@ -1528,9 +1649,7 @@ export default function ThreadedDocument() {
                         setEditingThreadTitle(thread.id);
                       }}
                     >
-                      <span className="pl-1 flex-grow">
-                        {thread.title}
-                      </span>
+                      <span className="pl-1 flex-grow">{thread.title}</span>
                       <div className="flex items-center">
                         <Button
                           variant="ghost"
@@ -1575,10 +1694,13 @@ export default function ThreadedDocument() {
       <div
         className={`flex flex-col relative sm:h-full h-[calc(97vh)] hide-scrollbar`}
       >
-        <div className="top-bar bg-gradient-to-b from-background/100 to-background/00" style={{
-          mask: 'linear-gradient(black, black, transparent)',
-          backdropFilter: 'blur(1px)'
-        }}>
+        <div
+          className="top-bar bg-gradient-to-b from-background/100 to-background/00"
+          style={{
+            mask: "linear-gradient(black, black, transparent)",
+            backdropFilter: "blur(1px)",
+          }}
+        >
           <h1 className="text-2xl font-serif font-bold pl-2 overflow-hidden">
             <span className="block truncate text-2xl sm:text-sm md:text-base lg:text-xl xl:text-2xl">
               {currentThreadData?.title}
@@ -1611,28 +1733,56 @@ export default function ThreadedDocument() {
       <div className="flex items-center justify-center h-full select-none">
         <div className="hidden sm:block">
           <p className="text-sm text-muted-foreground whitespace-pre">
-            <span>  ←/→ Arrow keys        ┃ Navigate parent/children</span><br />
-            <span>  ↑/↓ Arrow keys        ┃ Navigate on same level</span><br />
-            <span>  Alt+R                 ┃ Reply</span><br />
-            <span>  Alt+G                 ┃ Generate AI reply</span><br />
-            <span>  Insert/Double-click   ┃ Edit message</span><br />
-            <span>  Enter                 ┃ Confirm edit</span><br />
-            <span>  Escape                ┃ Cancel edit</span><br />
-            <span>  Delete                ┃ Delete message</span><br />
-            <span>  Shift+Delete          ┃ Delete with children</span>
+            <span> ←/→ Arrow keys ┃ Navigate parent/children</span>
+            <br />
+            <span> ↑/↓ Arrow keys ┃ Navigate on same level</span>
+            <br />
+            <span> Alt+R ┃ Reply</span>
+            <br />
+            <span> Alt+G ┃ Generate AI reply</span>
+            <br />
+            <span> Insert/Double-click ┃ Edit message</span>
+            <br />
+            <span> Enter ┃ Confirm edit</span>
+            <br />
+            <span> Escape ┃ Cancel edit</span>
+            <br />
+            <span> Delete ┃ Delete message</span>
+            <br />
+            <span> Shift+Delete ┃ Delete with children</span>
           </p>
           <div className="mt-4 text-center text-sm text-muted-foreground font-serif">
-            <span>Select a thread to view messages.</span><br />
-            <a href="https://github.com/yijia-z/aide" target="_blank" rel="noopener noreferrer" className="hover:underline">GitHub</a>
+            <span>Select a thread to view messages.</span>
+            <br />
+            <a
+              href="https://github.com/yijia-z/aide"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:underline"
+            >
+              GitHub
+            </a>
             <span className="mx-2">|</span>
-            <a href="mailto:z@zy-j.com" className="hover:underline">Contact</a>
+            <a href="mailto:z@zy-j.com" className="hover:underline">
+              Contact
+            </a>
           </div>
         </div>
         <div className="sm:hidden fixed bottom-20 left-0 right-0 p-4 text-center text-sm text-muted-foreground bg-background font-serif">
-          <span>Select a thread to view messages.</span><br />
-          <a href="https://github.com/yijia-z/aide" target="_blank" rel="noopener noreferrer" className="hover:underline">GitHub</a>
+          <span>Select a thread to view messages.</span>
+          <br />
+          <a
+            href="https://github.com/yijia-z/aide"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:underline"
+          >
+            GitHub
+          </a>
           <span className="mx-2">|</span>
-          <a href="mailto:z@zy-j.com" className="hover:underline">Contact</a>
+          <a href="mailto:z@zy-j.com" className="hover:underline">
+            Contact
+          </a>
         </div>
       </div>
     );
@@ -1642,11 +1792,13 @@ export default function ThreadedDocument() {
   function renderModelConfig() {
     return (
       <div className="flex flex-col relative h-[calc(97vh)] overflow-clip select-none">
-        <div className="top-bar bg-gradient-to-b from-background/100 to-background/00"
+        <div
+          className="top-bar bg-gradient-to-b from-background/100 to-background/00"
           style={{
-            mask: 'linear-gradient(black, black, transparent)',
-            backdropFilter: 'blur(1px)'
-          }}>
+            mask: "linear-gradient(black, black, transparent)",
+            backdropFilter: "blur(1px)",
+          }}
+        >
           <Select value={selectedModel} onValueChange={setSelectedModel}>
             <SelectTrigger>
               <SelectValue placeholder="Select a model" />
@@ -1693,21 +1845,11 @@ export default function ThreadedDocument() {
                       }
                     />
                     <Label>Base Model</Label>
-                    <Select
-                      value={editingModel?.baseModel}
-                      onValueChange={(value) => handleModelChange("baseModel", value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a base model" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableModels.map((modelName) => (
-                          <SelectItem key={modelName} value={modelName}>
-                            {modelName}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <SelectModel
+                      value={editingModel.baseModel}
+                      onValueChange={handleBaseModelChange}
+                      models={availableModels}
+                    />
                     <Label>System Prompt</Label>
                     <Textarea
                       className="min-font-size text-foreground"
@@ -1720,27 +1862,28 @@ export default function ThreadedDocument() {
                       <Label>Temperature</Label>
                       <Input
                         type="number"
-                        value={editingModel?.temperature}
+                        value={editingModel?.parameters.temperature}
                         onChange={(e) =>
-                          handleModelChange(
-                            "temperature",
-                            parseFloat(e.target.value)
-                          )
+                          handleModelChange("parameters", {
+                            temperature: parseFloat(e.target.value),
+                          })
                         }
                         className="min-font-size text-foreground w-15 h-6 text-left text-xs"
                         step="0.01"
                         min="0"
-                        max="1"
+                        max={editingModel.bounds?.temperature || 1}
                       />
                     </div>
                     {editingModel && (
                       <Slider
                         defaultValue={[0.7]}
-                        max={1}
+                        max={editingModel.bounds?.temperature || 1}
                         step={0.01}
-                        value={[editingModel.temperature]}
+                        value={[editingModel.parameters.temperature]}
                         onValueChange={(value) =>
-                          handleModelChange("temperature", value[0])
+                          handleModelChange("parameters", {
+                            temperature: value[0],
+                          })
                         }
                         className="h-4"
                       />
@@ -1749,27 +1892,28 @@ export default function ThreadedDocument() {
                       <Label>Max Tokens</Label>
                       <Input
                         type="number"
-                        value={editingModel?.maxTokens}
+                        value={editingModel?.parameters.context_length}
                         onChange={(e) =>
-                          handleModelChange(
-                            "maxTokens",
-                            parseInt(e.target.value)
-                          )
+                          handleModelChange("parameters", {
+                            context_length: parseInt(e.target.value),
+                          })
                         }
                         className="min-font-size text-foreground w-15 h-6 text-left text-xs"
                         step="10"
                         min="1"
-                        max="4096"
+                        max={editingModel.bounds?.context_length || 4096}
                       />
                     </div>
                     {editingModel && (
                       <Slider
                         defaultValue={[1024]}
-                        max={4096}
+                        max={editingModel.bounds?.context_length || 4096}
                         step={10}
-                        value={[editingModel.maxTokens]}
+                        value={[editingModel.parameters.context_length]}
                         onValueChange={(value) =>
-                          handleModelChange("maxTokens", value[0])
+                          handleModelChange("parameters", {
+                            context_length: value[0],
+                          })
                         }
                         className="h-4"
                       />
@@ -1800,8 +1944,14 @@ export default function ThreadedDocument() {
                 ) : (
                   <div>
                     <p>Base Model: {model.baseModel}</p>
-                    <p>Temperature: {model.temperature}</p>
-                    <p>Max Tokens: {model.maxTokens}</p>
+                    <p>
+                      Temperature: {model.parameters.temperature} (Max:{" "}
+                      {model.bounds?.temperature || 1})
+                    </p>
+                    <p>
+                      Max Tokens: {model.parameters.context_length} (Max:{" "}
+                      {model.bounds?.context_length || 4096})
+                    </p>
                   </div>
                 )}
               </div>

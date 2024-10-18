@@ -19,41 +19,21 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 
-
-
-
-// @Yijia should we keep the models here or in the parent component?
-// const models = [
-//   {
-//     id: "1",
-//     name: "Default Model",
-//     baseModel: "gpt-4o-mini",
-//     systemPrompt: "You are a helpful assistant.",
-//     temperature: 0.7,
-//     maxTokens: 512,
-//   },
-//   {
-//     id: "2",
-//     name: "Custom Model",
-//     baseModel: "claudeai/gpt-4o-mini",
-//     systemPrompt: "You are a helpful assistant.",
-//     temperature: 0.7,
-//     maxTokens: 512,
-//   }
-// ]
+interface ModelParameters {
+  context_length: number;
+  top_p: number;
+  temperature: number;
+}
 
 interface Model {
   id: string;
   name: string;
-  baseModel: string;
-  systemPrompt: string;
-  temperature: number;
-  maxTokens: number;
+  parameters: ModelParameters;
 }
 
 interface SelectModelProps {
   value: string;
-  onValueChange: (value: string) => void;
+  onValueChange: (value: string, parameters: ModelParameters) => void;
   models: Model[];
 }
 
@@ -69,9 +49,9 @@ export function SelectModel({ value, onValueChange, models }: SelectModelProps) 
           aria-expanded={open}
           className="w-full justify-between"
         >
-          {value
-            ? models.find((model) => model.baseModel === value)?.baseModel
-            : "Select model..."}
+          {value ? (
+            <span className="truncate">{models.find(model => model.id === value)?.name}</span>
+          ) : "Select model..."}
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
@@ -83,20 +63,23 @@ export function SelectModel({ value, onValueChange, models }: SelectModelProps) 
             <CommandGroup>
               {models.map((model) => (
                 <CommandItem
-                  key={model.baseModel}
-                  value={model.baseModel}
+                  key={model.id}
+                  value={model.id}
                   onSelect={(currentValue) => {
-                    onValueChange(currentValue);
+                    const selectedModel = models.find(m => m.id === currentValue);
+                    if (selectedModel) {
+                      onValueChange(currentValue, selectedModel.parameters);
+                    }
                     setOpen(false);
                   }}
                 >
                   <Check
                     className={cn(
                       "mr-2 h-4 w-4",
-                      value === model.baseModel ? "opacity-100" : "opacity-0"
+                      value === model.id ? "opacity-100" : "opacity-0"
                     )}
                   />
-                  {model.baseModel}
+                  {model.name}
                 </CommandItem>
               ))}
             </CommandGroup>
