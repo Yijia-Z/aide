@@ -187,7 +187,7 @@ export default function ThreadedDocument() {
   const [editingThreadTitle, setEditingThreadTitle] = useState<string | null>(null);
   const [originalThreadTitle, setOriginalThreadTitle] = useState<string>("");
   const threadTitleInputRef = useRef<HTMLInputElement>(null);
-  
+
 
   const [selectedMessage, setSelectedMessage] = useState<string | null>(null);
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
@@ -200,36 +200,36 @@ export default function ThreadedDocument() {
       const response = await fetch('https://openrouter.ai/api/v1/models', {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`, 
+          'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
           'Content-Type': 'application/json',
         },
       });
- 
+
       if (!response.ok) {
         const errorText = await response.text();
         console.error('Failed to fetch available models from OpenRouter:', errorText);
         throw new Error('Failed to fetch available models from OpenRouter');
       }
-  
+
       const data = await response.json();
       console.log('Received data from OpenRouter:', data);
-  
+
       if (!data.data) {
         console.error('Response data does not contain "models" key.');
         throw new Error('Invalid response format from OpenRouter');
       }
-  
+
       const modelNames = data.data.map((model: any) => model.id);
       setAvailableModels(modelNames);
     } catch (error) {
       console.error('Error fetching available models:', error);
-      setAvailableModels([]); 
+      setAvailableModels([]);
     }
   }, []);
   useEffect(() => {
     fetchAvailableModels();
   }, [fetchAvailableModels]);
-  
+
   const [models, setModels] = useState<Model[]>([
     {
       id: "1",
@@ -968,7 +968,10 @@ export default function ThreadedDocument() {
               ) : (
                 <div
                   className="whitespace-normal break-words overflow-hidden pt-1 pl-1"
-                  onDoubleClick={() => startEditingMessage(message)}
+                  onDoubleClick={() => {
+                    cancelEditingMessage();
+                    startEditingMessage(message);
+                  }}
                 >
                   {message.isCollapsed ? (
                     `
@@ -1138,7 +1141,10 @@ export default function ThreadedDocument() {
                       className="h-10 hover:bg-background"
                       size="sm"
                       variant="ghost"
-                      onClick={() => startEditingMessage(message)}
+                      onClick={() => {
+                        cancelEditingMessage();
+                        startEditingMessage(message);
+                      }}
                     >
                       <Edit className="h-4 w-4" />
                       <span className="hidden md:inline ml-2">Edit</span>
@@ -1194,7 +1200,7 @@ export default function ThreadedDocument() {
       }
     },
     [editingModel]
-  ); 
+  );
 
   const saveModelChanges = useCallback(() => {
     if (editingModel) {
@@ -1688,20 +1694,20 @@ export default function ThreadedDocument() {
                     />
                     <Label>Base Model</Label>
                     <Select
-      value={editingModel?.baseModel}
-      onValueChange={(value) => handleModelChange("baseModel", value)}
-    >
-      <SelectTrigger>
-        <SelectValue placeholder="Select a base model" />
-      </SelectTrigger>
-      <SelectContent>
-        {availableModels.map((modelName) => (
-          <SelectItem key={modelName} value={modelName}>
-            {modelName}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+                      value={editingModel?.baseModel}
+                      onValueChange={(value) => handleModelChange("baseModel", value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a base model" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableModels.map((modelName) => (
+                          <SelectItem key={modelName} value={modelName}>
+                            {modelName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <Label>System Prompt</Label>
                     <Textarea
                       className="min-font-size text-foreground"
