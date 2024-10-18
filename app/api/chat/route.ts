@@ -4,8 +4,20 @@ const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
 
 export async function POST(req: NextRequest) {
     try {
+        // Log the start of the request
+        console.log("API route started");
+
         const body = await req.json();
         const { messages, configuration } = body;
+
+        // Log the received configuration
+        console.log("Received configuration:", configuration);
+
+        // Check if the API key is set
+        if (!process.env.OPENROUTER_API_KEY) {
+            console.error("OPENROUTER_API_KEY is not set");
+            throw new Error("OPENROUTER_API_KEY is not set");
+        }
 
         const params = {
             messages,
@@ -15,20 +27,26 @@ export async function POST(req: NextRequest) {
             stream: true,
         };
 
+        // Log the request parameters
+        console.log("Request parameters:", params);
+
         const response = await fetch(OPENROUTER_API_URL, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
                 "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
-                "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000", // Add this line
-                "X-Title": "Aide", // Add this line
+                "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+                "X-Title": "Aide",
             },
             body: JSON.stringify(params),
         });
 
         if (!response.ok) {
-            throw new Error(`OpenRouter API error: ${response.statusText}`);
+            const errorText = await response.text();
+            console.error(`OpenRouter API error: ${response.status} ${response.statusText}`, errorText);
+            throw new Error(`OpenRouter API error: ${response.status} ${response.statusText}`);
         }
+
         const stream = new ReadableStream({
             async start(controller) {
                 const reader = response.body?.getReader();
@@ -75,6 +93,7 @@ export async function POST(req: NextRequest) {
             },
         });
     } catch (error) {
+        console.error("Error in API route:", error);
         return NextResponse.json(
             { error: (error as Error).message },
             { status: 500 }
