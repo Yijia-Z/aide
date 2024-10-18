@@ -10,8 +10,6 @@ import { gruvboxDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { cn } from "@/lib/utils";
 import debounce from "lodash.debounce";
 
-import { SelectModel } from "@/components/ui/select-model";
-
 import {
   ArrowUp,
   ArrowDown,
@@ -36,19 +34,6 @@ import {
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -58,6 +43,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { SelectBaseModel } from "@/components/ui/select-model";
 import { Label } from "@/components/ui/label";
 import {
   ResizableHandle,
@@ -65,7 +51,6 @@ import {
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Slider } from "@/components/ui/slider";
 import {
   Menubar,
   MenubarContent,
@@ -99,16 +84,29 @@ interface Model {
   name: string;
   baseModel: string;
   systemPrompt: string;
-  parameters: {
-    context_length: number;
-    top_p: number;
-    temperature: number;
-  };
-  bounds?: {
-    context_length: number;
-    top_p: number;
-    temperature: number;
-  };
+  parameters: ModelParameters;
+  bounds?: ModelParameters;
+}
+
+interface ModelParameters {
+  temperature?: number;
+  top_p?: number;
+  top_k?: number;
+  frequency_penalty?: number;
+  presence_penalty?: number;
+  repetition_penalty?: number;
+  min_p?: number;
+  top_a?: number;
+  seed?: number;
+  context_length?: number;
+  max_tokens?: number;
+  logit_bias?: { [key: string]: number };
+  logprobs?: boolean;
+  top_logprobs?: number;
+  response_format?: { type: string };
+  stop?: string[];
+  tools?: any[];
+  tool_choice?: string | { type: string; function: { name: string } };
 }
 
 // Recursive function to find all parent messages for a given message
@@ -158,31 +156,50 @@ async function generateAIResponse(
   currentThread: string | null,
   replyingTo: string | null
 ) {
+  const requestPayload = {
+    messages: [
+      { role: "system", content: model.systemPrompt },
+      ...prompt
+        .split("\n")
+        .map((line) => ({ role: "user", content: line })),
+      ...findAllParentMessages(threads, currentThread, replyingTo).map(
+        (msg) => ({
+          role: msg.publisher === "user" ? "user" : "assistant",
+          content: msg.content,
+        })
+      ),
+    ],
+    configuration: {
+      model: model.baseModel,
+      temperature: model.parameters.temperature,
+      top_p: model.parameters.top_p,
+      top_k: model.parameters.top_k,
+      frequency_penalty: model.parameters.frequency_penalty,
+      presence_penalty: model.parameters.presence_penalty,
+      repetition_penalty: model.parameters.repetition_penalty,
+      min_p: model.parameters.min_p,
+      top_a: model.parameters.top_a,
+      seed: model.parameters.seed,
+      context_length: model.parameters.context_length,
+      max_tokens: model.parameters.max_tokens,
+      logit_bias: model.parameters.logit_bias,
+      logprobs: model.parameters.logprobs,
+      top_logprobs: model.parameters.top_logprobs,
+      response_format: model.parameters.response_format,
+      stop: model.parameters.stop,
+      tools: model.parameters.tools,
+      tool_choice: model.parameters.tool_choice,
+    },
+  };
+
+  console.log("Request payload:", JSON.stringify(requestPayload, null, 2));
+
   const response = await fetch(
     apiBaseUrl ? `${apiBaseUrl}/api/chat` : "/api/chat",
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        messages: [
-          { role: "system", content: model.systemPrompt },
-          ...prompt
-            .split("\n")
-            .map((line) => ({ role: "user", content: line })),
-          ...findAllParentMessages(threads, currentThread, replyingTo).map(
-            (msg) => ({
-              role: msg.publisher === "user" ? "user" : "assistant",
-              content: msg.content,
-            })
-          ),
-          { role: "user", content: prompt },
-        ],
-        configuration: {
-          model: model.baseModel,
-          temperature: model.parameters.temperature,
-          max_tokens: model.parameters.context_length,
-        },
-      }),
+      body: JSON.stringify(requestPayload),
     }
   );
 
@@ -228,11 +245,19 @@ export default function ThreadedDocument() {
         context_length: 4096,
         top_p: 0,
         temperature: 1,
+        max_tokens: 4096,
+        frequency_penalty: 0,
+        presence_penalty: 0,
+        top_k: 0,
       },
       bounds: {
         context_length: 128000,
         top_p: 1,
         temperature: 1,
+        max_tokens: 128000,
+        frequency_penalty: 2,
+        presence_penalty: 2,
+        top_k: 100,
       },
     },
   ]);
@@ -638,22 +663,50 @@ export default function ThreadedDocument() {
         baseModel: model.id,
         systemPrompt: "",
         parameters: {
-          context_length: 512,
-          top_p: 1,
-          temperature: 0.7,
-        },
-        bounds: {
           context_length: model.context_length ?? 4096,
           top_p: model.top_p ?? 1,
+          temperature: 0.7,
+          max_tokens: model.context_length ?? 4096,
+          frequency_penalty: 0,
+          presence_penalty: 0,
+          top_k: 0,
+        },
+        bounds: {
+          context_length: model.context_length ?? 128000,
+          top_p: 1,
           temperature: 1,
+          max_tokens: model.context_length ?? 128000,
+          frequency_penalty: 2,
+          presence_penalty: 2,
+          top_k: 100,
         },
       }));
       setAvailableModels(modelData);
+      return modelData; // Return the array of models
     } catch (error) {
       console.error("Error fetching available models:", error);
-      setAvailableModels([]);
+      return []; // Return an empty array in case of error
     }
   }, []);
+
+  useEffect(() => {
+    fetchAvailableModels();
+  }, [fetchAvailableModels]);
+
+  const handleModelChange = useCallback(
+    (field: keyof Model, value: string | number | Partial<ModelParameters>) => {
+      if (editingModel) {
+        setEditingModel((prevModel) => {
+          if (!prevModel) return prevModel;
+          if (field === "parameters") {
+            return { ...prevModel, parameters: { ...prevModel.parameters, ...value as Partial<ModelParameters> } };
+          }
+          return { ...prevModel, [field]: value };
+        });
+      }
+    },
+    [editingModel]
+  );
 
   useEffect(() => {
     const loadThreads = async () => {
@@ -1257,59 +1310,6 @@ export default function ThreadedDocument() {
     );
   }
 
-  const handleModelChange = useCallback(
-    (
-      field: keyof Model,
-      value: string | number | Partial<Model["parameters"]>
-    ) => {
-      if (editingModel) {
-        setEditingModel((prevModel) => {
-          if (!prevModel) return prevModel;
-          if (field === "parameters") {
-            const newParameters = {
-              ...prevModel.parameters,
-              ...(value as Partial<Model["parameters"]>),
-            };
-            const bounds = prevModel.bounds || {
-              context_length: 4096,
-              top_p: 1,
-              temperature: 1,
-            };
-            // Ensure the new values are within bounds
-            newParameters.context_length = Math.min(
-              Math.max(newParameters.context_length, 1),
-              bounds.context_length
-            );
-            newParameters.top_p = Math.min(
-              Math.max(newParameters.top_p, 0),
-              bounds.top_p
-            );
-            newParameters.temperature = Math.min(
-              Math.max(newParameters.temperature, 0),
-              bounds.temperature
-            );
-            return { ...prevModel, parameters: newParameters };
-          }
-          return { ...prevModel, [field]: value };
-        });
-      }
-    },
-    [editingModel]
-  );
-
-  const handleBaseModelChange = useCallback(
-    (baseModel: string, parameters: Model["parameters"]) => {
-      if (editingModel) {
-        setEditingModel({
-          ...editingModel,
-          baseModel,
-          parameters,
-        });
-      }
-    },
-    [editingModel]
-  );
-
   const saveModelChanges = useCallback(() => {
     if (editingModel) {
       setModels((prev: Model[]) =>
@@ -1338,13 +1338,9 @@ export default function ThreadedDocument() {
     const newModel: Model = {
       id: Date.now().toString(),
       name: "New Model",
-      baseModel: "test",
+      baseModel: "none",
       systemPrompt: "You are a helpful assistant.",
-      parameters: {
-        context_length: 1024,
-        top_p: 0,
-        temperature: 0.7,
-      },
+      parameters: {},
     };
     setModels((prev: any) => [...prev, newModel]);
     setEditingModel(newModel);
@@ -1845,10 +1841,14 @@ export default function ThreadedDocument() {
                       }
                     />
                     <Label>Base Model</Label>
-                    <SelectModel
+                    <SelectBaseModel
                       value={editingModel.baseModel}
-                      onValueChange={handleBaseModelChange}
-                      models={availableModels}
+                      onValueChange={(value, parameters) => {
+                        handleModelChange("baseModel", value);
+                        handleModelChange("parameters", parameters as Partial<ModelParameters>);
+                      }}
+                      fetchAvailableModels={fetchAvailableModels}
+                      existingParameters={editingModel.parameters}
                     />
                     <Label>System Prompt</Label>
                     <Textarea
@@ -1858,66 +1858,6 @@ export default function ThreadedDocument() {
                         handleModelChange("systemPrompt", e.target.value)
                       }
                     />
-                    <div className="flex items-center justify-between">
-                      <Label>Temperature</Label>
-                      <Input
-                        type="number"
-                        value={editingModel?.parameters.temperature}
-                        onChange={(e) =>
-                          handleModelChange("parameters", {
-                            temperature: parseFloat(e.target.value),
-                          })
-                        }
-                        className="min-font-size text-foreground w-15 h-6 text-left text-xs"
-                        step="0.01"
-                        min="0"
-                        max={editingModel.bounds?.temperature || 1}
-                      />
-                    </div>
-                    {editingModel && (
-                      <Slider
-                        defaultValue={[0.7]}
-                        max={editingModel.bounds?.temperature || 1}
-                        step={0.01}
-                        value={[editingModel.parameters.temperature]}
-                        onValueChange={(value) =>
-                          handleModelChange("parameters", {
-                            temperature: value[0],
-                          })
-                        }
-                        className="h-4"
-                      />
-                    )}
-                    <div className="flex items-center justify-between mt-2">
-                      <Label>Max Tokens</Label>
-                      <Input
-                        type="number"
-                        value={editingModel?.parameters.context_length}
-                        onChange={(e) =>
-                          handleModelChange("parameters", {
-                            context_length: parseInt(e.target.value),
-                          })
-                        }
-                        className="min-font-size text-foreground w-15 h-6 text-left text-xs"
-                        step="10"
-                        min="1"
-                        max={editingModel.bounds?.context_length || 4096}
-                      />
-                    </div>
-                    {editingModel && (
-                      <Slider
-                        defaultValue={[1024]}
-                        max={editingModel.bounds?.context_length || 4096}
-                        step={10}
-                        value={[editingModel.parameters.context_length]}
-                        onValueChange={(value) =>
-                          handleModelChange("parameters", {
-                            context_length: value[0],
-                          })
-                        }
-                        className="h-4"
-                      />
-                    )}
                     <div className="flex justify-between items-center mt-2">
                       <div className="space-x-2">
                         <Button size="icon" onClick={saveModelChanges}>
@@ -1949,7 +1889,7 @@ export default function ThreadedDocument() {
                       {model.bounds?.temperature || 1})
                     </p>
                     <p>
-                      Max Tokens: {model.parameters.context_length} (Max:{" "}
+                      Max Token: {model.parameters.context_length} (Max Context:{" "}
                       {model.bounds?.context_length || 4096})
                     </p>
                   </div>
