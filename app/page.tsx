@@ -10,11 +10,14 @@ import { gruvboxDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { cn } from "@/lib/utils";
 import debounce from "lodash.debounce";
 
+import { SelectModel } from "@/components/ui/select-model";
+
 import {
   ArrowUp,
   ArrowDown,
   ArrowLeft,
   ArrowRight,
+  ChevronsUpDown,
   ChevronDown,
   ChevronRight,
   Edit,
@@ -33,6 +36,8 @@ import {
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -182,24 +187,69 @@ export default function ThreadedDocument() {
   const [editingThreadTitle, setEditingThreadTitle] = useState<string | null>(null);
   const [originalThreadTitle, setOriginalThreadTitle] = useState<string>("");
   const threadTitleInputRef = useRef<HTMLInputElement>(null);
+  
 
   const [selectedMessage, setSelectedMessage] = useState<string | null>(null);
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [editingMessage, setEditingMessage] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState("");
   const replyBoxRef = useRef<HTMLDivElement>(null);
-
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
+  const fetchAvailableModels = useCallback(async () => {
+    try {
+      const response = await fetch('https://openrouter.ai/api/v1/models', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`, 
+          'Content-Type': 'application/json',
+        },
+      });
+ 
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Failed to fetch available models from OpenRouter:', errorText);
+        throw new Error('Failed to fetch available models from OpenRouter');
+      }
+  
+      const data = await response.json();
+      console.log('Received data from OpenRouter:', data);
+  
+      if (!data.data) {
+        console.error('Response data does not contain "models" key.');
+        throw new Error('Invalid response format from OpenRouter');
+      }
+  
+      const modelNames = data.data.map((model: any) => model.id);
+      setAvailableModels(modelNames);
+    } catch (error) {
+      console.error('Error fetching available models:', error);
+      setAvailableModels([]); 
+    }
+  }, []);
+  useEffect(() => {
+    fetchAvailableModels();
+  }, [fetchAvailableModels]);
+  
   const [models, setModels] = useState<Model[]>([
     {
       id: "1",
       name: "Default Model",
-      baseModel: "gpt-4o-mini",
+      baseModel: "gpt-4o-mini-test",
       systemPrompt: "You are a helpful assistant.",
       temperature: 0.7,
       maxTokens: 512,
     },
+    {
+      id: "2",
+      name: "Custom Model",
+      baseModel: "claudeai/gpt-4o-mini",
+      systemPrompt: "You are a helpful assistant.",
+      temperature: 0.7,
+      maxTokens: 512,
+    }
   ]);
   const [selectedModel, setSelectedModel] = useState<string>(models[0].id);
+  const [selectedBaseModel, setSelectedBaseModel] = useState<string>(models[0].baseModel);
   const [editingModel, setEditingModel] = useState<Model | null>(null);
   const [lastAttemptTime, setLastAttemptTime] = useState<number | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -1140,7 +1190,7 @@ export default function ThreadedDocument() {
       }
     },
     [editingModel]
-  );
+  ); 
 
   const saveModelChanges = useCallback(() => {
     if (editingModel) {
@@ -1170,7 +1220,7 @@ export default function ThreadedDocument() {
     const newModel: Model = {
       id: Date.now().toString(),
       name: "New Model",
-      baseModel: "gpt-4o-mini",
+      baseModel: "test",
       systemPrompt: "You are a helpful assistant.",
       temperature: 0.7,
       maxTokens: 1024,
@@ -1632,13 +1682,21 @@ export default function ThreadedDocument() {
                       }
                     />
                     <Label>Base Model</Label>
-                    <Input
-                      className="min-font-size text-foreground"
-                      value={editingModel?.baseModel}
-                      onChange={(e) =>
-                        handleModelChange("baseModel", e.target.value)
-                      }
-                    />
+                    <Select
+      value={editingModel?.baseModel}
+      onValueChange={(value) => handleModelChange("baseModel", value)}
+    >
+      <SelectTrigger>
+        <SelectValue placeholder="Select a base model" />
+      </SelectTrigger>
+      <SelectContent>
+        {availableModels.map((modelName) => (
+          <SelectItem key={modelName} value={modelName}>
+            {modelName}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
                     <Label>System Prompt</Label>
                     <Textarea
                       className="min-font-size text-foreground"
@@ -1826,7 +1884,7 @@ export default function ThreadedDocument() {
               onValueChange={(value) =>
                 setActiveTab(value as "threads" | "models")
               }
-              className="w-full h-full flex flex-col"
+              className="w-full flex flex-col"
             >
               <TabsList className="grid w-full grid-cols-2 select-none">
                 <TabsTrigger value="threads">Threads</TabsTrigger>
