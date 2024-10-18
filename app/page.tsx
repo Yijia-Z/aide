@@ -188,7 +188,42 @@ export default function ThreadedDocument() {
   const [editingMessage, setEditingMessage] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState("");
   const replyBoxRef = useRef<HTMLDivElement>(null);
-
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
+  const fetchAvailableModels = useCallback(async () => {
+    try {
+      const response = await fetch('https://openrouter.ai/api/v1/models', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`, 
+          'Content-Type': 'application/json',
+        },
+      });
+ 
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Failed to fetch available models from OpenRouter:', errorText);
+        throw new Error('Failed to fetch available models from OpenRouter');
+      }
+  
+      const data = await response.json();
+      console.log('Received data from OpenRouter:', data);
+  
+      if (!data.data) {
+        console.error('Response data does not contain "models" key.');
+        throw new Error('Invalid response format from OpenRouter');
+      }
+  
+      const modelNames = data.data.map((model: any) => model.id);
+      setAvailableModels(modelNames);
+    } catch (error) {
+      console.error('Error fetching available models:', error);
+      setAvailableModels([]); 
+    }
+  }, []);
+  useEffect(() => {
+    fetchAvailableModels();
+  }, [fetchAvailableModels]);
+  
   const [models, setModels] = useState<Model[]>([
     {
       id: "1",
@@ -1632,13 +1667,21 @@ export default function ThreadedDocument() {
                       }
                     />
                     <Label>Base Model</Label>
-                    <Input
-                      className="min-font-size text-foreground"
-                      value={editingModel?.baseModel}
-                      onChange={(e) =>
-                        handleModelChange("baseModel", e.target.value)
-                      }
-                    />
+                    <Select
+      value={editingModel?.baseModel}
+      onValueChange={(value) => handleModelChange("baseModel", value)}
+    >
+      <SelectTrigger>
+        <SelectValue placeholder="Select a base model" />
+      </SelectTrigger>
+      <SelectContent>
+        {availableModels.map((modelName) => (
+          <SelectItem key={modelName} value={modelName}>
+            {modelName}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
                     <Label>System Prompt</Label>
                     <Textarea
                       className="min-font-size text-foreground"
