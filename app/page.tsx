@@ -1020,7 +1020,11 @@ export default function ThreadedDocument() {
                       className="h-10 hover:bg-background"
                       size="sm"
                       variant="ghost"
-                      onClick={() => addEmptyReply(threadId, message.id)}
+                      onClick={() => {
+                        cancelEditingMessage();
+                        setSelectedMessage(null);
+                        addEmptyReply(threadId, message.id);
+                      }}
                     >
                       <MessageSquare className="h-4 w-4" />
                       <span className="hidden md:inline ml-2">Reply</span>
@@ -1530,6 +1534,7 @@ export default function ThreadedDocument() {
               size="default"
               onClick={(e) => {
                 e.stopPropagation();
+                cancelEditingMessage();
                 addEmptyReply(currentThread, null);
               }}
             >
