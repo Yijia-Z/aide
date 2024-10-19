@@ -151,6 +151,7 @@ console.log("API Base URL:", apiBaseUrl);
 // Function to generate AI response
 async function generateAIResponse(
   prompt: string,
+  role: string,
   model: Model,
   threads: Thread[],
   currentThread: string | null,
@@ -159,15 +160,13 @@ async function generateAIResponse(
   const requestPayload = {
     messages: [
       { role: "system", content: model.systemPrompt },
-      ...prompt
-        .split("\n")
-        .map((line) => ({ role: "user", content: line })),
       ...findAllParentMessages(threads, currentThread, replyingTo).map(
         (msg) => ({
           role: msg.publisher === "user" ? "user" : "assistant",
           content: msg.content,
         })
       ),
+      { role: role === "user" ? "user" : "assistant", content: prompt },
     ],
     configuration: {
       model: model.baseModel,
@@ -790,6 +789,7 @@ export default function ThreadedDocument() {
         for (let i = 0; i < count; i++) {
           const reader = await generateAIResponse(
             message.content,
+            message.publisher,
             model,
             threads,
             threadId,
