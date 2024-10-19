@@ -1695,23 +1695,15 @@ export default function ThreadedDocument() {
       <div className="flex items-center justify-center h-full select-none">
         <div className="hidden sm:block">
           <p className="text-sm text-muted-foreground whitespace-pre">
-            <span> ←/→ Arrow keys ┃ Navigate parent/children</span>
-            <br />
-            <span> ↑/↓ Arrow keys ┃ Navigate on same level</span>
-            <br />
-            <span> Alt+R ┃ Reply</span>
-            <br />
-            <span> Alt+G ┃ Generate AI reply</span>
-            <br />
-            <span> Insert/Double-click ┃ Edit message</span>
-            <br />
-            <span> Enter ┃ Confirm edit</span>
-            <br />
-            <span> Escape ┃ Cancel edit</span>
-            <br />
-            <span> Delete ┃ Delete message</span>
-            <br />
-            <span> Shift+Delete ┃ Delete with children</span>
+            <span>  ←/→ Arrow keys        ┃ Navigate parent/children</span><br />
+            <span>  ↑/↓ Arrow keys        ┃ Navigate on same level</span><br />
+            <span>  Alt+R                 ┃ Reply</span><br />
+            <span>  Alt+G                 ┃ Generate AI reply</span><br />
+            <span>  Insert/Double-click   ┃ Edit message</span><br />
+            <span>  Enter                 ┃ Confirm edit</span><br />
+            <span>  Escape                ┃ Cancel edit</span><br />
+            <span>  Delete                ┃ Delete message</span><br />
+            <span>  Shift+Delete          ┃ Delete with children</span>
           </p>
           <div className="mt-4 text-center text-sm text-muted-foreground font-serif">
             <span>Select a thread to view messages.</span>
