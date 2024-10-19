@@ -36,9 +36,10 @@ interface SelectBaseModelProps {
   onValueChange: (value: string, parameters: Partial<ModelParameters>) => void;
   fetchAvailableModels: () => Promise<Model[]>;
   existingParameters?: Partial<ModelParameters>;
+  fetchModelParameters: (modelId: string) => Promise<ModelParameters | null>;
 }
 
-export function SelectBaseModel({ value, onValueChange, fetchAvailableModels, existingParameters }: SelectBaseModelProps) {
+export function SelectBaseModel({ value, onValueChange, fetchAvailableModels, existingParameters, fetchModelParameters }: SelectBaseModelProps) {
   const [open, setOpen] = React.useState(false);
   const [parameters, setParameters] = React.useState<ModelParameters | null>(null);
   const [availableModels, setAvailableModels] = React.useState<Model[]>([]);
@@ -52,45 +53,36 @@ export function SelectBaseModel({ value, onValueChange, fetchAvailableModels, ex
     loadModels();
   }, [fetchAvailableModels]);
 
-  const fetchModelParameters = React.useCallback(async (modelId: string) => {
+  const fetchModelParametersWithCache = React.useCallback(async (modelId: string) => {
     if (cachedParameters[modelId]) {
       setParameters(cachedParameters[modelId]);
       return cachedParameters[modelId];
     }
 
     try {
-      console.log("Fetching parameters for model:", modelId);
-      const response = await fetch(`${process.env.NEXT_PUBLIC_OPENROUTER_API_URL}/parameters/${modelId}`, {
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${process.env.NEXT_PUBLIC_OPENROUTER_API_KEY || ''}`,
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch model parameters: ${response.status} ${response.statusText}`);
-      }
-      const { data } = await response.json();
+      const data = await fetchModelParameters(modelId);
       console.log("Received parameters:", data);
-      setParameters(data);
-      setCachedParameters(prev => ({ ...prev, [modelId]: data }));
+      if (data) {
+        setParameters(data);
+        setCachedParameters(prev => ({ ...prev, [modelId]: data }));
+      }
       return data;
     } catch (error) {
       console.error('Error fetching model parameters:', error);
       setParameters(null);
       return null;
     }
-  }, [cachedParameters]);
+  }, [cachedParameters, fetchModelParameters]);
 
   React.useEffect(() => {
     if (value) {
       if (existingParameters && Object.keys(existingParameters).length > 0) {
         setParameters(existingParameters as ModelParameters);
       } else {
-        fetchModelParameters(value);
+        fetchModelParametersWithCache(value);
       }
     }
-  }, [value, fetchModelParameters, existingParameters]);
+  }, [value, fetchModelParametersWithCache, existingParameters]);
 
   const handleParameterChange = (param: string, newValue: any) => {
     if (parameters) {
@@ -111,7 +103,6 @@ export function SelectBaseModel({ value, onValueChange, fetchAvailableModels, ex
         max = 2.0;
         break;
       case 'top_p':
-        // max is already 1.0
         break;
       case 'top_k':
         max = Number.MAX_SAFE_INTEGER;
@@ -127,8 +118,6 @@ export function SelectBaseModel({ value, onValueChange, fetchAvailableModels, ex
         break;
       case 'min_p':
       case 'top_a':
-        // max is already 1.0
-        break;
       case 'seed':
       case 'max_tokens':
         max = Number.MAX_SAFE_INTEGER;
@@ -284,7 +273,7 @@ export function SelectBaseModel({ value, onValueChange, fetchAvailableModels, ex
                     key={model.id}
                     value={model.id}
                     onSelect={async (currentValue) => {
-                      const newParameters = await fetchModelParameters(currentValue);
+                      const newParameters = await fetchModelParametersWithCache(currentValue);
                       if (newParameters) {
                         onValueChange(currentValue, newParameters);
                         setOpen(false);

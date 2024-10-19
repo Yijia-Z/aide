@@ -693,6 +693,15 @@ export default function ThreadedDocument() {
     fetchAvailableModels();
   }, [fetchAvailableModels]);
 
+  const fetchModelParameters = async (modelId: string) => {
+    const response = await fetch(`/api/parameters/${modelId}/`);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch model parameters: ${response.status} ${response.statusText}`);
+    }
+    const { data } = await response.json();
+    return data;
+  };
+
   const handleModelChange = useCallback(
     (field: keyof Model, value: string | number | Partial<ModelParameters>) => {
       if (editingModel) {
@@ -1848,6 +1857,7 @@ export default function ThreadedDocument() {
                         handleModelChange("parameters", parameters as Partial<ModelParameters>);
                       }}
                       fetchAvailableModels={fetchAvailableModels}
+                      fetchModelParameters={fetchModelParameters}
                       existingParameters={editingModel.parameters}
                     />
                     <Label>System Prompt</Label>
