@@ -97,9 +97,10 @@ class Model(BaseModel):
 def multi_turn_question(
     s, messages: List[Message], model_name: str, max_tokens: int, temperature: float
 ):
-    print(
+    logger.info(
         f"Debug: model_name={model_name}, temperature={temperature}, max_tokens={max_tokens}"
     )
+    logger.info(f"Messages received: {messages}")
     s.model = model_name
     s.temperature = temperature
     s.max_tokens = max_tokens
