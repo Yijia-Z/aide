@@ -85,7 +85,6 @@ interface Model {
   baseModel: string;
   systemPrompt: string;
   parameters: ModelParameters;
-  bounds?: ModelParameters;
 }
 
 interface ModelParameters {
@@ -98,8 +97,8 @@ interface ModelParameters {
   min_p?: number;
   top_a?: number;
   seed?: number;
-  context_length?: number;
   max_tokens?: number;
+  context_length?: number;
   logit_bias?: { [key: string]: number };
   logprobs?: boolean;
   top_logprobs?: number;
@@ -180,7 +179,6 @@ async function generateAIResponse(
       min_p: model.parameters.min_p,
       top_a: model.parameters.top_a,
       seed: model.parameters.seed,
-      context_length: model.parameters.context_length,
       max_tokens: model.parameters.max_tokens,
       logit_bias: model.parameters.logit_bias,
       logprobs: model.parameters.logprobs,
@@ -621,10 +619,7 @@ export default function ThreadedDocument() {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(
-          "Failed to fetch available models from OpenRouter:",
-          errorText
-        );
+        console.error("Failed to fetch available models from OpenRouter:", errorText);
         throw new Error("Failed to fetch available models from OpenRouter");
       }
 
@@ -636,49 +631,45 @@ export default function ThreadedDocument() {
         throw new Error("Invalid response format from OpenRouter");
       }
 
-      const modelData = data.data.map((model: any) => ({
-        id: model.id,
-        name: model.name,
-        baseModel: model.id,
-        systemPrompt: "",
-        parameters: {
-          context_length: model.context_length ?? 4096,
-          top_p: model.top_p ?? 1,
-          temperature: 0.7,
-          max_tokens: model.context_length ?? 4096,
-          frequency_penalty: 0,
-          presence_penalty: 0,
-          top_k: 0,
-        },
-        bounds: {
-          context_length: model.context_length ?? 128000,
-          top_p: 1,
-          temperature: 1,
-          max_tokens: model.context_length ?? 128000,
-          frequency_penalty: 2,
-          presence_penalty: 2,
-          top_k: 100,
-        },
-      }));
+      const modelData = data.data.map((model: any) => {
+        const maxCompletionTokens = model.top_provider?.max_completion_tokens ?? model.context_length ?? 4096;
+        return {
+          id: model.id,
+          name: model.name,
+          baseModel: model.id,
+          systemPrompt: "",
+          parameters: {
+            context_length: maxCompletionTokens,
+            top_p: 1,
+            temperature: 0.7,
+            frequency_penalty: 0,
+            presence_penalty: 0,
+            top_k: 0,
+            max_tokens: maxCompletionTokens,
+          },
+        };
+      });
       setAvailableModels(modelData);
-      return modelData; // Return the array of models
+      return modelData;
     } catch (error) {
       console.error("Error fetching available models:", error);
-      return []; // Return an empty array in case of error
+      return [];
     }
   }, []);
 
-  useEffect(() => {
-    fetchAvailableModels();
-  }, [fetchAvailableModels]);
-
   const fetchModelParameters = async (modelId: string) => {
-    const response = await fetch(`/api/parameters/${modelId}/`);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch model parameters: ${response.status} ${response.statusText}`);
+    console.log(`Fetching parameters for model ID: ${modelId}`);
+    try {
+      const response = await fetch(`/api/model-parameters?modelId=${encodeURIComponent(modelId)}`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch model parameters: ${response.status} ${response.statusText}`);
+      }
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error("Error fetching model parameters:", error);
+      throw error;
     }
-    const { data } = await response.json();
-    return data;
   };
 
   const handleModelChange = useCallback(
@@ -763,6 +754,7 @@ export default function ThreadedDocument() {
       saveModels();
     }
   }, [models, modelsLoaded]);
+
   useEffect(() => {
     fetchAvailableModels();
   }, [fetchAvailableModels]);
@@ -949,8 +941,8 @@ export default function ThreadedDocument() {
                   </Button>
                   <span
                     className={`font-bold ${message.publisher === "ai"
-                        ? "text-blue-600"
-                        : "text-green-600"
+                      ? "text-blue-600"
+                      : "text-green-600"
                       }`}
                   >
                     {parentId === null ||
@@ -969,8 +961,8 @@ export default function ThreadedDocument() {
                 {/* New navigation controls */}
                 <div
                   className={`flex space-x-1 ${isSelectedOrParent || isSelected
-                      ? "opacity-100"
-                      : "opacity-0 hover:opacity-100"
+                    ? "opacity-100"
+                    : "opacity-0 hover:opacity-100"
                     } transition-opacity duration-200`}
                 >
                   {parentMessage && (
@@ -1312,7 +1304,7 @@ export default function ThreadedDocument() {
     const newModel: Model = {
       id: Date.now().toString(),
       name: "New Model",
-      baseModel: "none",
+      baseModel: "meta-llama/llama-3.2-3b-instruct:free",
       systemPrompt: "You are a helpful assistant.",
       parameters: {},
     };
@@ -1561,8 +1553,8 @@ export default function ThreadedDocument() {
               <div
                 key={thread.id}
                 className={`font-serif px-1 cursor-pointer rounded mb-2 ${currentThread === thread.id
-                    ? "bg-secondary"
-                    : "hover:bg-secondary text-muted-foreground"
+                  ? "bg-secondary"
+                  : "hover:bg-secondary text-muted-foreground"
                   }`}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -1860,12 +1852,10 @@ export default function ThreadedDocument() {
                   <div>
                     <p>Base Model: {model.baseModel}</p>
                     <p>
-                      Temperature: {model.parameters.temperature} (Max:{" "}
-                      {model.bounds?.temperature || 1})
+                      Temperature: {model.parameters.temperature}
                     </p>
                     <p>
-                      Max Token: {model.parameters.context_length} (Max Context:{" "}
-                      {model.bounds?.context_length || 4096})
+                      Max Token: {model.parameters.max_tokens}
                     </p>
                   </div>
                 )}

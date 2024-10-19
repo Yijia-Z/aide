@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                "Authorization": `Bearer ${process.env.NEXT_PUBLIC_OPENROUTER_API_KEY}`,
+                "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
                 "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://aide.zy-j.com",
                 "X-Title": "Aide",
             },

@@ -116,23 +116,23 @@ def multi_turn_question(
     s.model = config.model
     s.temperature = config.temperature or s.temperature
     s.max_tokens = config.max_tokens or s.max_tokens
-    s.top_p = config.top_p or s.top_p
-    s.frequency_penalty = config.frequency_penalty or s.frequency_penalty
-    s.presence_penalty = config.presence_penalty or s.presence_penalty
-    s.repetition_penalty = config.repetition_penalty or s.repetition_penalty
-    s.min_p = config.min_p or s.min_p
-    s.top_a = config.top_a or s.top_a
-    s.seed = config.seed or s.seed
-    s.context_length = config.context_length or s.context_length
-    s.top_k = config.top_k or s.top_k
-    s.logit_bias = config.logit_bias or s.logit_bias
-    s.logprobs = config.logprobs or s.logprobs
-    s.top_logprobs = config.top_logprobs or s.top_logprobs
-    s.response_format = config.response_format or s.response_format
-    s.stop = config.stop or s.stop
-    s.tools = config.tools or s.tools
-    s.tool_choice = config.tool_choice or s.tool_choice
-
+    """     s.top_p = config.top_p or s.top_p
+        s.frequency_penalty = config.frequency_penalty or s.frequency_penalty
+        s.presence_penalty = config.presence_penalty or s.presence_penalty
+        s.repetition_penalty = config.repetition_penalty or s.repetition_penalty
+        s.min_p = config.min_p or s.min_p
+        s.top_a = config.top_a or s.top_a
+        s.seed = config.seed or s.seed
+        s.context_length = config.context_length or s.context_length
+        s.top_k = config.top_k or s.top_k
+        s.logit_bias = config.logit_bias or s.logit_bias
+        s.logprobs = config.logprobs or s.logprobs
+        s.top_logprobs = config.top_logprobs or s.top_logprobs
+        s.response_format = config.response_format or s.response_format
+        s.stop = config.stop or s.stop
+        s.tools = config.tools or s.tools
+        s.tool_choice = config.tool_choice or s.tool_choice
+ """
     # Process messages
     for msg in messages:
         if msg.role == "system":

@@ -27,10 +27,13 @@ interface ModelParameters {
   supported_parameters: string[];
   [key: string]: any;
 }
+
 interface Model {
   id: string;
   name: string;
+  parameters?: Partial<ModelParameters>;
 }
+
 interface SelectBaseModelProps {
   value: string;
   onValueChange: (value: string, parameters: Partial<ModelParameters>) => void;
@@ -58,15 +61,21 @@ export function SelectBaseModel({ value, onValueChange, fetchAvailableModels, ex
       setParameters(cachedParameters[modelId]);
       return cachedParameters[modelId];
     }
+    if (cachedParameters[modelId]) {
+      console.log("Using cached parameters for model:", modelId, cachedParameters[modelId]);
+      setParameters(cachedParameters[modelId]);
+      return cachedParameters[modelId];
+    }
 
     try {
+      // console.log("Fetching parameters for model:", modelId);
       const data = await fetchModelParameters(modelId);
-      console.log("Received parameters:", data);
+      // console.log("Received parameters:", data);
       if (data) {
-        setParameters(data);
-        setCachedParameters(prev => ({ ...prev, [modelId]: data }));
+        setParameters(data.data);
+        setCachedParameters(prev => ({ ...prev, [modelId]: data.data }));
       }
-      return data;
+      return data?.data;
     } catch (error) {
       console.error('Error fetching model parameters:', error);
       setParameters(null);
@@ -120,10 +129,12 @@ export function SelectBaseModel({ value, onValueChange, fetchAvailableModels, ex
       case 'top_a':
       case 'seed':
       case 'max_tokens':
-        max = Number.MAX_SAFE_INTEGER;
+        min = 1;
+        max = 4096;
         step = 1;
         break;
       case 'top_logprobs':
+        min = 1;
         max = 20;
         step = 1;
         break;
@@ -140,13 +151,6 @@ export function SelectBaseModel({ value, onValueChange, fetchAvailableModels, ex
         return null;
     }
 
-    if (parameters?.[`${param}_min`] !== undefined) {
-      min = parameters?.[`${param}_min`];
-    }
-    if (parameters?.[`${param}_max`] !== undefined) {
-      max = parameters?.[`${param}_max`];
-    }
-
     switch (param) {
       case 'temperature':
       case 'top_p':
@@ -156,6 +160,7 @@ export function SelectBaseModel({ value, onValueChange, fetchAvailableModels, ex
       case 'repetition_penalty':
       case 'min_p':
       case 'top_a':
+      case 'seed':
         return (
           <div key={param} className="flex flex-col space-y-2">
             <div className="flex items-center justify-between">
@@ -181,16 +186,29 @@ export function SelectBaseModel({ value, onValueChange, fetchAvailableModels, ex
             />
           </div>
         );
-      case 'seed':
       case 'max_tokens':
         return (
           <div key={param} className="flex flex-col space-y-2">
-            <Label>{param}</Label>
-            <Input
-              type="number"
-              value={value || 0}
-              onChange={(e) => handleParameterChange(param, parseInt(e.target.value))}
-              min={0}
+            <div className="flex items-center justify-between">
+              <Label>{param}</Label>
+              <Input
+                type="number"
+                value={value || 0}
+                onChange={(e) => handleParameterChange(param, Math.min(parseInt(e.target.value), max))}
+                className="min-font-size text-foreground w-20 h-6 text-left text-xs"
+                step={step.toString()}
+                min={min}
+                max={max}
+              />
+            </div>
+            <Slider
+              defaultValue={[value || 0]}
+              max={max}
+              min={min}
+              step={step}
+              value={[value || 0]}
+              onValueChange={([val]) => handleParameterChange(param, val)}
+              className="h-4"
             />
           </div>
         );
