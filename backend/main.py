@@ -4,7 +4,7 @@ import os
 import traceback
 import uvicorn
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Union
 
 import sglang as sgl
 from dotenv import load_dotenv
@@ -66,9 +66,24 @@ class Message(BaseModel):
 
 class Configuration(BaseModel):
     model: str
-    max_tokens: int
-    temperature: float = 0.7
-
+    max_tokens: int = None
+    temperature: float = None
+    top_p: float = None
+    frequency_penalty: float = None
+    presence_penalty: float = None
+    top_k: int = None
+    stop: Union[str, List[str]] = None
+    logit_bias: Dict[str, float] = None
+    top_a: float = None
+    seed: int = None
+    context_length: int = None
+    min_p: float = None
+    repetition_penalty: float = None
+    logprobs: int = None
+    top_logprobs: int = None
+    response_format: Dict = None
+    tools: List = None
+    tool_choice: Union[str, Dict] = None
 
 class ChatRequest(BaseModel):
     messages: List[Message]
@@ -95,14 +110,30 @@ class Model(BaseModel):
 
 @sgl.function
 def multi_turn_question(
-    s, messages: List[Message], model_name: str, max_tokens: int, temperature: float
+    s, messages: List[Message], config: Configuration
 ):
-    print(
-        f"Debug: model_name={model_name}, temperature={temperature}, max_tokens={max_tokens}"
-    )
-    s.model = model_name
-    s.temperature = temperature
-    s.max_tokens = max_tokens
+    # Set the model configuration
+    s.model = config.model
+    s.temperature = config.temperature or s.temperature
+    s.max_tokens = config.max_tokens or s.max_tokens
+    """     s.top_p = config.top_p or s.top_p
+        s.frequency_penalty = config.frequency_penalty or s.frequency_penalty
+        s.presence_penalty = config.presence_penalty or s.presence_penalty
+        s.repetition_penalty = config.repetition_penalty or s.repetition_penalty
+        s.min_p = config.min_p or s.min_p
+        s.top_a = config.top_a or s.top_a
+        s.seed = config.seed or s.seed
+        s.context_length = config.context_length or s.context_length
+        s.top_k = config.top_k or s.top_k
+        s.logit_bias = config.logit_bias or s.logit_bias
+        s.logprobs = config.logprobs or s.logprobs
+        s.top_logprobs = config.top_logprobs or s.top_logprobs
+        s.response_format = config.response_format or s.response_format
+        s.stop = config.stop or s.stop
+        s.tools = config.tools or s.tools
+        s.tool_choice = config.tool_choice or s.tool_choice
+ """
+    # Process messages
     for msg in messages:
         if msg.role == "system":
             s += sgl.system(msg.content)
@@ -111,7 +142,6 @@ def multi_turn_question(
         elif msg.role == "assistant":
             s += sgl.assistant(msg.content)
     s += sgl.assistant(sgl.gen("response"))
-
 
 models_file = data_folder / "models.json"
 models_list = []
@@ -246,15 +276,11 @@ async def save_models(request: Request):
 @app.post("/api/chat")
 async def chat(request: ChatRequest):
     try:
-        model_name = request.configuration.model
-        max_tokens = request.configuration.max_tokens
-        temperature = request.configuration.temperature
-
-        logger.info(f"Generating response with model: {model_name}, max_tokens: {max_tokens}, temperature: {temperature}")
+        logger.info(f"Generating response with configuration: {request.configuration}")
 
         async def generate_response():
             state = multi_turn_question.run(
-                request.messages, model_name, max_tokens, temperature, stream=True
+                request.messages, request.configuration, stream=True
             )
 
             async for chunk in state.text_async_iter(var_name="response"):

@@ -1,19 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
-
 export async function POST(req: NextRequest) {
     try {
-        // Log the start of the request
         console.log("API route started");
 
         const body = await req.json();
         const { messages, configuration } = body;
 
-        // Log the received configuration
         console.log("Received configuration:", configuration);
 
-        // Check if the API key is set
         if (!process.env.OPENROUTER_API_KEY) {
             console.error("OPENROUTER_API_KEY is not set");
             throw new Error("OPENROUTER_API_KEY is not set");
@@ -24,21 +19,36 @@ export async function POST(req: NextRequest) {
             model: configuration.model,
             temperature: configuration.temperature,
             max_tokens: configuration.max_tokens,
+            top_p: configuration.top_p,
+            frequency_penalty: configuration.frequency_penalty,
+            presence_penalty: configuration.presence_penalty,
+            repetition_penalty: configuration.repetition_penalty,
+            min_p: configuration.min_p,
+            top_a: configuration.top_a,
+            seed: configuration.seed,
+            context_length: configuration.context_length,
+            top_k: configuration.top_k,
+            logit_bias: configuration.logit_bias,
+            logprobs: configuration.logprobs,
+            top_logprobs: configuration.top_logprobs,
+            response_format: configuration.response_format,
+            stop: configuration.stop,
+            tools: configuration.tools,
+            tool_choice: configuration.tool_choice,
             stream: true,
         };
+        const filteredParams = Object.fromEntries(Object.entries(params).filter(([_, value]) => value !== undefined));
+        console.log("Request parameters:", filteredParams);
 
-        // Log the request parameters
-        console.log("Request parameters:", params);
-
-        const response = await fetch(OPENROUTER_API_URL, {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_OPENROUTER_API_URL}/chat/completions`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
                 "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
-                "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+                "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://aide.zy-j.com",
                 "X-Title": "Aide",
             },
-            body: JSON.stringify(params),
+            body: JSON.stringify(filteredParams), // Ensure filteredParams is used
         });
 
         if (!response.ok) {
