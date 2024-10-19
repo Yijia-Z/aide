@@ -234,34 +234,11 @@ export default function ThreadedDocument() {
   const [editingContent, setEditingContent] = useState("");
   const replyBoxRef = useRef<HTMLDivElement>(null);
 
+
+  const [modelsLoaded, setModelsLoaded] = useState(false);
   const [availableModels, setAvailableModels] = useState<Model[]>([]);
-  const [models, setModels] = useState<Model[]>([
-    {
-      id: "1",
-      name: "Default Model",
-      baseModel: "openai/gpt-4o-mini",
-      systemPrompt: "You are a helpful assistant.",
-      parameters: {
-        context_length: 4096,
-        top_p: 0,
-        temperature: 1,
-        max_tokens: 4096,
-        frequency_penalty: 0,
-        presence_penalty: 0,
-        top_k: 0,
-      },
-      bounds: {
-        context_length: 128000,
-        top_p: 1,
-        temperature: 1,
-        max_tokens: 128000,
-        frequency_penalty: 2,
-        presence_penalty: 2,
-        top_k: 100,
-      },
-    },
-  ]);
-  const [selectedModel, setSelectedModel] = useState<string>(models[0].id);
+  const [models, setModels] = useState<Model[]>([]);
+  const [selectedModel, setSelectedModel] = useState<string | null>(null);
   const [editingModel, setEditingModel] = useState<Model | null>(null);
 
   const [lastAttemptTime, setLastAttemptTime] = useState<number | null>(null);
@@ -367,7 +344,7 @@ export default function ThreadedDocument() {
     [apiBaseUrl]
   );
 
-  //load thread
+  // Load threads
   useEffect(() => {
     const loadThreads = async () => {
       try {
@@ -379,11 +356,12 @@ export default function ThreadedDocument() {
         );
         if (response.ok) {
           const data = await response.json();
+          console.log("Loaded threads data:", data.threads);
           const loadedThreads: Thread[] = data.threads.map((t: any) => ({
-            id: t.threadId,
-            title: t.thread.title,
-            messages: t.thread.messages,
-            isPinned: t.thread.isPinned,
+            id: t.threadId || t.id,
+            title: t.thread?.title || t.title || "Untitled Thread",
+            messages: t.thread?.messages || t.messages || [],
+            isPinned: t.thread?.isPinned || t.isPinned || false,
           }));
           setThreads(loadedThreads || []);
           console.log(`Successfully loaded ${loadedThreads.length} threads.`);
@@ -403,7 +381,7 @@ export default function ThreadedDocument() {
     return debouncedSaveThreads.cancel;
   }, [threads, debouncedSaveThreads]);
 
-  // add new thread
+  // Add new thread
   const addThread = useCallback(async () => {
     const newThread: Thread = {
       id: Date.now().toString(),
@@ -435,9 +413,9 @@ export default function ThreadedDocument() {
       const response = await fetch(
         apiBaseUrl ? `${apiBaseUrl}/api/save_thread` : "/api/save_thread",
         {
-          method: "PUT",
+          method: "POST", // 修改为 POST
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ threadId, ...updatedData }),
+          body: JSON.stringify({ threadId, thread: { ...updatedData } }), // 确保后端接收到正确的结构
         }
       );
       if (!response.ok) {
@@ -447,6 +425,7 @@ export default function ThreadedDocument() {
       console.error(`update ${threadId} datafail:`, error);
     }
   };
+
   // Add a new message to a thread
   const addMessage = useCallback(
     (
@@ -745,44 +724,25 @@ export default function ThreadedDocument() {
         );
         if (response.ok) {
           const data = await response.json();
+          console.log("Loaded models:", data.models); // 修改这里
           setModels(data.models || []);
+          if (data.models && data.models.length > 0) {
+            setSelectedModel(data.models[0].id);
+          }
+          setModelsLoaded(true); // 确保在成功加载模型后设置
+        } else {
+          console.error("从后端加载模型失败。");
+          setModelsLoaded(true);
         }
       } catch (error) {
-        console.error("Failed to load model data:", error);
+        console.error("加载模型时出错：", error);
+        setModelsLoaded(true);
       }
     };
 
-    loadThreads();
     loadModels();
   }, []);
 
-  // Save thread data
-  useEffect(() => {
-    const saveThread = async (thread: Thread) => {
-      try {
-        await fetch(
-          apiBaseUrl ? `${apiBaseUrl}/api/save_thread` : "/api/save_thread",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ threadId: thread.id, thread }),
-          }
-        );
-      } catch (error) {
-        console.error(`Failed to save thread ${thread.id} data:`, error);
-      }
-    };
-
-    threads.forEach((thread) => {
-      saveThread(thread);
-    });
-  }, [threads]);
-
-  useEffect(() => {
-    fetchAvailableModels();
-  }, [fetchAvailableModels]);
-
-  // Save model data
   useEffect(() => {
     const saveModels = async () => {
       try {
@@ -795,12 +755,17 @@ export default function ThreadedDocument() {
           }
         );
       } catch (error) {
-        console.error("Failed to save model data:", error);
+        console.error("保存模型数据失败：", error);
       }
     };
 
-    saveModels();
-  }, [models]);
+    if (modelsLoaded && models.length > 0) {
+      saveModels();
+    }
+  }, [models, modelsLoaded]);
+  useEffect(() => {
+    fetchAvailableModels();
+  }, [fetchAvailableModels]);
 
   // Update message content
   const updateMessageContent = useCallback(
@@ -984,8 +949,8 @@ export default function ThreadedDocument() {
                   </Button>
                   <span
                     className={`font-bold ${message.publisher === "ai"
-                      ? "text-blue-600"
-                      : "text-green-600"
+                        ? "text-blue-600"
+                        : "text-green-600"
                       }`}
                   >
                     {parentId === null ||
@@ -1004,8 +969,8 @@ export default function ThreadedDocument() {
                 {/* New navigation controls */}
                 <div
                   className={`flex space-x-1 ${isSelectedOrParent || isSelected
-                    ? "opacity-100"
-                    : "opacity-0 hover:opacity-100"
+                      ? "opacity-100"
+                      : "opacity-0 hover:opacity-100"
                     } transition-opacity duration-200`}
                 >
                   {parentMessage && (
@@ -1596,8 +1561,8 @@ export default function ThreadedDocument() {
               <div
                 key={thread.id}
                 className={`font-serif px-1 cursor-pointer rounded mb-2 ${currentThread === thread.id
-                  ? "bg-secondary"
-                  : "hover:bg-secondary text-muted-foreground"
+                    ? "bg-secondary"
+                    : "hover:bg-secondary text-muted-foreground"
                   }`}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -1804,7 +1769,7 @@ export default function ThreadedDocument() {
             backdropFilter: "blur(1px)",
           }}
         >
-          <Select value={selectedModel} onValueChange={setSelectedModel}>
+          <Select value={selectedModel ?? undefined} onValueChange={setSelectedModel}>
             <SelectTrigger>
               <SelectValue placeholder="Select a model" />
             </SelectTrigger>
@@ -1946,16 +1911,16 @@ export default function ThreadedDocument() {
           </TabsContent>
           <TabsList
             className="grid 
-            bg-background/50 
-            backdrop-blur-[3px] 
-            w-full 
-            fixed 
-            bottom-0 
-            left-0 
-            right-0 
-            pb-14 
-            grid-cols-3
-            select-none"
+              bg-background/50 
+              backdrop-blur-[3px] 
+              w-full 
+              fixed 
+              bottom-0 
+              left-0 
+              right-0 
+              pb-14 
+              grid-cols-3
+              select-none"
           >
             <TabsTrigger
               value="threads"
