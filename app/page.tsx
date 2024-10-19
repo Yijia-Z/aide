@@ -98,6 +98,7 @@ interface ModelParameters {
   top_a?: number;
   seed?: number;
   max_tokens?: number;
+  max_output?: number;
   context_length?: number;
   logit_bias?: { [key: string]: number };
   logprobs?: boolean;
@@ -612,7 +613,7 @@ export default function ThreadedDocument() {
       const response = await fetch("https://openrouter.ai/api/v1/models", {
         method: "GET",
         headers: {
-          Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+          Authorization: `Bearer ${process.env.NEXT_PUBLIC_OPENROUTER_API_KEY}`,
           "Content-Type": "application/json",
         },
       });
@@ -632,20 +633,20 @@ export default function ThreadedDocument() {
       }
 
       const modelData = data.data.map((model: any) => {
-        const maxCompletionTokens = model.top_provider?.max_completion_tokens ?? model.context_length ?? 4096;
+        const maxOutput = model.top_provider?.max_completion_tokens ?? model.context_length ?? 9999;
         return {
           id: model.id,
           name: model.name,
           baseModel: model.id,
           systemPrompt: "",
           parameters: {
-            context_length: maxCompletionTokens,
             top_p: 1,
             temperature: 0.7,
             frequency_penalty: 0,
             presence_penalty: 0,
             top_k: 0,
-            max_tokens: maxCompletionTokens,
+            max_tokens: maxOutput, // Set initial max_tokens to maxOutput
+            max_output: maxOutput, // Include max_output in the parameters
           },
         };
       });
@@ -665,6 +666,13 @@ export default function ThreadedDocument() {
         throw new Error(`Failed to fetch model parameters: ${response.status} ${response.statusText}`);
       }
       const data = await response.json();
+
+      // Find the corresponding model in availableModels to get the max_output
+      const selectedModel = availableModels.find(model => model.id === modelId);
+      if (selectedModel && selectedModel.parameters?.max_output) {
+        data.max_output = selectedModel.parameters.max_output;
+      }
+
       return data;
     } catch (error) {
       console.error("Error fetching model parameters:", error);
@@ -680,31 +688,17 @@ export default function ThreadedDocument() {
           if (field === "parameters") {
             return { ...prevModel, parameters: { ...prevModel.parameters, ...value as Partial<ModelParameters> } };
           }
+          if (field === "baseModel") {
+            return { ...prevModel, baseModel: value as string };
+          }
           return { ...prevModel, [field]: value };
         });
       }
     },
-    [editingModel]
+    [editingModel, availableModels]
   );
 
   useEffect(() => {
-    const loadThreads = async () => {
-      try {
-        const response = await fetch(
-          apiBaseUrl ? `${apiBaseUrl}/api/load_threads` : "/api/load_threads",
-          {
-            method: "GET",
-          }
-        );
-        if (response.ok) {
-          const data = await response.json();
-          setThreads(data.threads || []);
-        }
-      } catch (error) {
-        console.error("Failed to load thread data:", error);
-      }
-    };
-
     const loadModels = async () => {
       try {
         const response = await fetch(
@@ -1847,7 +1841,7 @@ export default function ThreadedDocument() {
                       Temperature: {model.parameters.temperature}
                     </p>
                     <p>
-                      Max Token: {model.parameters.max_tokens}
+                      Max Tokens: {model.parameters.max_tokens}
                     </p>
                   </div>
                 )}

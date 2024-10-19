@@ -25,6 +25,7 @@ import { Label } from "@/components/ui/label"
 interface ModelParameters {
   model: string;
   supported_parameters: string[];
+  max_output: number;
   [key: string]: any;
 }
 
@@ -130,7 +131,7 @@ export function SelectBaseModel({ value, onValueChange, fetchAvailableModels, ex
       case 'seed':
       case 'max_tokens':
         min = 1;
-        max = 4096;
+        max = parameters?.max_output || 4096;
         step = 1;
         break;
       case 'top_logprobs':
@@ -169,7 +170,7 @@ export function SelectBaseModel({ value, onValueChange, fetchAvailableModels, ex
                 type="number"
                 value={value || 0}
                 onChange={(e) => handleParameterChange(param, parseFloat(e.target.value))}
-                className="min-font-size text-foreground w-20 h-6 text-left text-xs"
+                className="min-font-size text-foreground p-1 ml-2 w-flex h-6 text-right text-xs"
                 step={step.toString()}
                 min={min}
                 max={max}
@@ -195,7 +196,7 @@ export function SelectBaseModel({ value, onValueChange, fetchAvailableModels, ex
                 type="number"
                 value={value || 0}
                 onChange={(e) => handleParameterChange(param, Math.min(parseInt(e.target.value), max))}
-                className="min-font-size text-foreground w-20 h-6 text-left text-xs"
+                className="min-font-size text-foreground p-1 ml-2 w-full h-6 text-right text-xs"
                 step={step.toString()}
                 min={min}
                 max={max}
@@ -293,6 +294,10 @@ export function SelectBaseModel({ value, onValueChange, fetchAvailableModels, ex
                     onSelect={async (currentValue) => {
                       const newParameters = await fetchModelParametersWithCache(currentValue);
                       if (newParameters) {
+                        const modelWithMaxOutput = availableModels.find(m => m.id === currentValue);
+                        if (modelWithMaxOutput && modelWithMaxOutput.parameters?.max_output) {
+                          newParameters.max_output = modelWithMaxOutput.parameters.max_output;
+                        }
                         onValueChange(currentValue, newParameters);
                         setOpen(false);
                       }
