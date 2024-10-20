@@ -5,14 +5,15 @@ import traceback
 import uvicorn
 from pathlib import Path
 from typing import Dict, List, Union,Optional
-
+from pymongo import MongoClient
 import sglang as sgl
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
-
+import urllib.parse
+from pymongo.server_api import ServerApi
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -27,11 +28,19 @@ if not dotenv_path.exists():
     raise FileNotFoundError(f".env.local not found at this path: {dotenv_path}")
 
 load_dotenv(dotenv_path=dotenv_path)
+username = os.getenv("MONGO_USERNAME")
+password = os.getenv("MONGO_PASSWORD")
+encoded_username = urllib.parse.quote_plus(username)
+encoded_password = urllib.parse.quote_plus(password)
+mongo_url =f"mongodb+srv://{encoded_username}:{encoded_password}@cluster0.wxzms.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
 
-data_folder = parent_dir / "data"
-if not data_folder.exists():
-    data_folder.mkdir()
-    logger.info(f"Created data folder: {data_folder}")
+client = MongoClient(mongo_url, server_api=ServerApi('1'))
+# Send a ping to confirm a successful connection
+try:
+    client.admin.command('ping')
+    print("Pinged your deployment. You successfully connected to MongoDB!")
+except Exception as e:
+    print(e)
 
 app = FastAPI()
 origins = os.getenv("ALLOWED_ORIGINS", "")
@@ -178,31 +187,34 @@ def multi_turn_question(
             s += sgl.assistant(msg.content)
     s += sgl.assistant(sgl.gen("response"))
 
-models_file = data_folder / "models.json"
-models_list = []
 
+models_list = []
 
 def load_models_from_file():
     global models_list
     try:
-        # 检查 models_file 是否存在
+        
         if models_file.exists():
+            logger.info("models.json file found. Attempting to load models.")
             with models_file.open("r", encoding="utf-8") as f:
                 try:
                     models_list = json.load(f)
                     if not models_list:
                         logger.warning("models.json is empty. Initializing with default models.")
                         models_list = get_default_models()
-                except json.JSONDecodeError:
-                    logger.warning("models.json is invalid. Initializing with default models.")
+                    else:
+                        logger.info(f"Successfully loaded models: {models_list}")
+                except json.JSONDecodeError as e:
+                    logger.error(f"Failed to parse models.json: {e}. Initializing with default models.")
                     models_list = get_default_models()
         else:
-            # 如果文件不存在，则初始化默认模型
+           
+            logger.warning("models.json file not found. Initializing with default models.")
             models_list = get_default_models()
-            logger.info("Initialized with default models.")
     except Exception as e:
-        logger.error(f"Failed to load model file: {str(e)}")
+        logger.error(f"Failed to load models due to an unexpected error: {str(e)}")
         models_list = get_default_models()
+
 
 def get_default_models():
     """Return default model configuration."""
@@ -228,7 +240,7 @@ async def connect():
     return JSONResponse(content={"message": "successful"}, status_code=200)
 
 
-@app.post("/api/save_thread")
+""" @app.post("/api/save_thread")
 async def save_thread(thread_data: ThreadData):
     try:
         thread_id = thread_data.threadId
@@ -241,10 +253,35 @@ async def save_thread(thread_data: ThreadData):
         return {"status": "success"}
     except Exception as e:
         logger.error(f"Failed to save thread: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to save thread") """
+        
+@app.post("/api/save_thread")
+async def save_thread(thread_data: ThreadData):
+    try:
+        thread_id = thread_data.threadId
+        thread = thread_data.thread
+        
+        
+        db = client["threaddata"] 
+        collection_name = f"thread_{thread_id}" 
+        collection = db[collection_name]
+        
+       
+        result = collection.update_one(
+            {"threadId": thread_id},
+            {"$set": thread},
+            upsert=True  
+        )
+        
+        logger.info(f"Successfully saved thread {thread_id} to collection {collection_name}.")
+        return {"status": "success"}
+    except Exception as e:
+        logger.error(f"Failed to save thread to MongoDB: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to save thread")
 
 
-@app.get("/api/load_threads")
+
+""" @app.get("/api/load_threads")
 async def load_threads():
     try:
         threads = []
@@ -259,9 +296,30 @@ async def load_threads():
     except Exception as e:
         logger.error(f"Failed to load threads: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to load threads")
+ """
+
+@app.get("/api/load_threads")
+async def load_threads():
+    try:
+        db = client["threaddata"]
+        collections = db.list_collection_names() 
+        
+        threads = []
+        for collection_name in collections:
+            if collection_name.startswith("thread_"):
+                collection = db[collection_name]
+                thread = collection.find_one({}, {"_id": 0}) 
+                if thread:
+                    threads.append(thread)
+
+        logger.info(f"Successfully loaded {len(threads)} threads from MongoDB.")
+        return {"threads": threads}
+    except Exception as e:
+        logger.error(f"Failed to load threads from MongoDB: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to load threads")
 
 
-@app.delete("/api/delete_thread/{thread_id}")
+""" @app.delete("/api/delete_thread/{thread_id}")
 async def delete_thread(thread_id: str):
     try:
         thread_file = data_folder / f"{thread_id}.json"
@@ -278,21 +336,73 @@ async def delete_thread(thread_id: str):
     except Exception as e:
         logger.error(f"Failed to delete thread: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to delete thread")
-
+ """
+@app.delete("/api/delete_thread/{thread_id}")
+async def delete_thread(thread_id: str):
+    try:
+        db = client["threaddata"] 
+        collection_name = f"thread_{thread_id}"
+        
+       
+        if collection_name in db.list_collection_names():
+            db.drop_collection(collection_name)
+            logger.info(f"Successfully deleted thread {thread_id} (collection {collection_name}).")
+            return {
+                "status": "success",
+                "message": f"Thread {thread_id} (collection {collection_name}) has been deleted",
+            }
+        else:
+            logger.error(f"Thread {thread_id} does not exist.")
+            raise HTTPException(status_code=404, detail=f"Thread {thread_id} not found")
+    except Exception as e:
+        logger.error(f"Failed to delete thread {thread_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to delete thread")
 
 @app.get("/api/load_models")
 async def load_models():
     try:
-        if not models_list:
-            logger.warning("models_list is empty. Initializing with default models.")
-            load_models_from_file()
+        db = client["threaddata"]  # 连接到 MongoDB 数据库
+        collection = db["models"]  # 使用 "models" 集合
+        
+        # 从 MongoDB 中获取所有模型
+        models_from_db = list(collection.find({}, {"_id": 0}))  # 获取模型时排除 `_id` 字段
+        
+        if not models_from_db:
+            logger.warning("No models found in the database. Attempting to load from file.")
+            load_models_from_file()  # 如果数据库中没有模型，则尝试从文件加载
+            if not models_list:
+                logger.warning("No models found in file either. Initializing with default models.")
+                models_list = get_default_models()  # 如果文件中也没有模型，则返回默认模型
+        else:
+            logger.info(f"Successfully loaded {len(models_from_db)} models from MongoDB.")
+            models_list = models_from_db  # 从数据库加载的模型
+
         return {"models": models_list}
     except Exception as e:
         logger.error(f"Failed to load models: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to load models")
+        raise HTTPException(status_code=500, detail="Failed to load models from database or file")
 
+@app.post("/api/add_model")
+async def add_model(model: Model):
+    try:
+        db = client["threaddata"]
+        collection = db["models"]
+        
+        # 检查是否已经存在相同 ID 的模型
+        existing_model = collection.find_one({"id": model.id})
+        if existing_model:
+            raise HTTPException(status_code=400, detail="Model with this ID already exists")
+        
+        # 将模型插入数据库
+        collection.insert_one(model.dict())  # 将 Pydantic 模型转换为字典并插入
+        logger.info(f"Model {model.id} successfully added to MongoDB.")
+        return {"status": "success", "message": f"Model {model.name} added successfully."}
+    
+    except Exception as e:
+        logger.error(f"Failed to add model: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to add model")
 
-@app.post("/api/save_models")
+""" @app.post("/api/save_models")
 async def save_models(request: Request):
     try:
         data = await request.json()
@@ -308,6 +418,65 @@ async def save_models(request: Request):
     except Exception as e:
         logger.error(f"Failed to save models: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to save models")
+ """
+
+@app.post("/api/save_models")
+async def save_models(request: Request):
+    try:
+        data = await request.json()
+        models = data.get("models")
+        if models is None:
+            raise HTTPException(status_code=400, detail="No model data provided")
+        
+        # 连接 MongoDB 的 collection，用于保存模型数据
+        db = client["threaddata"]  
+        collection = db["models"]  
+        
+        for model in models:
+            # 打印原始数据
+            logger.info(f"Original model data before filtering: {model}")
+            
+            # 过滤掉模型中值为 None 或 undefined 的字段
+            filtered_model = {k: v for k, v in model.items() if v is not None}
+            
+            # 打印过滤后的数据
+            logger.info(f"Filtered model data before saving: {filtered_model}")
+            
+            # 使用模型的 'id' 作为唯一标识符进行更新或插入操作
+            result = collection.update_one(
+                {"id": filtered_model["id"]},  # 使用模型 ID 作为查询条件
+                {"$set": filtered_model},  # 更新过滤后的模型数据
+                upsert=True  # 如果不存在则插入
+            )
+
+            # 打印保存操作的结果
+            logger.info(f"MongoDB update result for model {filtered_model['id']}: {result.raw_result}")
+        
+        logger.info("Models successfully saved to MongoDB with filtered data.")
+        return {"status": "success"}
+    except Exception as e:
+        logger.error(f"Failed to save models to MongoDB: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to save models")
+
+@app.delete("/api/delete_model/{model_id}")
+async def delete_model(model_id: str):
+    try:
+        db = client["threaddata"]  
+        collection = db["models"]  # 模型数据的 collection
+
+        # 检查模型是否存在并删除
+        result = collection.delete_one({"id": model_id})
+
+        if result.deleted_count == 0:
+            logger.error(f"Model with id {model_id} not found.")
+            raise HTTPException(status_code=404, detail=f"Model {model_id} not found")
+
+        logger.info(f"Successfully deleted model {model_id}.")
+        return {"status": "success", "message": f"Model {model_id} has been deleted"}
+
+    except Exception as e:
+        logger.error(f"Failed to delete model {model_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to delete model")
 
 
 @app.post("/api/chat")
