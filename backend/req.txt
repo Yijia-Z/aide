@@ -4,3 +4,4 @@ sglang
 openai
 python-dotenv
 tiktoken
+pymongo
