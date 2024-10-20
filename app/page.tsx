@@ -168,7 +168,8 @@ async function generateAIResponse(
       ),
       { role: role === "user" ? "user" : "assistant", content: prompt },
     ],
-    configuration: {
+    configuration: Object.fromEntries(
+      Object.entries({
       model: model.baseModel,
       temperature: model.parameters.temperature,
       top_p: model.parameters.top_p,
@@ -187,7 +188,8 @@ async function generateAIResponse(
       stop: model.parameters.stop,
       tools: model.parameters.tools,
       tool_choice: model.parameters.tool_choice,
-    },
+    },).filter(([_, value]) => value !== null && value !== undefined) 
+  ),
   };
 
   console.log("Request payload:", JSON.stringify(requestPayload, null, 2));
