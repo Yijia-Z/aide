@@ -63,6 +63,18 @@ import {
 
 const MESSAGE_INDENT = 12; // Constant value for indentation
 
+const DEFAULT_MODEL: Model = {
+  id: 'default',
+  name: 'Default Model',
+  baseModel: 'meta-llama/llama-3.2-3b-instruct:free',
+  systemPrompt: 'You are a helpful assistant.',
+  parameters: {
+    temperature: 0.7,
+    top_p: 1,
+    max_tokens: 1000,
+  },
+};
+
 interface Message {
   id: string;
   content: string;
@@ -109,6 +121,22 @@ interface ModelParameters {
   tool_choice?: string | { type: string; function: { name: string } };
 }
 
+// Helper function to find a message and its parents
+function findMessageAndParents(
+  messages: Message[],
+  targetId: string,
+  parents: Message[] = []
+): [Message | null, Message[]] {
+  for (const message of messages) {
+    if (message.id === targetId) {
+      return [message, parents];
+    }
+    const [found, foundParents] = findMessageAndParents(message.replies, targetId, [...parents, message]);
+    if (found) return [found, foundParents];
+  }
+  return [null, []];
+}
+
 // Recursive function to find all parent messages for a given message
 function findAllParentMessages(
   threads: Thread[],
@@ -120,29 +148,8 @@ function findAllParentMessages(
   const currentThread = threads.find((thread) => thread.id === currentThreadId);
   if (!currentThread) return [];
 
-  function findMessageAndParents(
-    messages: Message[],
-    targetId: string,
-    parents: Message[] = []
-  ): Message[] | null {
-    for (const message of messages) {
-      if (message.id === targetId) {
-        return [...parents, message];
-      }
-      const found = findMessageAndParents(message.replies, targetId, [
-        ...parents,
-        message,
-      ]);
-      if (found) return found;
-    }
-    return null;
-  }
-
-  const parentMessages = findMessageAndParents(
-    currentThread.messages,
-    replyingToId
-  );
-  return parentMessages ? parentMessages.slice(0, -1) : [];
+  const [_, parentMessages] = findMessageAndParents(currentThread.messages, replyingToId);
+  return parentMessages;
 }
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
@@ -231,7 +238,6 @@ export default function ThreadedDocument() {
   const [editingMessage, setEditingMessage] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState("");
   const replyBoxRef = useRef<HTMLDivElement>(null);
-
 
   const [modelsLoaded, setModelsLoaded] = useState(false);
   const [availableModels, setAvailableModels] = useState<Model[]>([]);
@@ -361,13 +367,47 @@ export default function ThreadedDocument() {
             messages: t.thread?.messages || t.messages || [],
             isPinned: t.thread?.isPinned || t.isPinned || false,
           }));
-          setThreads(loadedThreads || []);
+
+          // Add a default thread if there are no threads
+          if (loadedThreads.length === 0) {
+            const defaultThread: Thread = {
+              id: Date.now().toString(),
+              title: "Welcome Thread",
+              messages: [{
+                id: Date.now().toString(),
+                content: "Welcome to your new chat thread! You can start a conversation here or create a new thread.",
+                publisher: "ai",
+                replies: [],
+                isCollapsed: false,
+              }],
+              isPinned: false,
+            };
+            loadedThreads.push(defaultThread);
+          }
+
+          setThreads(loadedThreads);
+          setCurrentThread(loadedThreads[0].id);
           console.log(`Successfully loaded ${loadedThreads.length} threads.`);
         } else {
           throw new Error("Failed to load thread data");
         }
       } catch (error) {
         console.error("Load failed:", error);
+        // Create a default thread if loading fails
+        const defaultThread: Thread = {
+          id: Date.now().toString(),
+          title: "Welcome Thread",
+          messages: [{
+            id: Date.now().toString(),
+            content: "Welcome to your new chat thread! You can start a conversation here or create a new thread.",
+            publisher: "ai",
+            replies: [],
+            isCollapsed: false,
+          }],
+          isPinned: false,
+        };
+        setThreads([defaultThread]);
+        setCurrentThread(defaultThread.id);
       }
     };
 
@@ -446,21 +486,19 @@ export default function ThreadedDocument() {
             isCollapsed: false,
           };
           setSelectedMessage(newMessage.id);
+
+          const addReplyToMessage = (message: Message): Message => {
+            if (message.id === parentId) {
+              return { ...message, replies: [...message.replies, newMessage] };
+            }
+            return { ...message, replies: message.replies.map(addReplyToMessage) };
+          };
+
           if (!parentId) {
             return { ...thread, messages: [...thread.messages, newMessage] };
           }
-          const addReply = (messages: Message[]): Message[] => {
-            return messages.map((message) => {
-              if (message.id === parentId) {
-                return {
-                  ...message,
-                  replies: [...message.replies, newMessage],
-                };
-              }
-              return { ...message, replies: addReply(message.replies) };
-            });
-          };
-          return { ...thread, messages: addReply(thread.messages) };
+
+          return { ...thread, messages: thread.messages.map(addReplyToMessage) };
         })
       );
     },
@@ -491,17 +529,34 @@ export default function ThreadedDocument() {
       setThreads((prev: Thread[]) =>
         prev.map((thread) => {
           if (thread.id !== threadId) return thread;
+
           const removeMessage = (messages: Message[]): Message[] => {
-            return messages.reduce((acc: Message[], message) => {
-              if (message.id === messageId) {
-                return deleteChildren ? acc : [...acc, ...message.replies];
+            const [messageToDelete, parentMessages] = findMessageAndParents(messages, messageId);
+            if (!messageToDelete) return messages;
+
+            if (parentMessages.length === 0) {
+              // Message is at the root level
+              return deleteChildren
+                ? messages.filter((m) => m.id !== messageId)
+                : [...messages.filter((m) => m.id !== messageId), ...messageToDelete.replies];
+            }
+
+            // Message is nested
+            const updateParent = (message: Message): Message => {
+              if (message.id === parentMessages[parentMessages.length - 1].id) {
+                return {
+                  ...message,
+                  replies: deleteChildren
+                    ? message.replies.filter((m) => m.id !== messageId)
+                    : [...message.replies.filter((m) => m.id !== messageId), ...messageToDelete.replies],
+                };
               }
-              return [
-                ...acc,
-                { ...message, replies: removeMessage(message.replies) },
-              ];
-            }, []);
+              return { ...message, replies: message.replies.map(updateParent) };
+            };
+
+            return messages.map(updateParent);
           };
+
           return { ...thread, messages: removeMessage(thread.messages) };
         })
       );
@@ -708,18 +763,29 @@ export default function ThreadedDocument() {
         );
         if (response.ok) {
           const data = await response.json();
-          console.log("Loaded models:", data.models); // 修改这里
-          setModels(data.models || []);
-          if (data.models && data.models.length > 0) {
-            setSelectedModel(data.models[0].id);
+          console.log("Loaded models:", data.models);
+          let loadedModels = data.models || [];
+
+          // If no models are loaded, add the default model
+          if (loadedModels.length === 0) {
+            loadedModels = [DEFAULT_MODEL];
           }
-          setModelsLoaded(true); // 确保在成功加载模型后设置
+
+          setModels(loadedModels);
+          setSelectedModel(loadedModels[0].id);
+          setModelsLoaded(true);
         } else {
-          console.error("从后端加载模型失败。");
+          console.error("Failed to load models from backend.");
+          // Add default model if loading fails
+          setModels([DEFAULT_MODEL]);
+          setSelectedModel(DEFAULT_MODEL.id);
           setModelsLoaded(true);
         }
       } catch (error) {
-        console.error("加载模型时出错：", error);
+        console.error("Error loading models:", error);
+        // Add default model if an error occurs
+        setModels([DEFAULT_MODEL]);
+        setSelectedModel(DEFAULT_MODEL.id);
         setModelsLoaded(true);
       }
     };
@@ -772,6 +838,45 @@ export default function ThreadedDocument() {
     },
     []
   );
+
+  const collapseDeepChildren = useCallback((msg: Message, selectedDepth: number, currentDepth: number): Message => {
+    const isCollapsed = currentDepth - selectedDepth >= (
+      window.innerWidth >= 1024 ? 6 :
+        window.innerWidth >= 768 ? 5 :
+          window.innerWidth >= 480 ? 4 :
+            3
+    );
+    return {
+      ...msg,
+      isCollapsed: isCollapsed,
+      replies: msg.replies.map(reply => collapseDeepChildren(reply, selectedDepth, currentDepth + 1))
+    };
+  }, []);
+
+  useEffect(() => {
+    if (selectedMessage && currentThread) {
+      setThreads(prevThreads => prevThreads.map(thread => {
+        if (thread.id === currentThread) {
+          const findSelectedMessageDepth = (messages: Message[], depth: number = 0): number => {
+            for (const msg of messages) {
+              if (msg.id === selectedMessage) return depth;
+              const foundDepth = findSelectedMessageDepth(msg.replies, depth + 1);
+              if (foundDepth !== -1) return foundDepth;
+            }
+            return -1;
+          };
+
+          const selectedDepth = findSelectedMessageDepth(thread.messages);
+
+          return {
+            ...thread,
+            messages: thread.messages.map(msg => collapseDeepChildren(msg, selectedDepth, 0))
+          };
+        }
+        return thread;
+      }));
+    }
+  }, [selectedMessage, currentThread, collapseDeepChildren]);
 
   // Generate AI reply
   const generateAIReply = useCallback(
@@ -842,53 +947,38 @@ export default function ThreadedDocument() {
     depth = 0,
     parentId: string | null = null
   ) {
+    // Message selection and hierarchy
     const isSelected = selectedMessage === message.id;
-    const isParentOfSelected =
-      selectedMessage !== null &&
+    const isParentOfSelected = selectedMessage !== null &&
       findMessageById(message.replies, selectedMessage) !== null;
-    const isSelectedOrParent =
-      isSelected || isParentOfSelected || parentId === message.id;
+    const isSelectedOrParent = isSelected || isParentOfSelected || parentId === message.id;
+
+    // Indentation
     const indent = isSelectedOrParent ? 0 : depth * MESSAGE_INDENT;
 
+    // Helper functions
     const getTotalReplies = (msg: Message): number => {
-      return msg.replies.reduce(
-        (total, reply) => total + 1 + getTotalReplies(reply),
-        0
-      );
-    };
-    const findMessageAndParent = (
-      messages: Message[],
-      targetId: string,
-      parent: Message | null = null
-    ): [Message | null, Message | null] => {
-      for (const message of messages) {
-        if (message.id === targetId) return [message, parent];
-        const [found, foundParent] = findMessageAndParent(
-          message.replies,
-          targetId,
-          message
-        );
-        if (found) return [found, foundParent];
-      }
-      return [null, null];
+      return msg.replies.reduce((total, reply) => total + 1 + getTotalReplies(reply), 0);
     };
 
     const getSiblings = (parent: Message | null): Message[] => {
-      if (!parent) return currentThreadData?.messages || [];
-      return parent.replies;
+      return parent ? parent.replies : currentThreadData?.messages || [];
     };
-    const totalReplies = getTotalReplies(message);
-
+    // Thread and message data
     const currentThreadData = threads.find((t) => t.id === currentThread);
     if (!currentThreadData) return null;
 
-    const [currentMessage, parentMessage] = findMessageAndParent(
+    const [currentMessage, parentMessages] = findMessageAndParents(
       currentThreadData.messages,
       message.id
     );
     if (!currentMessage) return null;
 
+    const parentMessage = parentMessages.length > 0 ? parentMessages[parentMessages.length - 1] : null;
     const siblings = getSiblings(parentMessage);
+
+    // Additional data
+    const totalReplies = getTotalReplies(message);
     const currentIndex = siblings.findIndex((m) => m.id === currentMessage.id);
 
     return (
@@ -900,13 +990,13 @@ export default function ThreadedDocument() {
       >
         <div
           className={`flex 
-          items-start 
-          space-x-1 
-          p-1 
-          rounded 
-          hover:bg-secondary/50 
-          ${isSelectedOrParent ? "bg-muted" : "text-muted-foreground"}
-        `}
+        items-start 
+        space-x-1 
+        p-1 
+        rounded 
+        hover:bg-secondary/50 
+        ${isSelectedOrParent ? "bg-muted" : "text-muted-foreground"}
+      `}
           onClick={() => {
             setSelectedMessage(message.id);
             if (message.isCollapsed) {
@@ -1298,9 +1388,13 @@ export default function ThreadedDocument() {
     const newModel: Model = {
       id: Date.now().toString(),
       name: "New Model",
-      baseModel: "meta-llama/llama-3.2-3b-instruct:free",
+      baseModel: "none",
       systemPrompt: "You are a helpful assistant.",
-      parameters: {},
+      parameters: {
+        temperature: 1,
+        top_p: 1,
+        max_tokens: 2000,
+      },
     };
     setModels((prev: any) => [...prev, newModel]);
     setEditingModel(newModel);
@@ -1355,61 +1449,86 @@ export default function ThreadedDocument() {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (editingThreadTitle || editingModel) return;
-      if (!selectedMessage || !currentThread) return;
+      // Check if any input element is focused
+      const activeElement = document.activeElement;
+      const isInputFocused = activeElement instanceof HTMLInputElement ||
+        activeElement instanceof HTMLTextAreaElement;
 
-      const currentThreadData = threads.find((t) => t.id === currentThread);
-      if (!currentThreadData) return;
-
-      // Helper function to find a message and its parent in the thread
-      const findMessageAndParent = (
-        messages: Message[],
-        targetId: string,
-        parent: Message | null = null
-      ): [Message | null, Message | null] => {
-        for (const message of messages) {
-          if (message.id === targetId) return [message, parent];
-          const [found, foundParent] = findMessageAndParent(
-            message.replies,
-            targetId,
-            message
-          );
-          if (found) return [found, foundParent];
+      // Special cases for thread title editing
+      if (editingThreadTitle && isInputFocused) {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          setEditingThreadTitle(null);
         }
-        return [null, null];
-      };
+        return;
+      }
 
-      const [currentMessage, parentMessage] = findMessageAndParent(
-        currentThreadData.messages,
-        selectedMessage
-      );
-      if (!currentMessage) return;
-
-      // Helper function to get sibling messages
-      const getSiblings = (parent: Message | null): Message[] => {
-        if (!parent) return currentThreadData.messages;
-        return parent.replies;
-      };
-
-      switch (event.key) {
-        case "ArrowLeft":
-          // Select parent message
-          if (parentMessage && editingMessage !== selectedMessage) {
-            setSelectedMessage(parentMessage.id);
+      // Special cases for message editing
+      if (editingMessage && isInputFocused) {
+        if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+          event.preventDefault();
+          if (currentThread) {
+            confirmEditingMessage(currentThread, editingMessage);
           }
-          break;
-        case "ArrowRight":
-          // Select first child message
-          if (
-            currentMessage.replies.length > 0 &&
-            editingMessage !== selectedMessage
-          ) {
-            setSelectedMessage(currentMessage.replies[0].id);
-          }
-          break;
-        case "ArrowUp":
-          // Select previous sibling
-          if (editingMessage !== selectedMessage) {
+        } else if (event.key === 'Escape') {
+          event.preventDefault();
+          cancelEditingMessage();
+        }
+        return;
+      }
+
+      // Special cases for model editing
+      if (editingModel && isInputFocused) {
+        if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+          event.preventDefault();
+          saveModelChanges();
+        } else if (event.key === 'Escape') {
+          event.preventDefault();
+          setEditingModel(null);
+        }
+        return;
+      }
+
+      // If any other input is focused, don't handle hotkeys
+      if (isInputFocused) {
+        return;
+      }
+
+      // Only handle navigation and action hotkeys if no input is focused
+      if (!isInputFocused) {
+        if (!selectedMessage || !currentThread) return;
+
+        const currentThreadData = threads.find((t) => t.id === currentThread);
+        if (!currentThreadData) return;
+
+        const [currentMessage, parentMessages] = findMessageAndParents(
+          currentThreadData.messages,
+          selectedMessage
+        );
+        const parentMessage = parentMessages.length > 0 ? parentMessages[parentMessages.length - 1] : null;
+        if (!currentMessage) return;
+
+        // Helper function to get sibling messages
+        const getSiblings = (parent: Message | null): Message[] => {
+          if (!parent) return currentThreadData.messages;
+          return parent.replies;
+        };
+
+        switch (event.key) {
+          case "ArrowLeft":
+            // Select parent message
+            if (parentMessage) {
+              setSelectedMessage(parentMessage.id);
+            }
+            break;
+          case "ArrowRight":
+            // Select first child message
+            if (currentMessage.replies.length > 0) {
+              setSelectedMessage(currentMessage.replies[0].id);
+            }
+            break;
+          case "ArrowUp":
+            // Select previous sibling
             const siblings = getSiblings(parentMessage);
             const currentIndex = siblings.findIndex(
               (m) => m.id === currentMessage.id
@@ -1417,11 +1536,9 @@ export default function ThreadedDocument() {
             if (currentIndex > 0) {
               setSelectedMessage(siblings[currentIndex - 1].id);
             }
-          }
-          break;
-        case "ArrowDown":
-          // Select next sibling
-          if (editingMessage !== selectedMessage) {
+            break;
+          case "ArrowDown":
+            // Select next sibling
             const nextSiblings = getSiblings(parentMessage);
             const nextIndex = nextSiblings.findIndex(
               (m) => m.id === currentMessage.id
@@ -1429,33 +1546,25 @@ export default function ThreadedDocument() {
             if (nextIndex < nextSiblings.length - 1) {
               setSelectedMessage(nextSiblings[nextIndex + 1].id);
             }
-          }
-          break;
-        case "r":
-          if (event.altKey && editingMessage !== selectedMessage) {
-            // Alt+R for replying to a message
+            break;
+          case "r":
+            // R for replying to a message
             event.preventDefault();
             if (currentThread) {
               addEmptyReply(currentThread, selectedMessage);
             }
-          }
-          break;
-        case "g":
-          if (event.altKey && editingMessage !== selectedMessage) {
-            // Alt+G for generating AI reply
+            break;
+          case "g":
+            // G for generating AI reply
             event.preventDefault();
             if (currentThread) {
               generateAIReply(currentThread, selectedMessage);
             }
-          }
-          break;
-        case "Insert":
-          // Insert for editing a message
-          if (editingMessage !== selectedMessage) {
-            const currentThreadData = threads.find(
-              (t) => t.id === currentThread
-            );
-            if (currentThreadData) {
+            break;
+          case "e":
+            // E for editing a message
+            if (!editingMessage) {
+              event.preventDefault();
               const message = findMessageById(
                 currentThreadData.messages,
                 selectedMessage
@@ -1464,12 +1573,10 @@ export default function ThreadedDocument() {
                 startEditingMessage(message);
               }
             }
-          }
-          break;
-        case "Delete":
-        case "Backspace":
-          // Delete or Backspace for deleting a message
-          if (currentThread && editingMessage !== selectedMessage) {
+            break;
+          case "Delete":
+          case "Backspace":
+            // Delete or Backspace for deleting a message
             if (event.shiftKey) {
               // Shift+Delete/Backspace to delete the message and its children
               deleteMessage(currentThread, selectedMessage, true);
@@ -1477,10 +1584,10 @@ export default function ThreadedDocument() {
               // Regular Delete/Backspace to delete only the message
               deleteMessage(currentThread, selectedMessage, false);
             }
-          }
-          break;
-        default:
-          break;
+            break;
+          default:
+            break;
+        }
       }
     };
 
@@ -1500,6 +1607,9 @@ export default function ThreadedDocument() {
     startEditingMessage,
     deleteMessage,
     findMessageById,
+    confirmEditingMessage,
+    cancelEditingMessage,
+    saveModelChanges,
   ]);
 
   // Sort threads with pinned threads at the top
@@ -1691,9 +1801,9 @@ export default function ThreadedDocument() {
           <p className="text-sm text-muted-foreground whitespace-pre">
             <span>  ←/→ Arrow keys        ┃ Navigate parent/children</span><br />
             <span>  ↑/↓ Arrow keys        ┃ Navigate on same level</span><br />
-            <span>  Alt+R                 ┃ Reply</span><br />
-            <span>  Alt+G                 ┃ Generate AI reply</span><br />
-            <span>  Insert/Double-click   ┃ Edit message</span><br />
+            <span>  R                     ┃ Reply</span><br />
+            <span>  G                     ┃ Generate AI reply</span><br />
+            <span>  E/Double-click        ┃ Edit message</span><br />
             <span>  Enter                 ┃ Confirm edit</span><br />
             <span>  Escape                ┃ Cancel edit</span><br />
             <span>  Delete                ┃ Delete message</span><br />
