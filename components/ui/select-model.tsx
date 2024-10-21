@@ -21,6 +21,18 @@ import { Slider } from "@/components/ui/slider"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 interface ModelParameters {
   model: string;
@@ -107,50 +119,119 @@ export function SelectBaseModel({ value, onValueChange, fetchAvailableModels, ex
     let min = 0;
     let max = 1;
     let step = 0.01;
+    let defaultValue = 0;
+    let tooltip = '';
 
     switch (param) {
       case 'temperature':
+        min = 0.0;
         max = 2.0;
+        step = 0.01;
+        defaultValue = 1.0;
+        tooltip = "Influences the variety in the model's responses. Lower values lead to more predictable responses, higher values encourage more diverse responses. (0.0 to 2.0, Default: 1.0)";
         break;
       case 'top_p':
+        min = 0.0;
+        max = 1.0;
+        step = 0.01;
+        defaultValue = 1.0;
+        tooltip = "Limits the model's choices to a percentage of likely tokens. Lower values make responses more predictable. (0.0 to 1.0, Default: 1.0)";
         break;
       case 'top_k':
-        max = Number.MAX_SAFE_INTEGER;
+        min = 0;
+        max = 128;
         step = 1;
+        defaultValue = 0;
+        tooltip = "Limits the model's choice of tokens at each step. Lower values make responses more predictable. (0 or above, Default: 0)";
         break;
       case 'frequency_penalty':
+        min = -2.0;
+        max = 2.0;
+        step = 0.01;
+        defaultValue = 0.0;
+        tooltip = "Controls repetition of tokens based on their frequency in the input. Higher values reduce repetition. (-2.0 to 2.0, Default: 0.0)";
+        break;
       case 'presence_penalty':
         min = -2.0;
         max = 2.0;
+        step = 0.01;
+        defaultValue = 0.0;
+        tooltip = "Adjusts how often the model repeats specific tokens from the input. Higher values reduce repetition. (-2.0 to 2.0, Default: 0.0)";
         break;
       case 'repetition_penalty':
+        min = 0.0;
         max = 2.0;
+        step = 0.01;
+        defaultValue = 1.0;
+        tooltip = "Reduces repetition of tokens from the input. Higher values make repetition less likely. (0.0 to 2.0, Default: 1.0)";
         break;
       case 'min_p':
+        min = 0.0;
+        max = 1.0;
+        step = 0.01;
+        defaultValue = 0.0;
+        tooltip = "Minimum probability for a token to be considered, relative to the most likely token. (0.0 to 1.0, Default: 0.0)";
+        break;
       case 'top_a':
+        min = 0.0;
+        max = 1.0;
+        step = 0.01;
+        defaultValue = 0.0;
+        tooltip = "Considers only top tokens with 'sufficiently high' probabilities. Lower values narrow the scope of choices. (0.0 to 1.0, Default: 0.0)";
+        break;
       case 'seed':
+        min = 0;
+        max = Number.MAX_SAFE_INTEGER;
+        step = 1;
+        tooltip = "If specified, makes the inferencing deterministic. Repeated requests with the same seed and parameters should return the same result.";
+        break;
       case 'max_tokens':
         min = 1;
-        max = parameters?.max_output || 4096;
+        max = parameters?.max_output || 9999;
         step = 1;
+        tooltip = "Sets the upper limit for the number of tokens the model can generate in response. (1 or above)";
         break;
       case 'top_logprobs':
-        min = 1;
+        min = 0;
         max = 20;
         step = 1;
+        tooltip = "Number of most likely tokens to return at each token position, with associated log probability. (0 to 20)";
         break;
       case 'logit_bias':
+        tooltip = "JSON object mapping tokens to bias values. Affects token selection likelihood.";
+        break;
       case 'response_format':
+        tooltip = "Forces specific output format. Set to { \"type\": \"json_object\" } for JSON mode.";
+        break;
       case 'stop':
+        tooltip = "Array of tokens. Generation stops if any of these tokens are encountered.";
+        break;
       case 'tools':
+        tooltip = "Tool calling parameter, following OpenAI's tool calling request shape.";
+        break;
       case 'tool_choice':
+        tooltip = "Controls which (if any) tool is called by the model.";
+        break;
       case 'logprobs':
-        // These parameters don't use min/max/step
+        tooltip = "Whether to return log probabilities of the output tokens.";
         break;
       default:
         console.warn(`Unknown parameter: ${param}`);
         return null;
     }
+
+    const renderTooltip = (title: string, content: string) => (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="cursor-help">{title}</span>
+          </TooltipTrigger>
+          <TooltipContent className="max-w-[200px] sm:max-w-[250px] md:max-w-[350px] lg:max-w-[400px]">
+            <p>{content}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
 
     switch (param) {
       case 'temperature':
@@ -165,10 +246,10 @@ export function SelectBaseModel({ value, onValueChange, fetchAvailableModels, ex
         return (
           <div key={param} className="flex flex-col space-y-2">
             <div className="flex items-center justify-between">
-              <Label>{param}</Label>
+              <Label>{renderTooltip(param, tooltip)}</Label>
               <Input
                 type="number"
-                value={value || 0}
+                value={value ?? defaultValue}
                 onChange={(e) => handleParameterChange(param, parseFloat(e.target.value))}
                 className="min-font-size text-foreground p-1 ml-2 w-flex h-6 text-right text-xs"
                 step={step.toString()}
@@ -177,13 +258,13 @@ export function SelectBaseModel({ value, onValueChange, fetchAvailableModels, ex
               />
             </div>
             <Slider
-              defaultValue={[value || 0]}
+              defaultValue={[value ?? defaultValue]}
               max={max}
               min={min}
               step={step}
-              value={[value || 0]}
+              value={[value ?? defaultValue]}
               onValueChange={([val]) => handleParameterChange(param, val)}
-              className="h-4"
+              className="h-2"
             />
           </div>
         );
@@ -191,7 +272,7 @@ export function SelectBaseModel({ value, onValueChange, fetchAvailableModels, ex
         return (
           <div key={param} className="flex flex-col space-y-2">
             <div className="flex items-center justify-between">
-              <Label>{param}</Label>
+              <Label>{renderTooltip(param, tooltip)}</Label>
               <Input
                 type="number"
                 value={value || 0}
@@ -220,7 +301,7 @@ export function SelectBaseModel({ value, onValueChange, fetchAvailableModels, ex
       case 'tool_choice':
         return (
           <div key={param} className="flex flex-col space-y-2">
-            <Label>{param}</Label>
+            <Label>{renderTooltip(param, tooltip)}</Label>
             <Input
               type="text"
               value={typeof value === 'object' ? JSON.stringify(value) : value}
@@ -232,7 +313,8 @@ export function SelectBaseModel({ value, onValueChange, fetchAvailableModels, ex
                   handleParameterChange(param, e.target.value);
                 }
               }}
-              placeholder={`Enter ${param} as JSON or string`}
+              placeholder={`Enter ${param}...`}
+              className="text-foreground"
             />
           </div>
         );
@@ -244,19 +326,19 @@ export function SelectBaseModel({ value, onValueChange, fetchAvailableModels, ex
               checked={value === true}
               onCheckedChange={(checked) => handleParameterChange(param, checked)}
             />
-            <Label htmlFor={`${param}-switch`}>{param}</Label>
+            <Label htmlFor={`${param}-switch`}>{renderTooltip(param, tooltip)}</Label>
           </div>
         );
       case 'top_logprobs':
         return (
           <div key={param} className="flex flex-col space-y-2">
-            <Label>{param}</Label>
+            <Label>{renderTooltip(param, tooltip)}</Label>
             <Input
               type="number"
               value={value || 0}
               onChange={(e) => handleParameterChange(param, parseInt(e.target.value))}
-              min={0}
-              max={20}
+              min={min}
+              max={max}
             />
           </div>
         );
@@ -320,7 +402,21 @@ export function SelectBaseModel({ value, onValueChange, fetchAvailableModels, ex
 
       {parameters && (
         <div className="space-y-4">
-          {parameters.supported_parameters?.map(renderParameter) || null}
+          {renderParameter('max_tokens')}
+          {renderParameter('top_p')}
+          {renderParameter('temperature')}
+          <Accordion type="single" collapsible className="w-full">
+            <AccordionItem value="additional-parameters">
+              <AccordionTrigger className="text-sm">Additional Parameters</AccordionTrigger>
+              <AccordionContent>
+                <div className="space-y-4">
+                  {parameters.supported_parameters
+                    ?.filter(param => !['max_tokens', 'top_p', 'temperature'].includes(param))
+                    .map(renderParameter)}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
         </div>
       )}
     </div>

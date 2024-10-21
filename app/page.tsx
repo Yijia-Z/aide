@@ -227,9 +227,7 @@ export default function ThreadedDocument() {
 
   const [threads, setThreads] = useState<Thread[]>([]);
   const [currentThread, setCurrentThread] = useState<string | null>(null);
-  const [editingThreadTitle, setEditingThreadTitle] = useState<string | null>(
-    null
-  );
+  const [editingThreadTitle, setEditingThreadTitle] = useState<string | null>(null);
   const [originalThreadTitle, setOriginalThreadTitle] = useState<string>("");
   const threadTitleInputRef = useRef<HTMLInputElement>(null);
 
@@ -255,6 +253,36 @@ export default function ThreadedDocument() {
       threadTitleInputRef.current.focus();
     }
   }, [editingThreadTitle]);
+
+  const startEditingThreadTitle = useCallback((threadId: string, currentTitle: string) => {
+    setEditingThreadTitle(threadId);
+    setOriginalThreadTitle(currentTitle);
+  }, []);
+
+  const confirmEditThreadTitle = useCallback((threadId: string, newTitle: string) => {
+    setThreads((prev: Thread[]) =>
+      prev.map((thread) =>
+        thread.id === threadId ? { ...thread, title: newTitle } : thread
+      )
+    );
+    setEditingThreadTitle(null);
+    setOriginalThreadTitle(newTitle);  // Set the new title as the original
+    saveThreadToBackend(threadId, { title: newTitle });
+  }, []);
+
+  const cancelEditThreadTitle = useCallback(() => {
+    if (editingThreadTitle) {
+      setThreads((prev: Thread[]) =>
+        prev.map((thread) =>
+          thread.id === editingThreadTitle
+            ? { ...thread, title: originalThreadTitle }
+            : thread
+        )
+      );
+      setEditingThreadTitle(null);
+      // No need to reset originalThreadTitle here
+    }
+  }, [editingThreadTitle, originalThreadTitle]);
 
   // Scroll to selected message
   useEffect(() => {
@@ -536,19 +564,35 @@ export default function ThreadedDocument() {
 
             if (parentMessages.length === 0) {
               // Message is at the root level
-              return deleteChildren
+              const newMessages = deleteChildren
                 ? messages.filter((m) => m.id !== messageId)
                 : [...messages.filter((m) => m.id !== messageId), ...messageToDelete.replies];
+
+              // Set selection to the previous sibling or the first message
+              if (newMessages.length > 0) {
+                const index = messages.findIndex(m => m.id === messageId);
+                const newSelectedId = index > 0 ? newMessages[index - 1].id : newMessages[0].id;
+                setSelectedMessage(newSelectedId);
+              } else {
+                setSelectedMessage(null);
+              }
+
+              return newMessages;
             }
 
             // Message is nested
             const updateParent = (message: Message): Message => {
               if (message.id === parentMessages[parentMessages.length - 1].id) {
+                const newReplies = deleteChildren
+                  ? message.replies.filter((m) => m.id !== messageId)
+                  : [...message.replies.filter((m) => m.id !== messageId), ...messageToDelete.replies];
+
+                // Set selection to the parent
+                setSelectedMessage(message.id);
+
                 return {
                   ...message,
-                  replies: deleteChildren
-                    ? message.replies.filter((m) => m.id !== messageId)
-                    : [...message.replies.filter((m) => m.id !== messageId), ...messageToDelete.replies],
+                  replies: newReplies,
                 };
               }
               return { ...message, replies: message.replies.map(updateParent) };
@@ -561,7 +605,7 @@ export default function ThreadedDocument() {
         })
       );
     },
-    []
+    [setSelectedMessage]
   );
 
   // Start editing a message
@@ -1007,7 +1051,7 @@ export default function ThreadedDocument() {
           <div className="flex-grow p-0 overflow-hidden">
             <div className="flex flex-col">
               <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-1">
                   <Button
                     variant="ghost"
                     size="sm"
@@ -1017,11 +1061,10 @@ export default function ThreadedDocument() {
                       toggleCollapse(threadId, message.id);
                     }}
                   >
-                    {message.isCollapsed ? (
-                      <ChevronRight className="h-4 w-4" />
-                    ) : (
-                      <ChevronDown className="h-4 w-4" />
-                    )}
+                    <ChevronRight
+                      className={`h-4 w-4 transition-transform duration-200 ${message.isCollapsed ? 'rotate-0' : 'rotate-90'
+                        }`}
+                    />
                   </Button>
                   <span
                     className={`font-bold ${message.publisher === "ai"
@@ -1130,7 +1173,7 @@ export default function ThreadedDocument() {
                 />
               ) : (
                 <div
-                  className="whitespace-normal break-words overflow-hidden pt-1 pl-1"
+                  className="whitespace-normal break-words markdown-content font-serif overflow-hidden pt-1 pl-1"
                   onDoubleClick={() => {
                     cancelEditingMessage();
                     startEditingMessage(message);
@@ -1146,7 +1189,7 @@ export default function ThreadedDocument() {
                       : ""
                     }`
                   ) : (
-                    <div className="markdown-content font-serif">
+                    <div className="markdown-content">
                       <Markdown
                         remarkPlugins={[remarkGfm]}
                         rehypePlugins={[rehypeRaw]}
@@ -1205,8 +1248,8 @@ export default function ThreadedDocument() {
                 </div>
               )}
             </div>
-            {!message.isCollapsed && selectedMessage === message.id && (
-              <div className="space-x-2 flex flex-wrap items-center select-none">
+            {selectedMessage === message.id && (
+              <div className="space-x-1 mt-1 flex flex-wrap items-center select-none">
                 {editingMessage === message.id ? (
                   <>
                     <Button
@@ -1460,7 +1503,11 @@ export default function ThreadedDocument() {
           event.preventDefault();
           setEditingThreadTitle(null);
         }
-        return;
+        else if (event.key === 'Escape') {
+          event.preventDefault();
+          cancelEditThreadTitle();
+        }
+        return
       }
 
       // Special cases for message editing
@@ -1647,8 +1694,7 @@ export default function ThreadedDocument() {
           onClick={() => {
             setCurrentThread(null);
             if (editingThreadTitle) {
-              editThreadTitle(editingThreadTitle, originalThreadTitle);
-              setEditingThreadTitle(null);
+              cancelEditThreadTitle();
             }
           }}
         >
@@ -1672,7 +1718,11 @@ export default function ThreadedDocument() {
                         ref={threadTitleInputRef}
                         value={thread.title}
                         onChange={(e) =>
-                          editThreadTitle(thread.id, e.target.value)
+                          setThreads((prev: Thread[]) =>
+                            prev.map((t) =>
+                              t.id === thread.id ? { ...t, title: e.target.value } : t
+                            )
+                          )
                         }
                         className="min-font-size flex-grow h-8 p-1 my-1"
                         onClick={(e) => e.stopPropagation()}
@@ -1680,7 +1730,10 @@ export default function ThreadedDocument() {
                         onKeyDown={(e) => {
                           if (e.key === "Enter") {
                             e.preventDefault();
-                            setEditingThreadTitle(null);
+                            confirmEditThreadTitle(thread.id, thread.title);
+                          } else if (e.key === "Escape") {
+                            e.preventDefault();
+                            cancelEditThreadTitle();
                           }
                         }}
                       />
@@ -1689,8 +1742,7 @@ export default function ThreadedDocument() {
                         variant="ghost"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setEditingThreadTitle(null);
-                          setCurrentThread(thread.id);
+                          confirmEditThreadTitle(thread.id, thread.title);
                         }}
                       >
                         <Check className="h-4 w-4" />
@@ -1700,8 +1752,7 @@ export default function ThreadedDocument() {
                         variant="ghost"
                         onClick={(e) => {
                           e.stopPropagation();
-                          editThreadTitle(thread.id, originalThreadTitle);
-                          setEditingThreadTitle(null);
+                          cancelEditThreadTitle();
                         }}
                       >
                         <X className="h-4 w-4" />
@@ -1712,7 +1763,7 @@ export default function ThreadedDocument() {
                       className="flex items-center justify-between"
                       onDoubleClick={(e) => {
                         e.stopPropagation();
-                        setEditingThreadTitle(thread.id);
+                        startEditingThreadTitle(thread.id, thread.title);
                       }}
                     >
                       <span className="pl-1 flex-grow">{thread.title}</span>
@@ -1882,79 +1933,70 @@ export default function ThreadedDocument() {
           <div className="flex-grow overflow-y-auto my-2">
             {models.map((model) => (
               <div key={model.id} className="p-2 border rounded mb-2">
-                <div className="flex justify-between items-center mb-2">
-                  <h3 className="font-bold">{model.name}</h3>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => setEditingModel(model)}
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                </div>
-                {editingModel?.id === model.id ? (
-                  <div className="space-y-2 text-muted-foreground">
-                    <Label>Name</Label>
-                    <Input
-                      className="min-font-size text-foreground"
-                      value={editingModel?.name}
-                      onChange={(e) =>
-                        handleModelChange("name", e.target.value)
-                      }
-                    />
-                    <Label>Base Model</Label>
-                    <SelectBaseModel
-                      value={editingModel.baseModel}
-                      onValueChange={(value, parameters) => {
-                        handleModelChange("baseModel", value);
-                        handleModelChange("parameters", parameters as Partial<ModelParameters>);
-                      }}
-                      fetchAvailableModels={fetchAvailableModels}
-                      fetchModelParameters={fetchModelParameters}
-                      existingParameters={editingModel.parameters}
-                    />
-                    <Label>System Prompt</Label>
-                    <Textarea
-                      className="min-font-size text-foreground"
-                      value={editingModel?.systemPrompt}
-                      onChange={(e) =>
-                        handleModelChange("systemPrompt", e.target.value)
-                      }
-                    />
-                    <div className="flex justify-between items-center mt-2">
-                      <div className="space-x-2">
-                        <Button size="icon" onClick={saveModelChanges}>
-                          <Check className="h-4 w-4" />
-                        </Button>
+                <div onDoubleClick={() => setEditingModel(model)}>
+                  <div className="flex justify-between items-center mb-2">
+                    <h3 className="font-bold">{model.name}</h3>
+                  </div>
+                  {editingModel?.id === model.id ? (
+                    <div className="space-y-2 text-muted-foreground">
+                      <Label>Name</Label>
+                      <Input
+                        className="min-font-size text-foreground"
+                        value={editingModel?.name}
+                        onChange={(e) =>
+                          handleModelChange("name", e.target.value)
+                        }
+                      />
+                      <Label>Base Model</Label>
+                      <SelectBaseModel
+                        value={editingModel.baseModel}
+                        onValueChange={(value, parameters) => {
+                          handleModelChange("baseModel", value);
+                          handleModelChange("parameters", parameters as Partial<ModelParameters>);
+                        }}
+                        fetchAvailableModels={fetchAvailableModels}
+                        fetchModelParameters={fetchModelParameters}
+                        existingParameters={editingModel.parameters}
+                      />
+                      <Label>System Prompt</Label>
+                      <Textarea
+                        className="min-font-size text-foreground"
+                        value={editingModel?.systemPrompt}
+                        onChange={(e) =>
+                          handleModelChange("systemPrompt", e.target.value)
+                        }
+                      />
+                      <div className="flex justify-between items-center mt-2">
+                        <div className="space-x-2 text-foreground">
+                          <Button size="sm" variant="outline" onClick={saveModelChanges}>
+                            <Check className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setEditingModel(null)}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
                         <Button
-                          variant="outline"
-                          size="icon"
-                          onClick={() => setEditingModel(null)}
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => deleteModel(model.id)}
+                          disabled={models.length === 1}
                         >
-                          <X className="h-4 w-4" />
+                          <Trash className="h-4 w-4" />
                         </Button>
                       </div>
-                      <Button
-                        variant="destructive"
-                        size="icon"
-                        onClick={() => deleteModel(model.id)}
-                        disabled={models.length === 1}
-                      >
-                        <Trash className="h-4 w-4" />
-                      </Button>
                     </div>
-                  </div>
-                ) : (
-                  <div>
-                    <p>Base Model: {model.baseModel}</p>
-                    <p>
-                      Temperature: {model.parameters.temperature}
-                    </p>
-                    <p>
-                      Max Tokens: {model.parameters.max_tokens}
-                    </p>
-                  </div>
-                )}
+                  ) : (
+                    <div className="text-sm cursor-pointer">
+                      <p><span className="text-muted-foreground">Base Model:</span> {model.baseModel.split('/').pop()}</p>
+                      <p><span className="text-muted-foreground">Temperature:</span> {model.parameters.temperature}</p>
+                      <p><span className="text-muted-foreground">Max Tokens:</span> {model.parameters.max_tokens}</p>
+                    </div>
+                  )}
+                </div>
               </div>
             ))}
           </div>
