@@ -710,12 +710,12 @@ export default function ThreadedDocument() {
         );
         if (response.ok) {
           const data = await response.json();
-          console.log("Loaded models:", data.models);
+          console.log("Loaded models:", data.models); // 修改这里
           setModels(data.models || []);
           if (data.models && data.models.length > 0) {
             setSelectedModel(data.models[0].id);
           }
-          setModelsLoaded(true); 
+          setModelsLoaded(true); // 确保在成功加载模型后设置
         } else {
           console.error("从后端加载模型失败。");
           setModelsLoaded(true);
@@ -1284,37 +1284,19 @@ export default function ThreadedDocument() {
   }, [editingModel]);
 
   const deleteModel = useCallback(
-    async (id: string) => {
-      try {
-        // 向后端发送删除模型的请求
-        const response = await fetch(`${apiBaseUrl}/api/delete_model/${id}`, {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-        });
-  
-        if (!response.ok) {
-          throw new Error(`Failed to delete model ${id} from backend`);
-        }
-  
-        // 如果后端删除成功，在前端移除模型
-        setModels((prev: any[]) =>
-          prev.filter((model: { id: string }) => model.id !== id)
-        );
-  
-        // 如果删除的模型是当前选中的模型，切换到第一个模型
-        if (selectedModel === id) {
-          setSelectedModel(models[0]?.id || null);
-        }
-  
-        console.log(`Model ${id} has been successfully deleted.`);
-      } catch (error) {
-        console.error(`Error deleting model ${id}:`, error);
+    (id: string) => {
+      setModels((prev: any[]) =>
+        prev.filter((model: { id: string }) => model.id !== id)
+      );
+      // If the deleted model was selected, switch to the first available model
+      if (selectedModel === id) {
+        setSelectedModel(models[0].id);
       }
     },
-    [models, selectedModel, apiBaseUrl]
+    [models, selectedModel]
   );
-  
-  const addNewModel = useCallback(async () => {
+
+  const addNewModel = useCallback(() => {
     const newModel: Model = {
       id: Date.now().toString(),
       name: "New Model",
@@ -1322,29 +1304,9 @@ export default function ThreadedDocument() {
       systemPrompt: "You are a helpful assistant.",
       parameters: {},
     };
-  try {
-    const response = await fetch(`${apiBaseUrl}/api/add_model`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(newModel),
-    });
-
-    if (response.ok) {
-      const result = await response.json();
-      console.log("Model added successfully:", result);
-
-      // 更新前端模型列表
-      setModels((prev: Model[]) => [...prev, newModel]);
-      setEditingModel(newModel); // 设置编辑状态为新模型
-    } else {
-      console.error("Failed to add model:", response.statusText);
-    }
-  } catch (error) {
-    console.error("Error adding model:", error);
-  }
-}, []);
+    setModels((prev: any) => [...prev, newModel]);
+    setEditingModel(newModel);
+  }, []);
 
   const toggleThreadPin = useCallback((threadId: string) => {
     setThreads((prev: Thread[]) =>
