@@ -57,7 +57,10 @@ import {
   MenubarSeparator,
   MenubarShortcut,
   MenubarTrigger,
-} from "@/components/ui/menubar";
+} from "@/components/ui/menubar"; 
+import { Toggle } from "@/components/ui/toggle"
+
+
 
 const MESSAGE_INDENT = 12; // Constant value for indentation
 
@@ -203,7 +206,9 @@ export default function ThreadedDocument() {
 
   const [isConnected, setIsConnected] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-
+  
+  const [messagesClipboard, setMessagesClipboard] = useState<string | null>(null);
+  
   // Focus on thread title input when editing
   useEffect(() => {
     if (editingThreadTitle && threadTitleInputRef.current) {
@@ -326,6 +331,18 @@ export default function ThreadedDocument() {
     [models, selectedModel]
   );
 
+  const setSelectedMessageState = useCallback((messageId: string | null) => {
+    setSelectedMessage(messageId);
+
+    if (messageId) {
+      const currentThreadData = threads.find((t) => t.id === currentThread);
+      if (currentThreadData) {
+        const message = findMessageById(currentThreadData.messages, messageId);
+      }
+    }
+
+  }, [currentThread, threads]);
+
   // Toggle message collapse state
   const toggleCollapse = useCallback((threadId: string, messageId: string) => {
     setThreads((prev: Thread[]) =>
@@ -367,6 +384,15 @@ export default function ThreadedDocument() {
     },
     []
   );
+
+  // Copy a message to the clipboard along with its children
+  const copyMessageToClipboard = useCallback((message: Message) => {
+      navigator.clipboard.writeText(JSON.stringify(message, null, 2));
+      for(const reply of message.replies) {
+        copyMessageToClipboard(reply);
+      }
+      console.log("Copied message to clipboard:", message);
+  }, []);
 
   // Start editing a message
   const startEditingMessage = useCallback((message: Message) => {
@@ -623,7 +649,7 @@ export default function ThreadedDocument() {
           ${isSelectedOrParent ? "bg-muted" : "text-muted-foreground"}
         `}
           onClick={() => {
-            setSelectedMessage(message.id);
+            setSelectedMessageState(message.id);
             if (message.isCollapsed) {
               toggleCollapse(threadId, message.id);
             }
@@ -664,6 +690,11 @@ export default function ThreadedDocument() {
                 </div>
                 {/* New navigation controls */}
                 <div className={`flex space-x-1 ${isSelectedOrParent || isSelected ? 'opacity-100' : 'opacity-0 hover:opacity-100'} transition-opacity duration-200`}>
+                  <Toggle
+                    onClick={() => copyMessageToClipboard(message)}
+                  >
+                    Copy
+                  </Toggle>
                   {parentMessage && (
                     <Button
                       variant="ghost"
