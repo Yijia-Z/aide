@@ -61,7 +61,7 @@ import {
   MenubarTrigger,
 } from "@/components/ui/menubar";
 
-const MESSAGE_INDENT = 12; // Constant value for indentation
+const MESSAGE_INDENT = 24; // Constant value for indentation
 
 const DEFAULT_MODEL: Model = {
   id: 'default',
@@ -883,17 +883,19 @@ export default function ThreadedDocument() {
     []
   );
 
-  const collapseDeepChildren = useCallback((msg: Message, selectedDepth: number, currentDepth: number): Message => {
-    const isCollapsed = currentDepth - selectedDepth >= (
-      window.innerWidth >= 1024 ? 6 :
-        window.innerWidth >= 768 ? 5 :
-          window.innerWidth >= 480 ? 4 :
-            3
-    );
+  const collapseDeepChildren = useCallback((msg: Message, selectedDepth: number, currentDepth: number, isSelectedBranch: boolean): Message => {
+    const maxDepth = window.innerWidth >= 1024 ? 6 :
+      window.innerWidth >= 768 ? 5 :
+        window.innerWidth >= 480 ? 4 : 3;
+    
+    const isCollapsed = isSelectedBranch
+      ? currentDepth - selectedDepth >= maxDepth
+      : currentDepth >= maxDepth;
+
     return {
       ...msg,
       isCollapsed: isCollapsed,
-      replies: msg.replies.map(reply => collapseDeepChildren(reply, selectedDepth, currentDepth + 1))
+      replies: msg.replies.map(reply => collapseDeepChildren(reply, selectedDepth, currentDepth + 1, isSelectedBranch))
     };
   }, []);
 
@@ -901,20 +903,23 @@ export default function ThreadedDocument() {
     if (selectedMessage && currentThread) {
       setThreads(prevThreads => prevThreads.map(thread => {
         if (thread.id === currentThread) {
-          const findSelectedMessageDepth = (messages: Message[], depth: number = 0): number => {
+          const findSelectedMessageBranch = (messages: Message[], depth: number = 0): [number, Message[]] => {
             for (const msg of messages) {
-              if (msg.id === selectedMessage) return depth;
-              const foundDepth = findSelectedMessageDepth(msg.replies, depth + 1);
-              if (foundDepth !== -1) return foundDepth;
+              if (msg.id === selectedMessage) return [depth, [msg]];
+              const [foundDepth, branch] = findSelectedMessageBranch(msg.replies, depth + 1);
+              if (foundDepth !== -1) return [foundDepth, [msg, ...branch]];
             }
-            return -1;
+            return [-1, []];
           };
 
-          const selectedDepth = findSelectedMessageDepth(thread.messages);
+          const [selectedDepth, selectedBranch] = findSelectedMessageBranch(thread.messages);
 
           return {
             ...thread,
-            messages: thread.messages.map(msg => collapseDeepChildren(msg, selectedDepth, 0))
+            messages: thread.messages.map(msg => {
+              const isSelectedBranch = selectedBranch.includes(msg);
+              return collapseDeepChildren(msg, selectedDepth, 0, isSelectedBranch);
+            })
           };
         }
         return thread;
@@ -998,7 +1003,7 @@ export default function ThreadedDocument() {
     const isSelectedOrParent = isSelected || isParentOfSelected || parentId === message.id;
 
     // Indentation
-    const indent = isSelectedOrParent ? 0 : depth * MESSAGE_INDENT;
+    const indent = isSelectedOrParent ? 0 : MESSAGE_INDENT;
 
     // Helper functions
     const getTotalReplies = (msg: Message): number => {
