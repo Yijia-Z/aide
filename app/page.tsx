@@ -246,6 +246,7 @@ export default function ThreadedDocument() {
   const [lastAttemptTime, setLastAttemptTime] = useState<number | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [copiedStates, setCopiedStates] = useState<{ [key: string]: boolean }>({});
 
   // Focus on thread title input when editing
   useEffect(() => {
@@ -887,7 +888,7 @@ export default function ThreadedDocument() {
     const maxDepth = window.innerWidth >= 1024 ? 6 :
       window.innerWidth >= 768 ? 5 :
         window.innerWidth >= 480 ? 4 : 3;
-    
+
     const isCollapsed = isSelectedBranch
       ? currentDepth - selectedDepth >= maxDepth
       : currentDepth >= maxDepth;
@@ -1003,7 +1004,7 @@ export default function ThreadedDocument() {
     const isSelectedOrParent = isSelected || isParentOfSelected || parentId === message.id;
 
     // Indentation
-    const indent = isSelectedOrParent ? 0 : MESSAGE_INDENT;
+    const indent = depth === 0 ? 0 : (isSelectedOrParent ? 0 : MESSAGE_INDENT);
 
     // Helper functions
     const getTotalReplies = (msg: Message): number => {
@@ -1013,6 +1014,15 @@ export default function ThreadedDocument() {
     const getSiblings = (parent: Message | null): Message[] => {
       return parent ? parent.replies : currentThreadData?.messages || [];
     };
+
+    const handleCopy = (codeString: string, codeBlockId: string) => {
+      navigator.clipboard.writeText(codeString);
+      setCopiedStates(prev => ({ ...prev, [codeBlockId]: true }));
+      setTimeout(() => {
+        setCopiedStates(prev => ({ ...prev, [codeBlockId]: false }));
+      }, 2000);
+    };
+
     // Thread and message data
     const currentThreadData = threads.find((t) => t.id === currentThread);
     if (!currentThreadData) return null;
@@ -1160,8 +1170,18 @@ export default function ThreadedDocument() {
                     minHeight: Math.min(
                       Math.max(
                         20,
-                        editingContent.split("\n").length * 20,
-                        editingContent.length * 0.25
+                        editingContent.split("\n").length * (
+                          window.innerWidth < 480 ? 50 :
+                            window.innerWidth < 640 ? 40 :
+                              window.innerWidth < 1024 ? 30 :
+                                20
+                        ),
+                        editingContent.length * (
+                          window.innerWidth < 480 ? 0.6 :
+                            window.innerWidth < 640 ? 0.5 :
+                              window.innerWidth < 1024 ? 0.35 :
+                                0.25
+                        )
                       ),
                       window.innerHeight * 0.5
                     ),
@@ -1178,7 +1198,7 @@ export default function ThreadedDocument() {
                 />
               ) : (
                 <div
-                  className="whitespace-normal break-words markdown-content font-serif overflow-hidden pt-1 pl-1"
+                  className="whitespace-normal break-words markdown-content font-serif overflow-hidden pt-0.5 px-1 "
                   onDoubleClick={() => {
                     cancelEditingMessage();
                     startEditingMessage(message);
@@ -1206,9 +1226,9 @@ export default function ThreadedDocument() {
                             children,
                             ...props
                           }: any) {
-                            const match = /language-(\w+)/.exec(
-                              className || ""
-                            );
+                            const match = /language-(\w+)/.exec(className || "");
+                            const codeString = String(children).replace(/\n$/, "");
+                            const codeBlockId = `code-${message.id}-${match ? match[1] : 'unknown'}`;
                             return !inline && match ? (
                               <div className="relative">
                                 <div className="absolute -top-6 w-full text-muted-foreground flex justify-between items-center p-0 text-xs">
@@ -1217,13 +1237,13 @@ export default function ThreadedDocument() {
                                     className="w-6 h-6 p-0"
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() =>
-                                      navigator.clipboard.writeText(
-                                        String(children).replace(/\n$/, "")
-                                      )
-                                    }
+                                    onClick={() => handleCopy(codeString, codeBlockId)}
                                   >
-                                    <Copy className="h-4 w-4" />
+                                    {copiedStates[codeBlockId] ? (
+                                      <Check className="h-4 w-4" />
+                                    ) : (
+                                      <Copy className="h-4 w-4" />
+                                    )}
                                   </Button>
                                 </div>
                                 <SyntaxHighlighter
@@ -1235,7 +1255,7 @@ export default function ThreadedDocument() {
                                   wrapLines
                                   {...props}
                                 >
-                                  {String(children).replace(/\n$/, "")}
+                                  {codeString}
                                 </SyntaxHighlighter>
                               </div>
                             ) : (

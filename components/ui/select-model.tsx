@@ -226,7 +226,7 @@ export function SelectBaseModel({ value, onValueChange, fetchAvailableModels, ex
           <TooltipTrigger asChild>
             <span className="cursor-help">{title}</span>
           </TooltipTrigger>
-          <TooltipContent className="max-w-[200px] sm:max-w-[250px] md:max-w-[350px] lg:max-w-[400px]">
+          <TooltipContent className="font-serif max-w-[200px] sm:max-w-[250px] md:max-w-[350px] lg:max-w-[400px]">
             <p>{content}</p>
           </TooltipContent>
         </Tooltip>
