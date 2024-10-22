@@ -15,8 +15,6 @@ import {
   ArrowDown,
   ArrowLeft,
   ArrowRight,
-  ChevronsUpDown,
-  ChevronDown,
   ChevronRight,
   Edit,
   Trash,
@@ -33,6 +31,7 @@ import {
 } from "lucide-react";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -61,7 +60,7 @@ import {
   MenubarTrigger,
 } from "@/components/ui/menubar";
 
-const MESSAGE_INDENT = 24; // Constant value for indentation
+const MESSAGE_INDENT = -16; // Constant value for indentation
 
 const DEFAULT_MODEL: Model = {
   id: 'default',
@@ -79,7 +78,9 @@ interface Message {
   id: string;
   content: string;
   publisher: "user" | "ai";
+  modelId?: string;
   modelName?: string;
+  modelConfig?: Partial<Model>; // Add this line
   replies: Message[];
   isCollapsed: boolean;
 }
@@ -177,23 +178,7 @@ async function generateAIResponse(
     ],
     configuration: {
       model: model.baseModel,
-      temperature: model.parameters.temperature,
-      top_p: model.parameters.top_p,
-      top_k: model.parameters.top_k,
-      frequency_penalty: model.parameters.frequency_penalty,
-      presence_penalty: model.parameters.presence_penalty,
-      repetition_penalty: model.parameters.repetition_penalty,
-      min_p: model.parameters.min_p,
-      top_a: model.parameters.top_a,
-      seed: model.parameters.seed,
-      max_tokens: model.parameters.max_tokens,
-      logit_bias: model.parameters.logit_bias,
-      logprobs: model.parameters.logprobs,
-      top_logprobs: model.parameters.top_logprobs,
-      response_format: model.parameters.response_format,
-      stop: model.parameters.stop,
-      tools: model.parameters.tools,
-      tool_choice: model.parameters.tool_choice,
+      ...model.parameters,
     },
   };
 
@@ -462,16 +447,6 @@ export default function ThreadedDocument() {
     setOriginalThreadTitle("New Thread");
   }, []);
 
-  // Edit thread title
-  const editThreadTitle = useCallback((threadId: string, newTitle: string) => {
-    setThreads((prev: Thread[]) =>
-      prev.map((thread) =>
-        thread.id === threadId ? { ...thread, title: newTitle } : thread
-      )
-    );
-    saveThreadToBackend(threadId, { title: newTitle });
-  }, []);
-
   const saveThreadToBackend = async (
     threadId: string,
     updatedData: Partial<Thread>
@@ -510,7 +485,9 @@ export default function ThreadedDocument() {
             id: newMessageId || Date.now().toString(),
             content,
             publisher,
+            modelId: publisher === "ai" ? model?.id : undefined,
             modelName: publisher === "ai" ? model?.name : undefined,
+            modelConfig: publisher === "ai" ? { ...model } : undefined, // Add this line
             replies: [],
             isCollapsed: false,
           };
@@ -797,6 +774,19 @@ export default function ThreadedDocument() {
     [editingModel, availableModels]
   );
 
+  const getModelDetails = (modelId: string | undefined) => {
+    if (!modelId) return null;
+    const model = models.find(m => m.id === modelId);
+    if (!model) return null;
+    return {
+      name: model.name,
+      baseModel: model.baseModel.split('/').pop(),
+      temperature: model.parameters.temperature,
+      maxTokens: model.parameters.max_tokens,
+      systemPrompt: model.systemPrompt,
+    };
+  };
+
   useEffect(() => {
     const loadModels = async () => {
       try {
@@ -885,9 +875,9 @@ export default function ThreadedDocument() {
   );
 
   const collapseDeepChildren = useCallback((msg: Message, selectedDepth: number, currentDepth: number, isSelectedBranch: boolean): Message => {
-    const maxDepth = window.innerWidth >= 1024 ? 6 :
-      window.innerWidth >= 768 ? 5 :
-        window.innerWidth >= 480 ? 4 : 3;
+    const maxDepth = window.innerWidth >= 1024 ? 8 :
+      window.innerWidth >= 768 ? 7 :
+        window.innerWidth >= 480 ? 6 : 5;
 
     const isCollapsed = isSelectedBranch
       ? currentDepth - selectedDepth >= maxDepth
@@ -1004,7 +994,7 @@ export default function ThreadedDocument() {
     const isSelectedOrParent = isSelected || isParentOfSelected || parentId === message.id;
 
     // Indentation
-    const indent = depth === 0 ? 0 : (isSelectedOrParent ? 0 : MESSAGE_INDENT);
+    const indent = depth === 0 ? 0 : (isSelectedOrParent ? MESSAGE_INDENT : 0);
 
     // Helper functions
     const getTotalReplies = (msg: Message): number => {
@@ -1039,6 +1029,7 @@ export default function ThreadedDocument() {
     // Additional data
     const totalReplies = getTotalReplies(message);
     const currentIndex = siblings.findIndex((m) => m.id === currentMessage.id);
+    const modelDetails = message.modelConfig || getModelDetails(message.modelId);
 
     return (
       <div
@@ -1077,12 +1068,12 @@ export default function ThreadedDocument() {
                     }}
                   >
                     <ChevronRight
-                      className={`h-4 w-4 transition-transform duration-200 ${message.isCollapsed ? 'rotate-0' : 'rotate-90'
+                      className={`h-4 m-0 transition-transform duration-200 ${message.isCollapsed ? 'rotate-0' : 'rotate-90'
                         }`}
                     />
                   </Button>
                   <span
-                    className={`font-bold ${message.publisher === "ai"
+                    className={`font-bold truncate ${message.publisher === "ai"
                       ? "text-blue-600"
                       : "text-green-600"
                       }`}
@@ -1099,6 +1090,13 @@ export default function ThreadedDocument() {
                         : "User"
                       : null}
                   </span>
+                  {modelDetails && (
+                    <div className="flex items-center space-x-1">
+                      <Badge variant="secondary">
+                        {modelDetails.baseModel?.split('/').pop()?.split('-')[0]}
+                      </Badge>
+                    </div>
+                  )}
                 </div>
                 {/* New navigation controls */}
                 <div
@@ -1205,14 +1203,19 @@ export default function ThreadedDocument() {
                   }}
                 >
                   {message.isCollapsed ? (
-                    `
-                    ${message.content.split("\n")[0].slice(0, 50)}
-                    ${message.content.length > 50 ? "..." : ""}
-                    ${totalReplies > 0
-                      ? ` (${totalReplies} ${totalReplies === 1 ? "reply" : "replies"
-                      })`
-                      : ""
-                    }`
+                    <div className="flex flex-col">
+                      <div>
+                        {`${message.content.split("\n")[0].slice(0, 50)}
+                        ${message.content.length > 50 ? "..." : ""}`}
+                      </div>
+                      {totalReplies > 0 && (
+                        <div className="self-end">
+                          <span className="text-yellow-600">
+                            {`(${totalReplies} ${totalReplies === 1 ? "reply" : "replies"})`}
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   ) : (
                     <div className="markdown-content">
                       <Markdown
@@ -1420,24 +1423,34 @@ export default function ThreadedDocument() {
             )}
           </div>
         </div>
-        {!message.isCollapsed &&
-          message.replies.map((reply) =>
-            renderMessage(reply, threadId, depth + 1, message.id)
-          )}
+        {!message.isCollapsed && (
+          <div>
+            {message.replies.map((reply) => (
+              <div
+                key={reply.id}
+                className={`${isSelected ? "border-l-2 border-b-2 rounded-bl-md border-border ml-4" : "ml-4"}`}
+              >
+                {renderMessage(reply, threadId, depth + 1, message.id)}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     );
   }
-
   const saveModelChanges = useCallback(() => {
     if (editingModel) {
       setModels((prev: Model[]) =>
         prev.map((model: Model) =>
-          model.id === editingModel.id ? { ...model, ...editingModel } : model
+          model.id === editingModel.id ? { ...editingModel, id: Date.now().toString() } : model
         )
       );
+      if (selectedModel === editingModel.id) {
+        setSelectedModel(Date.now().toString());
+      }
       setEditingModel(null);
     }
-  }, [editingModel]);
+  }, [editingModel, selectedModel]);
 
   const deleteModel = useCallback(
     (id: string) => {
