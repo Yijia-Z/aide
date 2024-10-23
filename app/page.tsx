@@ -1425,7 +1425,7 @@ export default function ThreadedDocument() {
             {message.replies.map((reply) => (
               <div
                 key={reply.id}
-                className={`${isSelected ? "border-l-2 border-b-2 border-t-2 rounded-bl-md rounded-tl-md border-border ml-4" : "ml-4"}`}
+                className={`${isSelected ? "border-l-2 border-b-2 rounded-bl-md border-border ml-4" : "ml-4"}`}
               >
                 {renderMessage(reply, threadId, depth + 1, message.id)}
               </div>
