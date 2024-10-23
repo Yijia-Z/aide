@@ -174,8 +174,7 @@ async function generateAIResponse(
       ),
       { role: role === "user" ? "user" : "assistant", content: prompt },
     ],
-    configuration: Object.fromEntries(
-      Object.entries({
+    configuration: {
       model: model.baseModel,
       ...model.parameters,
     },

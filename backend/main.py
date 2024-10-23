@@ -51,12 +51,6 @@ if not openrouter_api_key:
     logger.error("Please set OPENROUTER_API_KEY in .env.local.")
     raise RuntimeError("Missing OPENROUTER_API_KEY.")
 
-backend = sgl.OpenAI(
-    model_name="gpt-3.5-turbo",
-    base_url="https://openrouter.ai/api/v1",
-    api_key=openrouter_api_key,
-)
-sgl.set_default_backend(backend)
 
 
 class Message(BaseModel):
@@ -178,8 +172,6 @@ def multi_turn_question(
             s += sgl.assistant(msg.content)
     s += sgl.assistant(sgl.gen("response"))
 
-models_file = data_folder / "models.json"
-models_list = []
 
 
 def load_models_from_file():
@@ -208,7 +200,7 @@ def get_default_models():
     """Return default model configuration."""
     return [
         {
-            "id": "1",
+            "id": "default-model-id",
             "name": "Default Model",
             "baseModel": "openai/gpt-4o-2024-08-06",
             "systemPrompt": "You are a helpful assistant.",
@@ -280,34 +272,46 @@ async def delete_thread(thread_id: str):
         raise HTTPException(status_code=500, detail="Failed to delete thread")
 
 
-@app.get("/api/load_models")
-async def load_models():
-    try:
-        if not models_list:
-            logger.warning("models_list is empty. Initializing with default models.")
-            load_models_from_file()
-        return {"models": models_list}
-    except Exception as e:
-        logger.error(f"Failed to load models: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to load models")
-
-
 @app.post("/api/save_models")
 async def save_models(request: Request):
     try:
         data = await request.json()
         models = data.get("models")
         if models is None:
-            raise HTTPException(status_code=400, detail="No model data provided")
+            raise HTTPException(status_code=400, detail="未提供模型数据")
 
         models_file = data_folder / "models.json"
         with models_file.open("w", encoding="utf-8") as f:
             json.dump(models, f, ensure_ascii=False, indent=4)
-        logger.info(f"Models successfully saved.")
+        logger.info("模型已成功保存。")
         return {"status": "success"}
     except Exception as e:
-        logger.error(f"Failed to save models: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to save models")
+        logger.error(f"保存模型失败: {str(e)}")
+        raise HTTPException(status_code=500, detail="保存模型失败")
+
+
+@app.get("/api/load_models")
+async def load_models():
+    try:
+        models_file = data_folder / "models.json"
+        if models_file.exists():
+            with models_file.open("r", encoding="utf-8") as f:
+                try:
+                    models = json.load(f)
+                    if not models:
+                        logger.warning("models.json 为空。正在初始化默认模型。")
+                        models = get_default_models()
+                except json.JSONDecodeError:
+                    logger.warning("models.json 格式不正确。正在初始化默认模型。")
+                    models = get_default_models()
+        else:
+            # 如果文件不存在，则返回默认模型
+            models = get_default_models()
+            logger.info("models.json 不存在。返回默认模型。")
+        return {"models": models}
+    except Exception as e:
+        logger.error(f"加载模型失败: {str(e)}")
+        raise HTTPException(status_code=500, detail="加载模型失败")
 
 
 @app.post("/api/chat")
@@ -323,6 +327,14 @@ async def chat(request: ChatRequest):
         # 确保 configuration 中的 model 字段存在
         if not request.configuration.model:
             raise HTTPException(status_code=400, detail="Model field is required in configuration")
+        
+        
+        backend = sgl.OpenAI(
+            model_name=request.configuration.model,
+            base_url="https://openrouter.ai/api/v1",
+            api_key=openrouter_api_key,
+        )
+        sgl.set_default_backend(backend)
 
         logger.info(f"Generating response with configuration: {request.configuration}")
 
