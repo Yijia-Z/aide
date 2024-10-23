@@ -363,17 +363,18 @@ export function SelectBaseModel({ value, onValueChange, fetchAvailableModels, ex
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-full p-0">
-          <Command>
-            <CommandInput placeholder="Search model..." />
-            <CommandList>
+        <PopoverContent className="p-0 w-screen sm:w-auto">
+          <Command className="w-full">
+            <CommandInput placeholder="Search model..." className="w-full" />
+            <CommandList className="w-full">
               <CommandEmpty>No model found.</CommandEmpty>
-              <CommandGroup>
+              <CommandGroup className="w-full">
                 {availableModels.map((model) => (
                   <CommandItem
                     key={model.id}
                     value={model.id}
                     onSelect={async (currentValue) => {
+                      setOpen(false);
                       const newParameters = await fetchModelParametersWithCache(currentValue);
                       if (newParameters) {
                         const modelWithMaxOutput = availableModels.find(m => m.id === currentValue);
@@ -381,16 +382,15 @@ export function SelectBaseModel({ value, onValueChange, fetchAvailableModels, ex
                           newParameters.max_output = modelWithMaxOutput.parameters.max_output;
                         }
                         onValueChange(currentValue, newParameters);
-                        setOpen(false);
                       }
                     }}
                   >
-                    <Check
+                    {/*<Check
                       className={cn(
                         "mr-2 h-4 w-4",
                         value === model.id ? "opacity-100" : "opacity-0"
                       )}
-                    />
+                    />*/}
                     {model.name}
                   </CommandItem>
                 ))}

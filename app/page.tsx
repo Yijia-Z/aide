@@ -60,15 +60,13 @@ import {
   MenubarTrigger,
 } from "@/components/ui/menubar";
 
-const MESSAGE_INDENT = -16; // Constant value for indentation
-
 const DEFAULT_MODEL: Model = {
   id: 'default',
   name: 'Default Model',
   baseModel: 'meta-llama/llama-3.2-3b-instruct:free',
   systemPrompt: 'You are a helpful assistant.',
   parameters: {
-    temperature: 0.7,
+    temperature: 1.3,
     top_p: 1,
     max_tokens: 1000,
   },
@@ -994,7 +992,7 @@ export default function ThreadedDocument() {
     const isSelectedOrParent = isSelected || isParentOfSelected || parentId === message.id;
 
     // Indentation
-    const indent = depth === 0 ? 0 : (isSelectedOrParent ? MESSAGE_INDENT : 0);
+    const indent = depth === 0 ? 0 : (isSelectedOrParent ? -16 : 0);
 
     // Helper functions
     const getTotalReplies = (msg: Message): number => {
@@ -1043,9 +1041,8 @@ export default function ThreadedDocument() {
         items-start 
         space-x-1 
         p-1 
-        rounded 
-        hover:bg-secondary/50 
-        ${isSelectedOrParent ? "bg-muted" : "text-muted-foreground"}
+        rounded-md
+        ${isSelectedOrParent ? "bg-muted custom-shadow transition-scale hover:py-2.5 hover:-my-1.5" : "text-muted-foreground"}
       `}
           onClick={() => {
             setSelectedMessage(message.id);
@@ -1061,7 +1058,7 @@ export default function ThreadedDocument() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="w-6 h-6 p-0 rounded-sm hover:bg-secondary bg-background border border-border"
+                    className="w-6 h-6 p-0 rounded-md hover:bg-secondary bg-background border border-border"
                     onClick={(e) => {
                       e.stopPropagation();
                       toggleCollapse(threadId, message.id);
@@ -1163,15 +1160,15 @@ export default function ThreadedDocument() {
                 <Textarea
                   value={editingContent}
                   onChange={(e) => setEditingContent(e.target.value)}
-                  className="min-font-size font-serif flex-grow w-auto m-1 p-0"
+                  className="min-font-size font-serif flex-grow w-auto m-1 p-0 bg-inherit"
                   style={{
                     minHeight: Math.min(
                       Math.max(
                         20,
                         editingContent.split("\n").length * (
-                          window.innerWidth < 480 ? 50 :
-                            window.innerWidth < 640 ? 40 :
-                              window.innerWidth < 1024 ? 30 :
+                          window.innerWidth < 480 ? 35 :
+                            window.innerWidth < 640 ? 30 :
+                              window.innerWidth < 1024 ? 25 :
                                 20
                         ),
                         editingContent.length * (
@@ -1334,7 +1331,7 @@ export default function ThreadedDocument() {
                             Generate
                           </span>
                         </MenubarTrigger>
-                        <MenubarContent>
+                        <MenubarContent className="custom-shadow">
                           <MenubarItem
                             onClick={() =>
                               generateAIReply(threadId, message.id, 1)
@@ -1393,7 +1390,7 @@ export default function ThreadedDocument() {
                           <Trash className="h-4 w-4" />
                           <span className="hidden md:inline ml-2">Delete</span>
                         </MenubarTrigger>
-                        <MenubarContent>
+                        <MenubarContent className="custom-shadow">
                           <MenubarItem
                             onClick={() =>
                               deleteMessage(threadId, message.id, false)
@@ -1428,7 +1425,7 @@ export default function ThreadedDocument() {
             {message.replies.map((reply) => (
               <div
                 key={reply.id}
-                className={`${isSelected ? "border-l-2 border-b-2 rounded-bl-md border-border ml-4" : "ml-4"}`}
+                className={`${isSelected ? "border-l-2 border-b-2 border-t-2 rounded-bl-md rounded-tl-md border-border ml-4" : "ml-4"}`}
               >
                 {renderMessage(reply, threadId, depth + 1, message.id)}
               </div>
@@ -1719,7 +1716,7 @@ export default function ThreadedDocument() {
         >
           <h2 className="text-2xl font-serif font-bold pl-2">Threads</h2>
           <Button
-            className="bg-background hover:bg-secondary text-primary border border-border"
+            className="bg-background hover:bg-secondary custom-shadow transition-scale-zoom text-primary border border-border"
             size="default"
             onClick={addThread}
           >
@@ -1740,7 +1737,7 @@ export default function ThreadedDocument() {
             {sortedThreads.map((thread) => (
               <div
                 key={thread.id}
-                className={`font-serif px-1 cursor-pointer rounded mb-2 ${currentThread === thread.id
+                className={`font-serif pl-1 cursor-pointer transition-scale hover:py-1.5 hover:mb-0.5 hover:-mt-1.5 custom-shadow rounded-md mb-2 ${currentThread === thread.id
                   ? "bg-secondary"
                   : "hover:bg-secondary text-muted-foreground"
                   }`}
@@ -1863,7 +1860,7 @@ export default function ThreadedDocument() {
           </h1>
           {currentThread && (
             <Button
-              className="bg-background hover:bg-secondary text-primary border border-border select-none"
+              className="bg-background hover:bg-secondary custom-shadow transition-scale-zoom text-primary border border-border select-none"
               size="default"
               onClick={(e) => {
                 e.stopPropagation();
@@ -1947,10 +1944,10 @@ export default function ThreadedDocument() {
           }}
         >
           <Select value={selectedModel ?? undefined} onValueChange={setSelectedModel}>
-            <SelectTrigger>
+            <SelectTrigger className="custom-shadow transition-scale-zoom">
               <SelectValue placeholder="Select a model" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="custom-shadow">
               {models.map((model) => (
                 <SelectItem key={model.id} value={model.id}>
                   {model.name}
@@ -1959,7 +1956,7 @@ export default function ThreadedDocument() {
             </SelectContent>
           </Select>
           <Button
-            className="bg-background hover:bg-secondary text-primary border border-border"
+            className="bg-transparent hover:bg-secondary custom-shadow transition-scale-zoom text-primary border border-border"
             size="default"
             onClick={addNewModel}
           >
@@ -1968,9 +1965,9 @@ export default function ThreadedDocument() {
           </Button>
         </div>
         <ScrollArea className="flex-grow">
-          <div className="flex-grow overflow-y-auto my-2">
+          <div className="flex-grow overflow-y-visible mt-2">
             {models.map((model) => (
-              <div key={model.id} className="p-2 border rounded mb-2">
+              <div key={model.id} className="p-2 border rounded-md mb-2 transition-scale hover:py-3.5 hover:-mt-1.5 hover:mb-0.5 custom-shadow">
                 <div onDoubleClick={() => setEditingModel(model)}>
                   <div className="flex justify-between items-center mb-2">
                     <h3 className="font-bold">{model.name}</h3>
@@ -2077,8 +2074,8 @@ export default function ThreadedDocument() {
           </TabsContent>
           <TabsList
             className="grid 
-              bg-background/50 
-              backdrop-blur-[3px] 
+              bg-transparent
+              custom-shadow
               w-full 
               fixed 
               bottom-0 
@@ -2090,19 +2087,19 @@ export default function ThreadedDocument() {
           >
             <TabsTrigger
               value="threads"
-              className="data-[state=active]:bg-secondary"
+              className="bg-transparent hover:bg-secondary hover:custom-shadow data-[state=active]:bg-muted"
             >
               Threads
             </TabsTrigger>
             <TabsTrigger
               value="messages"
-              className="data-[state=active]:bg-secondary"
+              className="bg-transparent hover:bg-secondary hover:custom-shadow data-[state=active]:bg-muted"
             >
               Messages
             </TabsTrigger>
             <TabsTrigger
               value="models"
-              className="data-[state=active]:bg-secondary"
+              className="bg-transparent hover:bg-secondary hover:custom-shadow data-[state=active]:bg-muted"
             >
               Models
             </TabsTrigger>
@@ -2128,9 +2125,18 @@ export default function ThreadedDocument() {
               }
               className="w-full flex flex-col"
             >
-              <TabsList className="grid w-full grid-cols-2 select-none">
-                <TabsTrigger value="threads">Threads</TabsTrigger>
-                <TabsTrigger value="models">Models</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-2 bg-transparent custom-shadow select-none">
+                <TabsTrigger
+                  className="bg-transparent transition-scale-zoom hover:bg-secondary hover:custom-shadow data-[state=active]:bg-background"
+                  value="threads"
+                >Threads
+                </TabsTrigger>
+                <TabsTrigger
+                  className="bg-transparent transition-scale-zoom hover:bg-secondary hover:custom-shadow data-[state=active]:bg-background"
+                  value="models"
+                >
+                  Models
+                </TabsTrigger>
               </TabsList>
               <TabsContent
                 value="threads"
