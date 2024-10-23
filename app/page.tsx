@@ -15,8 +15,6 @@ import {
   ArrowDown,
   ArrowLeft,
   ArrowRight,
-  ChevronsUpDown,
-  ChevronDown,
   ChevronRight,
   Edit,
   Trash,
@@ -33,6 +31,7 @@ import {
 } from "lucide-react";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -61,13 +60,25 @@ import {
   MenubarTrigger,
 } from "@/components/ui/menubar";
 
-const MESSAGE_INDENT = 12; // Constant value for indentation
+const DEFAULT_MODEL: Model = {
+  id: 'default',
+  name: 'Default Model',
+  baseModel: 'meta-llama/llama-3.2-3b-instruct:free',
+  systemPrompt: 'You are a helpful assistant.',
+  parameters: {
+    temperature: 1.3,
+    top_p: 1,
+    max_tokens: 1000,
+  },
+};
 
 interface Message {
   id: string;
   content: string;
   publisher: "user" | "ai";
+  modelId?: string;
   modelName?: string;
+  modelConfig?: Partial<Model>; // Add this line
   replies: Message[];
   isCollapsed: boolean;
 }
@@ -109,6 +120,22 @@ interface ModelParameters {
   tool_choice?: string | { type: string; function: { name: string } };
 }
 
+// Helper function to find a message and its parents
+function findMessageAndParents(
+  messages: Message[],
+  targetId: string,
+  parents: Message[] = []
+): [Message | null, Message[]] {
+  for (const message of messages) {
+    if (message.id === targetId) {
+      return [message, parents];
+    }
+    const [found, foundParents] = findMessageAndParents(message.replies, targetId, [...parents, message]);
+    if (found) return [found, foundParents];
+  }
+  return [null, []];
+}
+
 // Recursive function to find all parent messages for a given message
 function findAllParentMessages(
   threads: Thread[],
@@ -120,29 +147,8 @@ function findAllParentMessages(
   const currentThread = threads.find((thread) => thread.id === currentThreadId);
   if (!currentThread) return [];
 
-  function findMessageAndParents(
-    messages: Message[],
-    targetId: string,
-    parents: Message[] = []
-  ): Message[] | null {
-    for (const message of messages) {
-      if (message.id === targetId) {
-        return [...parents, message];
-      }
-      const found = findMessageAndParents(message.replies, targetId, [
-        ...parents,
-        message,
-      ]);
-      if (found) return found;
-    }
-    return null;
-  }
-
-  const parentMessages = findMessageAndParents(
-    currentThread.messages,
-    replyingToId
-  );
-  return parentMessages ? parentMessages.slice(0, -1) : [];
+  const [_, parentMessages] = findMessageAndParents(currentThread.messages, replyingToId);
+  return parentMessages;
 }
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
@@ -171,25 +177,8 @@ async function generateAIResponse(
     configuration: Object.fromEntries(
       Object.entries({
       model: model.baseModel,
-      temperature: model.parameters.temperature,
-      top_p: model.parameters.top_p,
-      top_k: model.parameters.top_k,
-      frequency_penalty: model.parameters.frequency_penalty,
-      presence_penalty: model.parameters.presence_penalty,
-      repetition_penalty: model.parameters.repetition_penalty,
-      min_p: model.parameters.min_p,
-      top_a: model.parameters.top_a,
-      seed: model.parameters.seed,
-      max_tokens: model.parameters.max_tokens,
-      logit_bias: model.parameters.logit_bias,
-      logprobs: model.parameters.logprobs,
-      top_logprobs: model.parameters.top_logprobs,
-      response_format: model.parameters.response_format,
-      stop: model.parameters.stop,
-      tools: model.parameters.tools,
-      tool_choice: model.parameters.tool_choice,
-    },).filter(([_, value]) => value !== null && value !== undefined) 
-  ),
+      ...model.parameters,
+    },
   };
 
   console.log("Request payload:", JSON.stringify(requestPayload, null, 2));
@@ -222,9 +211,7 @@ export default function ThreadedDocument() {
 
   const [threads, setThreads] = useState<Thread[]>([]);
   const [currentThread, setCurrentThread] = useState<string | null>(null);
-  const [editingThreadTitle, setEditingThreadTitle] = useState<string | null>(
-    null
-  );
+  const [editingThreadTitle, setEditingThreadTitle] = useState<string | null>(null);
   const [originalThreadTitle, setOriginalThreadTitle] = useState<string>("");
   const threadTitleInputRef = useRef<HTMLInputElement>(null);
 
@@ -233,7 +220,6 @@ export default function ThreadedDocument() {
   const [editingMessage, setEditingMessage] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState("");
   const replyBoxRef = useRef<HTMLDivElement>(null);
-
 
   const [modelsLoaded, setModelsLoaded] = useState(false);
   const [availableModels, setAvailableModels] = useState<Model[]>([]);
@@ -244,6 +230,7 @@ export default function ThreadedDocument() {
   const [lastAttemptTime, setLastAttemptTime] = useState<number | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [copiedStates, setCopiedStates] = useState<{ [key: string]: boolean }>({});
 
   // Focus on thread title input when editing
   useEffect(() => {
@@ -251,6 +238,36 @@ export default function ThreadedDocument() {
       threadTitleInputRef.current.focus();
     }
   }, [editingThreadTitle]);
+
+  const startEditingThreadTitle = useCallback((threadId: string, currentTitle: string) => {
+    setEditingThreadTitle(threadId);
+    setOriginalThreadTitle(currentTitle);
+  }, []);
+
+  const confirmEditThreadTitle = useCallback((threadId: string, newTitle: string) => {
+    setThreads((prev: Thread[]) =>
+      prev.map((thread) =>
+        thread.id === threadId ? { ...thread, title: newTitle } : thread
+      )
+    );
+    setEditingThreadTitle(null);
+    setOriginalThreadTitle(newTitle);  // Set the new title as the original
+    saveThreadToBackend(threadId, { title: newTitle });
+  }, []);
+
+  const cancelEditThreadTitle = useCallback(() => {
+    if (editingThreadTitle) {
+      setThreads((prev: Thread[]) =>
+        prev.map((thread) =>
+          thread.id === editingThreadTitle
+            ? { ...thread, title: originalThreadTitle }
+            : thread
+        )
+      );
+      setEditingThreadTitle(null);
+      // No need to reset originalThreadTitle here
+    }
+  }, [editingThreadTitle, originalThreadTitle]);
 
   // Scroll to selected message
   useEffect(() => {
@@ -363,13 +380,47 @@ export default function ThreadedDocument() {
             messages: t.thread?.messages || t.messages || [],
             isPinned: t.thread?.isPinned || t.isPinned || false,
           }));
-          setThreads(loadedThreads || []);
+
+          // Add a default thread if there are no threads
+          if (loadedThreads.length === 0) {
+            const defaultThread: Thread = {
+              id: Date.now().toString(),
+              title: "Welcome Thread",
+              messages: [{
+                id: Date.now().toString(),
+                content: "Welcome to your new chat thread! You can start a conversation here or create a new thread.",
+                publisher: "ai",
+                replies: [],
+                isCollapsed: false,
+              }],
+              isPinned: false,
+            };
+            loadedThreads.push(defaultThread);
+          }
+
+          setThreads(loadedThreads);
+          setCurrentThread(loadedThreads[0].id);
           console.log(`Successfully loaded ${loadedThreads.length} threads.`);
         } else {
           throw new Error("Failed to load thread data");
         }
       } catch (error) {
         console.error("Load failed:", error);
+        // Create a default thread if loading fails
+        const defaultThread: Thread = {
+          id: Date.now().toString(),
+          title: "Welcome Thread",
+          messages: [{
+            id: Date.now().toString(),
+            content: "Welcome to your new chat thread! You can start a conversation here or create a new thread.",
+            publisher: "ai",
+            replies: [],
+            isCollapsed: false,
+          }],
+          isPinned: false,
+        };
+        setThreads([defaultThread]);
+        setCurrentThread(defaultThread.id);
       }
     };
 
@@ -393,16 +444,6 @@ export default function ThreadedDocument() {
     setCurrentThread(newThread.id);
     setEditingThreadTitle(newThread.id);
     setOriginalThreadTitle("New Thread");
-  }, []);
-
-  // Edit thread title
-  const editThreadTitle = useCallback((threadId: string, newTitle: string) => {
-    setThreads((prev: Thread[]) =>
-      prev.map((thread) =>
-        thread.id === threadId ? { ...thread, title: newTitle } : thread
-      )
-    );
-    saveThreadToBackend(threadId, { title: newTitle });
   }, []);
 
   const saveThreadToBackend = async (
@@ -443,26 +484,26 @@ export default function ThreadedDocument() {
             id: newMessageId || Date.now().toString(),
             content,
             publisher,
+            modelId: publisher === "ai" ? model?.id : undefined,
             modelName: publisher === "ai" ? model?.name : undefined,
+            modelConfig: publisher === "ai" ? { ...model } : undefined, // Add this line
             replies: [],
             isCollapsed: false,
           };
           setSelectedMessage(newMessage.id);
+
+          const addReplyToMessage = (message: Message): Message => {
+            if (message.id === parentId) {
+              return { ...message, replies: [...message.replies, newMessage] };
+            }
+            return { ...message, replies: message.replies.map(addReplyToMessage) };
+          };
+
           if (!parentId) {
             return { ...thread, messages: [...thread.messages, newMessage] };
           }
-          const addReply = (messages: Message[]): Message[] => {
-            return messages.map((message) => {
-              if (message.id === parentId) {
-                return {
-                  ...message,
-                  replies: [...message.replies, newMessage],
-                };
-              }
-              return { ...message, replies: addReply(message.replies) };
-            });
-          };
-          return { ...thread, messages: addReply(thread.messages) };
+
+          return { ...thread, messages: thread.messages.map(addReplyToMessage) };
         })
       );
     },
@@ -493,22 +534,55 @@ export default function ThreadedDocument() {
       setThreads((prev: Thread[]) =>
         prev.map((thread) => {
           if (thread.id !== threadId) return thread;
+
           const removeMessage = (messages: Message[]): Message[] => {
-            return messages.reduce((acc: Message[], message) => {
-              if (message.id === messageId) {
-                return deleteChildren ? acc : [...acc, ...message.replies];
+            const [messageToDelete, parentMessages] = findMessageAndParents(messages, messageId);
+            if (!messageToDelete) return messages;
+
+            if (parentMessages.length === 0) {
+              // Message is at the root level
+              const newMessages = deleteChildren
+                ? messages.filter((m) => m.id !== messageId)
+                : [...messages.filter((m) => m.id !== messageId), ...messageToDelete.replies];
+
+              // Set selection to the previous sibling or the first message
+              if (newMessages.length > 0) {
+                const index = messages.findIndex(m => m.id === messageId);
+                const newSelectedId = index > 0 ? newMessages[index - 1].id : newMessages[0].id;
+                setSelectedMessage(newSelectedId);
+              } else {
+                setSelectedMessage(null);
               }
-              return [
-                ...acc,
-                { ...message, replies: removeMessage(message.replies) },
-              ];
-            }, []);
+
+              return newMessages;
+            }
+
+            // Message is nested
+            const updateParent = (message: Message): Message => {
+              if (message.id === parentMessages[parentMessages.length - 1].id) {
+                const newReplies = deleteChildren
+                  ? message.replies.filter((m) => m.id !== messageId)
+                  : [...message.replies.filter((m) => m.id !== messageId), ...messageToDelete.replies];
+
+                // Set selection to the parent
+                setSelectedMessage(message.id);
+
+                return {
+                  ...message,
+                  replies: newReplies,
+                };
+              }
+              return { ...message, replies: message.replies.map(updateParent) };
+            };
+
+            return messages.map(updateParent);
           };
+
           return { ...thread, messages: removeMessage(thread.messages) };
         })
       );
     },
-    []
+    [setSelectedMessage]
   );
 
   // Start editing a message
@@ -696,8 +770,21 @@ export default function ThreadedDocument() {
         });
       }
     },
-    [editingModel, availableModels]
+    [editingModel]
   );
+
+  const getModelDetails = (modelId: string | undefined) => {
+    if (!modelId) return null;
+    const model = models.find(m => m.id === modelId);
+    if (!model) return null;
+    return {
+      name: model.name,
+      baseModel: model.baseModel.split('/').pop(),
+      temperature: model.parameters.temperature,
+      maxTokens: model.parameters.max_tokens,
+      systemPrompt: model.systemPrompt,
+    };
+  };
 
   useEffect(() => {
     const loadModels = async () => {
@@ -710,18 +797,29 @@ export default function ThreadedDocument() {
         );
         if (response.ok) {
           const data = await response.json();
-          console.log("Loaded models:", data.models); // 修改这里
-          setModels(data.models || []);
-          if (data.models && data.models.length > 0) {
-            setSelectedModel(data.models[0].id);
+          console.log("Loaded models:", data.models);
+          let loadedModels = data.models || [];
+
+          // If no models are loaded, add the default model
+          if (loadedModels.length === 0) {
+            loadedModels = [DEFAULT_MODEL];
           }
-          setModelsLoaded(true); // 确保在成功加载模型后设置
+
+          setModels(loadedModels);
+          setSelectedModel(loadedModels[0].id);
+          setModelsLoaded(true);
         } else {
-          console.error("从后端加载模型失败。");
+          console.error("Failed to load models from backend.");
+          // Add default model if loading fails
+          setModels([DEFAULT_MODEL]);
+          setSelectedModel(DEFAULT_MODEL.id);
           setModelsLoaded(true);
         }
       } catch (error) {
-        console.error("加载模型时出错：", error);
+        console.error("Error loading models:", error);
+        // Add default model if an error occurs
+        setModels([DEFAULT_MODEL]);
+        setSelectedModel(DEFAULT_MODEL.id);
         setModelsLoaded(true);
       }
     };
@@ -774,6 +872,50 @@ export default function ThreadedDocument() {
     },
     []
   );
+
+  const collapseDeepChildren = useCallback((msg: Message, selectedDepth: number, currentDepth: number, isSelectedBranch: boolean): Message => {
+    const maxDepth = window.innerWidth >= 1024 ? 8 :
+      window.innerWidth >= 768 ? 7 :
+        window.innerWidth >= 480 ? 6 : 5;
+
+    const isCollapsed = isSelectedBranch
+      ? currentDepth - selectedDepth >= maxDepth
+      : currentDepth >= maxDepth;
+
+    return {
+      ...msg,
+      isCollapsed: isCollapsed,
+      replies: msg.replies.map(reply => collapseDeepChildren(reply, selectedDepth, currentDepth + 1, isSelectedBranch))
+    };
+  }, []);
+
+  useEffect(() => {
+    if (selectedMessage && currentThread) {
+      setThreads(prevThreads => prevThreads.map(thread => {
+        if (thread.id === currentThread) {
+          const findSelectedMessageBranch = (messages: Message[], depth: number = 0): [number, Message[]] => {
+            for (const msg of messages) {
+              if (msg.id === selectedMessage) return [depth, [msg]];
+              const [foundDepth, branch] = findSelectedMessageBranch(msg.replies, depth + 1);
+              if (foundDepth !== -1) return [foundDepth, [msg, ...branch]];
+            }
+            return [-1, []];
+          };
+
+          const [selectedDepth, selectedBranch] = findSelectedMessageBranch(thread.messages);
+
+          return {
+            ...thread,
+            messages: thread.messages.map(msg => {
+              const isSelectedBranch = selectedBranch.includes(msg);
+              return collapseDeepChildren(msg, selectedDepth, 0, isSelectedBranch);
+            })
+          };
+        }
+        return thread;
+      }));
+    }
+  }, [selectedMessage, currentThread, collapseDeepChildren]);
 
   // Generate AI reply
   const generateAIReply = useCallback(
@@ -844,54 +986,49 @@ export default function ThreadedDocument() {
     depth = 0,
     parentId: string | null = null
   ) {
+    // Message selection and hierarchy
     const isSelected = selectedMessage === message.id;
-    const isParentOfSelected =
-      selectedMessage !== null &&
+    const isParentOfSelected = selectedMessage !== null &&
       findMessageById(message.replies, selectedMessage) !== null;
-    const isSelectedOrParent =
-      isSelected || isParentOfSelected || parentId === message.id;
-    const indent = isSelectedOrParent ? 0 : depth * MESSAGE_INDENT;
+    const isSelectedOrParent = isSelected || isParentOfSelected || parentId === message.id;
 
+    // Indentation
+    const indent = depth === 0 ? 0 : (isSelectedOrParent ? -16 : 0);
+
+    // Helper functions
     const getTotalReplies = (msg: Message): number => {
-      return msg.replies.reduce(
-        (total, reply) => total + 1 + getTotalReplies(reply),
-        0
-      );
-    };
-    const findMessageAndParent = (
-      messages: Message[],
-      targetId: string,
-      parent: Message | null = null
-    ): [Message | null, Message | null] => {
-      for (const message of messages) {
-        if (message.id === targetId) return [message, parent];
-        const [found, foundParent] = findMessageAndParent(
-          message.replies,
-          targetId,
-          message
-        );
-        if (found) return [found, foundParent];
-      }
-      return [null, null];
+      return msg.replies.reduce((total, reply) => total + 1 + getTotalReplies(reply), 0);
     };
 
     const getSiblings = (parent: Message | null): Message[] => {
-      if (!parent) return currentThreadData?.messages || [];
-      return parent.replies;
+      return parent ? parent.replies : currentThreadData?.messages || [];
     };
-    const totalReplies = getTotalReplies(message);
 
+    const handleCopy = (codeString: string, codeBlockId: string) => {
+      navigator.clipboard.writeText(codeString);
+      setCopiedStates(prev => ({ ...prev, [codeBlockId]: true }));
+      setTimeout(() => {
+        setCopiedStates(prev => ({ ...prev, [codeBlockId]: false }));
+      }, 2000);
+    };
+
+    // Thread and message data
     const currentThreadData = threads.find((t) => t.id === currentThread);
     if (!currentThreadData) return null;
 
-    const [currentMessage, parentMessage] = findMessageAndParent(
+    const [currentMessage, parentMessages] = findMessageAndParents(
       currentThreadData.messages,
       message.id
     );
     if (!currentMessage) return null;
 
+    const parentMessage = parentMessages.length > 0 ? parentMessages[parentMessages.length - 1] : null;
     const siblings = getSiblings(parentMessage);
+
+    // Additional data
+    const totalReplies = getTotalReplies(message);
     const currentIndex = siblings.findIndex((m) => m.id === currentMessage.id);
+    const modelDetails = message.modelConfig || getModelDetails(message.modelId);
 
     return (
       <div
@@ -902,13 +1039,12 @@ export default function ThreadedDocument() {
       >
         <div
           className={`flex 
-          items-start 
-          space-x-1 
-          p-1 
-          rounded 
-          hover:bg-secondary/50 
-          ${isSelectedOrParent ? "bg-muted" : "text-muted-foreground"}
-        `}
+        items-start 
+        space-x-1 
+        p-1 
+        rounded-md
+        ${isSelectedOrParent ? "custom-shadow transition-scale hover:py-2.5 hover:-my-1.5" : "text-muted-foreground"}
+      `}
           onClick={() => {
             setSelectedMessage(message.id);
             if (message.isCollapsed) {
@@ -919,24 +1055,23 @@ export default function ThreadedDocument() {
           <div className="flex-grow p-0 overflow-hidden">
             <div className="flex flex-col">
               <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-1">
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="w-6 h-6 p-0 rounded-sm hover:bg-secondary bg-background border border-border"
+                    className="w-6 h-6 p-0 rounded-md hover:bg-secondary bg-background border border-border"
                     onClick={(e) => {
                       e.stopPropagation();
                       toggleCollapse(threadId, message.id);
                     }}
                   >
-                    {message.isCollapsed ? (
-                      <ChevronRight className="h-4 w-4" />
-                    ) : (
-                      <ChevronDown className="h-4 w-4" />
-                    )}
+                    <ChevronRight
+                      className={`h-4 m-0 transition-transform duration-200 ${message.isCollapsed ? 'rotate-0' : 'rotate-90'
+                        }`}
+                    />
                   </Button>
                   <span
-                    className={`font-bold ${message.publisher === "ai"
+                    className={`font-bold truncate ${message.publisher === "ai"
                       ? "text-blue-600"
                       : "text-green-600"
                       }`}
@@ -953,6 +1088,13 @@ export default function ThreadedDocument() {
                         : "User"
                       : null}
                   </span>
+                  {modelDetails && (
+                    <div className="flex items-center space-x-1">
+                      <Badge variant="secondary">
+                        {modelDetails.baseModel?.split('/').pop()?.split('-')[0]}
+                      </Badge>
+                    </div>
+                  )}
                 </div>
                 {/* New navigation controls */}
                 <div
@@ -1019,13 +1161,23 @@ export default function ThreadedDocument() {
                 <Textarea
                   value={editingContent}
                   onChange={(e) => setEditingContent(e.target.value)}
-                  className="min-font-size font-serif flex-grow w-auto m-1 p-0"
+                  className="min-font-size font-serif flex-grow w-auto m-1 p-0 bg-inherit"
                   style={{
                     minHeight: Math.min(
                       Math.max(
                         20,
-                        editingContent.split("\n").length * 20,
-                        editingContent.length * 0.25
+                        editingContent.split("\n").length * (
+                          window.innerWidth < 480 ? 35 :
+                            window.innerWidth < 640 ? 30 :
+                              window.innerWidth < 1024 ? 25 :
+                                20
+                        ),
+                        editingContent.length * (
+                          window.innerWidth < 480 ? 0.6 :
+                            window.innerWidth < 640 ? 0.5 :
+                              window.innerWidth < 1024 ? 0.35 :
+                                0.25
+                        )
                       ),
                       window.innerHeight * 0.5
                     ),
@@ -1042,23 +1194,28 @@ export default function ThreadedDocument() {
                 />
               ) : (
                 <div
-                  className="whitespace-normal break-words overflow-hidden pt-1 pl-1"
+                  className="whitespace-normal break-words markdown-content font-serif overflow-hidden pt-0.5 px-1 "
                   onDoubleClick={() => {
                     cancelEditingMessage();
                     startEditingMessage(message);
                   }}
                 >
                   {message.isCollapsed ? (
-                    `
-                    ${message.content.split("\n")[0].slice(0, 50)}
-                    ${message.content.length > 50 ? "..." : ""}
-                    ${totalReplies > 0
-                      ? ` (${totalReplies} ${totalReplies === 1 ? "reply" : "replies"
-                      })`
-                      : ""
-                    }`
+                    <div className="flex flex-col">
+                      <div>
+                        {`${message.content.split("\n")[0].slice(0, 50)}
+                        ${message.content.length > 50 ? "..." : ""}`}
+                      </div>
+                      {totalReplies > 0 && (
+                        <div className="self-end">
+                          <span className="text-yellow-600">
+                            {`(${totalReplies} ${totalReplies === 1 ? "reply" : "replies"})`}
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   ) : (
-                    <div className="markdown-content font-serif">
+                    <div className="markdown-content">
                       <Markdown
                         remarkPlugins={[remarkGfm]}
                         rehypePlugins={[rehypeRaw]}
@@ -1070,9 +1227,9 @@ export default function ThreadedDocument() {
                             children,
                             ...props
                           }: any) {
-                            const match = /language-(\w+)/.exec(
-                              className || ""
-                            );
+                            const match = /language-(\w+)/.exec(className || "");
+                            const codeString = String(children).replace(/\n$/, "");
+                            const codeBlockId = `code-${message.id}-${match ? match[1] : 'unknown'}`;
                             return !inline && match ? (
                               <div className="relative">
                                 <div className="absolute -top-6 w-full text-muted-foreground flex justify-between items-center p-0 text-xs">
@@ -1081,13 +1238,13 @@ export default function ThreadedDocument() {
                                     className="w-6 h-6 p-0"
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() =>
-                                      navigator.clipboard.writeText(
-                                        String(children).replace(/\n$/, "")
-                                      )
-                                    }
+                                    onClick={() => handleCopy(codeString, codeBlockId)}
                                   >
-                                    <Copy className="h-4 w-4" />
+                                    {copiedStates[codeBlockId] ? (
+                                      <Check className="h-4 w-4" />
+                                    ) : (
+                                      <Copy className="h-4 w-4" />
+                                    )}
                                   </Button>
                                 </div>
                                 <SyntaxHighlighter
@@ -1099,7 +1256,7 @@ export default function ThreadedDocument() {
                                   wrapLines
                                   {...props}
                                 >
-                                  {String(children).replace(/\n$/, "")}
+                                  {codeString}
                                 </SyntaxHighlighter>
                               </div>
                             ) : (
@@ -1117,8 +1274,8 @@ export default function ThreadedDocument() {
                 </div>
               )}
             </div>
-            {!message.isCollapsed && selectedMessage === message.id && (
-              <div className="space-x-2 flex flex-wrap items-center select-none">
+            {selectedMessage === message.id && (
+              <div className="space-x-1 mt-1 flex flex-wrap items-center select-none">
                 {editingMessage === message.id ? (
                   <>
                     <Button
@@ -1175,7 +1332,7 @@ export default function ThreadedDocument() {
                             Generate
                           </span>
                         </MenubarTrigger>
-                        <MenubarContent>
+                        <MenubarContent className="custom-shadow">
                           <MenubarItem
                             onClick={() =>
                               generateAIReply(threadId, message.id, 1)
@@ -1234,7 +1391,7 @@ export default function ThreadedDocument() {
                           <Trash className="h-4 w-4" />
                           <span className="hidden md:inline ml-2">Delete</span>
                         </MenubarTrigger>
-                        <MenubarContent>
+                        <MenubarContent className="custom-shadow">
                           <MenubarItem
                             onClick={() =>
                               deleteMessage(threadId, message.id, false)
@@ -1264,24 +1421,34 @@ export default function ThreadedDocument() {
             )}
           </div>
         </div>
-        {!message.isCollapsed &&
-          message.replies.map((reply) =>
-            renderMessage(reply, threadId, depth + 1, message.id)
-          )}
+        {!message.isCollapsed && (
+          <div>
+            {message.replies.map((reply) => (
+              <div
+                key={reply.id}
+                className={`${isSelected ? "border-l-2 border-b-2 rounded-bl-md border-border ml-4" : "ml-4"}`}
+              >
+                {renderMessage(reply, threadId, depth + 1, message.id)}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     );
   }
-
   const saveModelChanges = useCallback(() => {
     if (editingModel) {
       setModels((prev: Model[]) =>
         prev.map((model: Model) =>
-          model.id === editingModel.id ? { ...model, ...editingModel } : model
+          model.id === editingModel.id ? { ...editingModel, id: Date.now().toString() } : model
         )
       );
+      if (selectedModel === editingModel.id) {
+        setSelectedModel(Date.now().toString());
+      }
       setEditingModel(null);
     }
-  }, [editingModel]);
+  }, [editingModel, selectedModel]);
 
   const deleteModel = useCallback(
     (id: string) => {
@@ -1300,9 +1467,13 @@ export default function ThreadedDocument() {
     const newModel: Model = {
       id: Date.now().toString(),
       name: "New Model",
-      baseModel: "meta-llama/llama-3.2-3b-instruct:free",
+      baseModel: "none",
       systemPrompt: "You are a helpful assistant.",
-      parameters: {},
+      parameters: {
+        temperature: 1,
+        top_p: 1,
+        max_tokens: 2000,
+      },
     };
     setModels((prev: any) => [...prev, newModel]);
     setEditingModel(newModel);
@@ -1357,61 +1528,90 @@ export default function ThreadedDocument() {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (editingThreadTitle || editingModel) return;
-      if (!selectedMessage || !currentThread) return;
+      // Check if any input element is focused
+      const activeElement = document.activeElement;
+      const isInputFocused = activeElement instanceof HTMLInputElement ||
+        activeElement instanceof HTMLTextAreaElement;
 
-      const currentThreadData = threads.find((t) => t.id === currentThread);
-      if (!currentThreadData) return;
-
-      // Helper function to find a message and its parent in the thread
-      const findMessageAndParent = (
-        messages: Message[],
-        targetId: string,
-        parent: Message | null = null
-      ): [Message | null, Message | null] => {
-        for (const message of messages) {
-          if (message.id === targetId) return [message, parent];
-          const [found, foundParent] = findMessageAndParent(
-            message.replies,
-            targetId,
-            message
-          );
-          if (found) return [found, foundParent];
+      // Special cases for thread title editing
+      if (editingThreadTitle && isInputFocused) {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          setEditingThreadTitle(null);
         }
-        return [null, null];
-      };
+        else if (event.key === 'Escape') {
+          event.preventDefault();
+          cancelEditThreadTitle();
+        }
+        return
+      }
 
-      const [currentMessage, parentMessage] = findMessageAndParent(
-        currentThreadData.messages,
-        selectedMessage
-      );
-      if (!currentMessage) return;
-
-      // Helper function to get sibling messages
-      const getSiblings = (parent: Message | null): Message[] => {
-        if (!parent) return currentThreadData.messages;
-        return parent.replies;
-      };
-
-      switch (event.key) {
-        case "ArrowLeft":
-          // Select parent message
-          if (parentMessage && editingMessage !== selectedMessage) {
-            setSelectedMessage(parentMessage.id);
+      // Special cases for message editing
+      if (editingMessage && isInputFocused) {
+        if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+          event.preventDefault();
+          if (currentThread) {
+            confirmEditingMessage(currentThread, editingMessage);
           }
-          break;
-        case "ArrowRight":
-          // Select first child message
-          if (
-            currentMessage.replies.length > 0 &&
-            editingMessage !== selectedMessage
-          ) {
-            setSelectedMessage(currentMessage.replies[0].id);
-          }
-          break;
-        case "ArrowUp":
-          // Select previous sibling
-          if (editingMessage !== selectedMessage) {
+        } else if (event.key === 'Escape') {
+          event.preventDefault();
+          cancelEditingMessage();
+        }
+        return;
+      }
+
+      // Special cases for model editing
+      if (editingModel && isInputFocused) {
+        if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+          event.preventDefault();
+          saveModelChanges();
+        } else if (event.key === 'Escape') {
+          event.preventDefault();
+          setEditingModel(null);
+        }
+        return;
+      }
+
+      // If any other input is focused, don't handle hotkeys
+      if (isInputFocused) {
+        return;
+      }
+
+      // Only handle navigation and action hotkeys if no input is focused
+      if (!isInputFocused) {
+        if (!selectedMessage || !currentThread) return;
+
+        const currentThreadData = threads.find((t) => t.id === currentThread);
+        if (!currentThreadData) return;
+
+        const [currentMessage, parentMessages] = findMessageAndParents(
+          currentThreadData.messages,
+          selectedMessage
+        );
+        const parentMessage = parentMessages.length > 0 ? parentMessages[parentMessages.length - 1] : null;
+        if (!currentMessage) return;
+
+        // Helper function to get sibling messages
+        const getSiblings = (parent: Message | null): Message[] => {
+          if (!parent) return currentThreadData.messages;
+          return parent.replies;
+        };
+
+        switch (event.key) {
+          case "ArrowLeft":
+            // Select parent message
+            if (parentMessage) {
+              setSelectedMessage(parentMessage.id);
+            }
+            break;
+          case "ArrowRight":
+            // Select first child message
+            if (currentMessage.replies.length > 0) {
+              setSelectedMessage(currentMessage.replies[0].id);
+            }
+            break;
+          case "ArrowUp":
+            // Select previous sibling
             const siblings = getSiblings(parentMessage);
             const currentIndex = siblings.findIndex(
               (m) => m.id === currentMessage.id
@@ -1419,11 +1619,9 @@ export default function ThreadedDocument() {
             if (currentIndex > 0) {
               setSelectedMessage(siblings[currentIndex - 1].id);
             }
-          }
-          break;
-        case "ArrowDown":
-          // Select next sibling
-          if (editingMessage !== selectedMessage) {
+            break;
+          case "ArrowDown":
+            // Select next sibling
             const nextSiblings = getSiblings(parentMessage);
             const nextIndex = nextSiblings.findIndex(
               (m) => m.id === currentMessage.id
@@ -1431,33 +1629,25 @@ export default function ThreadedDocument() {
             if (nextIndex < nextSiblings.length - 1) {
               setSelectedMessage(nextSiblings[nextIndex + 1].id);
             }
-          }
-          break;
-        case "r":
-          if (event.altKey && editingMessage !== selectedMessage) {
-            // Alt+R for replying to a message
+            break;
+          case "r":
+            // R for replying to a message
             event.preventDefault();
             if (currentThread) {
               addEmptyReply(currentThread, selectedMessage);
             }
-          }
-          break;
-        case "g":
-          if (event.altKey && editingMessage !== selectedMessage) {
-            // Alt+G for generating AI reply
+            break;
+          case "g":
+            // G for generating AI reply
             event.preventDefault();
             if (currentThread) {
               generateAIReply(currentThread, selectedMessage);
             }
-          }
-          break;
-        case "Insert":
-          // Insert for editing a message
-          if (editingMessage !== selectedMessage) {
-            const currentThreadData = threads.find(
-              (t) => t.id === currentThread
-            );
-            if (currentThreadData) {
+            break;
+          case "e":
+            // E for editing a message
+            if (!editingMessage) {
+              event.preventDefault();
               const message = findMessageById(
                 currentThreadData.messages,
                 selectedMessage
@@ -1466,12 +1656,10 @@ export default function ThreadedDocument() {
                 startEditingMessage(message);
               }
             }
-          }
-          break;
-        case "Delete":
-        case "Backspace":
-          // Delete or Backspace for deleting a message
-          if (currentThread && editingMessage !== selectedMessage) {
+            break;
+          case "Delete":
+          case "Backspace":
+            // Delete or Backspace for deleting a message
             if (event.shiftKey) {
               // Shift+Delete/Backspace to delete the message and its children
               deleteMessage(currentThread, selectedMessage, true);
@@ -1479,10 +1667,10 @@ export default function ThreadedDocument() {
               // Regular Delete/Backspace to delete only the message
               deleteMessage(currentThread, selectedMessage, false);
             }
-          }
-          break;
-        default:
-          break;
+            break;
+          default:
+            break;
+        }
       }
     };
 
@@ -1495,6 +1683,7 @@ export default function ThreadedDocument() {
     editingMessage,
     currentThread,
     editingThreadTitle,
+    cancelEditThreadTitle,
     threads,
     editingModel,
     generateAIReply,
@@ -1502,6 +1691,9 @@ export default function ThreadedDocument() {
     startEditingMessage,
     deleteMessage,
     findMessageById,
+    confirmEditingMessage,
+    cancelEditingMessage,
+    saveModelChanges,
   ]);
 
   // Sort threads with pinned threads at the top
@@ -1526,7 +1718,7 @@ export default function ThreadedDocument() {
         >
           <h2 className="text-2xl font-serif font-bold pl-2">Threads</h2>
           <Button
-            className="bg-background hover:bg-secondary text-primary border border-border"
+            className="bg-background hover:bg-secondary custom-shadow transition-scale-zoom text-primary border border-border"
             size="default"
             onClick={addThread}
           >
@@ -1539,8 +1731,7 @@ export default function ThreadedDocument() {
           onClick={() => {
             setCurrentThread(null);
             if (editingThreadTitle) {
-              editThreadTitle(editingThreadTitle, originalThreadTitle);
-              setEditingThreadTitle(null);
+              cancelEditThreadTitle();
             }
           }}
         >
@@ -1548,8 +1739,8 @@ export default function ThreadedDocument() {
             {sortedThreads.map((thread) => (
               <div
                 key={thread.id}
-                className={`font-serif px-1 cursor-pointer rounded mb-2 ${currentThread === thread.id
-                  ? "bg-secondary"
+                className={`font-serif pl-1 cursor-pointer transition-scale hover:py-1.5 hover:mb-0.5 hover:-mt-1.5 rounded-md mb-2 ${currentThread === thread.id
+                  ? "bg-inherit custom-shadow"
                   : "hover:bg-secondary text-muted-foreground"
                   }`}
                 onClick={(e) => {
@@ -1564,7 +1755,11 @@ export default function ThreadedDocument() {
                         ref={threadTitleInputRef}
                         value={thread.title}
                         onChange={(e) =>
-                          editThreadTitle(thread.id, e.target.value)
+                          setThreads((prev: Thread[]) =>
+                            prev.map((t) =>
+                              t.id === thread.id ? { ...t, title: e.target.value } : t
+                            )
+                          )
                         }
                         className="min-font-size flex-grow h-8 p-1 my-1"
                         onClick={(e) => e.stopPropagation()}
@@ -1572,7 +1767,10 @@ export default function ThreadedDocument() {
                         onKeyDown={(e) => {
                           if (e.key === "Enter") {
                             e.preventDefault();
-                            setEditingThreadTitle(null);
+                            confirmEditThreadTitle(thread.id, thread.title);
+                          } else if (e.key === "Escape") {
+                            e.preventDefault();
+                            cancelEditThreadTitle();
                           }
                         }}
                       />
@@ -1581,8 +1779,7 @@ export default function ThreadedDocument() {
                         variant="ghost"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setEditingThreadTitle(null);
-                          setCurrentThread(thread.id);
+                          confirmEditThreadTitle(thread.id, thread.title);
                         }}
                       >
                         <Check className="h-4 w-4" />
@@ -1592,8 +1789,7 @@ export default function ThreadedDocument() {
                         variant="ghost"
                         onClick={(e) => {
                           e.stopPropagation();
-                          editThreadTitle(thread.id, originalThreadTitle);
-                          setEditingThreadTitle(null);
+                          cancelEditThreadTitle();
                         }}
                       >
                         <X className="h-4 w-4" />
@@ -1604,7 +1800,7 @@ export default function ThreadedDocument() {
                       className="flex items-center justify-between"
                       onDoubleClick={(e) => {
                         e.stopPropagation();
-                        setEditingThreadTitle(thread.id);
+                        startEditingThreadTitle(thread.id, thread.title);
                       }}
                     >
                       <span className="pl-1 flex-grow">{thread.title}</span>
@@ -1666,7 +1862,7 @@ export default function ThreadedDocument() {
           </h1>
           {currentThread && (
             <Button
-              className="bg-background hover:bg-secondary text-primary border border-border select-none"
+              className="bg-background hover:bg-secondary custom-shadow transition-scale-zoom text-primary border border-border select-none"
               size="default"
               onClick={(e) => {
                 e.stopPropagation();
@@ -1693,9 +1889,9 @@ export default function ThreadedDocument() {
           <p className="text-sm text-muted-foreground whitespace-pre">
             <span>  ←/→ Arrow keys        ┃ Navigate parent/children</span><br />
             <span>  ↑/↓ Arrow keys        ┃ Navigate on same level</span><br />
-            <span>  Alt+R                 ┃ Reply</span><br />
-            <span>  Alt+G                 ┃ Generate AI reply</span><br />
-            <span>  Insert/Double-click   ┃ Edit message</span><br />
+            <span>  R                     ┃ Reply</span><br />
+            <span>  G                     ┃ Generate AI reply</span><br />
+            <span>  E/Double-click        ┃ Edit message</span><br />
             <span>  Enter                 ┃ Confirm edit</span><br />
             <span>  Escape                ┃ Cancel edit</span><br />
             <span>  Delete                ┃ Delete message</span><br />
@@ -1750,10 +1946,10 @@ export default function ThreadedDocument() {
           }}
         >
           <Select value={selectedModel ?? undefined} onValueChange={setSelectedModel}>
-            <SelectTrigger>
+            <SelectTrigger className="custom-shadow transition-scale-zoom">
               <SelectValue placeholder="Select a model" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="custom-shadow">
               {models.map((model) => (
                 <SelectItem key={model.id} value={model.id}>
                   {model.name}
@@ -1762,7 +1958,7 @@ export default function ThreadedDocument() {
             </SelectContent>
           </Select>
           <Button
-            className="bg-background hover:bg-secondary text-primary border border-border"
+            className="bg-transparent hover:bg-secondary custom-shadow transition-scale-zoom text-primary border border-border"
             size="default"
             onClick={addNewModel}
           >
@@ -1771,82 +1967,73 @@ export default function ThreadedDocument() {
           </Button>
         </div>
         <ScrollArea className="flex-grow">
-          <div className="flex-grow overflow-y-auto my-2">
+          <div className="flex-grow overflow-y-visible mt-2">
             {models.map((model) => (
-              <div key={model.id} className="p-2 border rounded mb-2">
-                <div className="flex justify-between items-center mb-2">
-                  <h3 className="font-bold">{model.name}</h3>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => setEditingModel(model)}
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                </div>
-                {editingModel?.id === model.id ? (
-                  <div className="space-y-2 text-muted-foreground">
-                    <Label>Name</Label>
-                    <Input
-                      className="min-font-size text-foreground"
-                      value={editingModel?.name}
-                      onChange={(e) =>
-                        handleModelChange("name", e.target.value)
-                      }
-                    />
-                    <Label>Base Model</Label>
-                    <SelectBaseModel
-                      value={editingModel.baseModel}
-                      onValueChange={(value, parameters) => {
-                        handleModelChange("baseModel", value);
-                        handleModelChange("parameters", parameters as Partial<ModelParameters>);
-                      }}
-                      fetchAvailableModels={fetchAvailableModels}
-                      fetchModelParameters={fetchModelParameters}
-                      existingParameters={editingModel.parameters}
-                    />
-                    <Label>System Prompt</Label>
-                    <Textarea
-                      className="min-font-size text-foreground"
-                      value={editingModel?.systemPrompt}
-                      onChange={(e) =>
-                        handleModelChange("systemPrompt", e.target.value)
-                      }
-                    />
-                    <div className="flex justify-between items-center mt-2">
-                      <div className="space-x-2">
-                        <Button size="icon" onClick={saveModelChanges}>
-                          <Check className="h-4 w-4" />
-                        </Button>
+              <div key={model.id} className="p-2 border rounded-md mb-2 transition-scale hover:py-3.5 hover:-mt-1.5 hover:mb-0.5 custom-shadow">
+                <div onDoubleClick={() => setEditingModel(model)}>
+                  <div className="flex justify-between items-center mb-2">
+                    <h3 className="font-bold">{model.name}</h3>
+                  </div>
+                  {editingModel?.id === model.id ? (
+                    <div className="space-y-2 text-muted-foreground">
+                      <Label>Name</Label>
+                      <Input
+                        className="min-font-size text-foreground"
+                        value={editingModel?.name}
+                        onChange={(e) =>
+                          handleModelChange("name", e.target.value)
+                        }
+                      />
+                      <Label>Base Model</Label>
+                      <SelectBaseModel
+                        value={editingModel.baseModel}
+                        onValueChange={(value, parameters) => {
+                          handleModelChange("baseModel", value);
+                          handleModelChange("parameters", parameters as Partial<ModelParameters>);
+                        }}
+                        fetchAvailableModels={fetchAvailableModels}
+                        fetchModelParameters={fetchModelParameters}
+                        existingParameters={editingModel.parameters}
+                      />
+                      <Label>System Prompt</Label>
+                      <Textarea
+                        className="min-font-size text-foreground"
+                        value={editingModel?.systemPrompt}
+                        onChange={(e) =>
+                          handleModelChange("systemPrompt", e.target.value)
+                        }
+                      />
+                      <div className="flex justify-between items-center mt-2">
+                        <div className="space-x-2 text-foreground">
+                          <Button size="sm" variant="outline" onClick={saveModelChanges}>
+                            <Check className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setEditingModel(null)}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
                         <Button
-                          variant="outline"
-                          size="icon"
-                          onClick={() => setEditingModel(null)}
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => deleteModel(model.id)}
+                          disabled={models.length === 1}
                         >
-                          <X className="h-4 w-4" />
+                          <Trash className="h-4 w-4" />
                         </Button>
                       </div>
-                      <Button
-                        variant="destructive"
-                        size="icon"
-                        onClick={() => deleteModel(model.id)}
-                        disabled={models.length === 1}
-                      >
-                        <Trash className="h-4 w-4" />
-                      </Button>
                     </div>
-                  </div>
-                ) : (
-                  <div>
-                    <p>Base Model: {model.baseModel}</p>
-                    <p>
-                      Temperature: {model.parameters.temperature}
-                    </p>
-                    <p>
-                      Max Tokens: {model.parameters.max_tokens}
-                    </p>
-                  </div>
-                )}
+                  ) : (
+                    <div className="text-sm cursor-pointer">
+                      <p><span className="text-muted-foreground">Base Model:</span> {model.baseModel.split('/').pop()}</p>
+                      <p><span className="text-muted-foreground">Temperature:</span> {model.parameters.temperature}</p>
+                      <p><span className="text-muted-foreground">Max Tokens:</span> {model.parameters.max_tokens}</p>
+                    </div>
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -1889,8 +2076,8 @@ export default function ThreadedDocument() {
           </TabsContent>
           <TabsList
             className="grid 
-              bg-background/50 
-              backdrop-blur-[3px] 
+              bg-transparent
+              custom-shadow
               w-full 
               fixed 
               bottom-0 
@@ -1902,19 +2089,19 @@ export default function ThreadedDocument() {
           >
             <TabsTrigger
               value="threads"
-              className="data-[state=active]:bg-secondary"
+              className="bg-transparent hover:bg-secondary hover:custom-shadow data-[state=active]:bg-muted"
             >
               Threads
             </TabsTrigger>
             <TabsTrigger
               value="messages"
-              className="data-[state=active]:bg-secondary"
+              className="bg-transparent hover:bg-secondary hover:custom-shadow data-[state=active]:bg-muted"
             >
               Messages
             </TabsTrigger>
             <TabsTrigger
               value="models"
-              className="data-[state=active]:bg-secondary"
+              className="bg-transparent hover:bg-secondary hover:custom-shadow data-[state=active]:bg-muted"
             >
               Models
             </TabsTrigger>
@@ -1940,9 +2127,18 @@ export default function ThreadedDocument() {
               }
               className="w-full flex flex-col"
             >
-              <TabsList className="grid w-full grid-cols-2 select-none">
-                <TabsTrigger value="threads">Threads</TabsTrigger>
-                <TabsTrigger value="models">Models</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-2 bg-transparent custom-shadow select-none">
+                <TabsTrigger
+                  className="bg-transparent transition-scale-zoom hover:bg-secondary hover:custom-shadow data-[state=active]:bg-background"
+                  value="threads"
+                >Threads
+                </TabsTrigger>
+                <TabsTrigger
+                  className="bg-transparent transition-scale-zoom hover:bg-secondary hover:custom-shadow data-[state=active]:bg-background"
+                  value="models"
+                >
+                  Models
+                </TabsTrigger>
               </TabsList>
               <TabsContent
                 value="threads"
@@ -1955,7 +2151,7 @@ export default function ThreadedDocument() {
               </TabsContent>
             </Tabs>
           </ResizablePanel>
-          <ResizableHandle withHandle className="mx-2" />
+          <ResizableHandle className="mx-2 p-px" />
           <ResizablePanel defaultSize={69}>
             <div className="h-full overflow-y-auto">{renderMessages()}</div>
           </ResizablePanel>
