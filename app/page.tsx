@@ -769,7 +769,7 @@ export default function ThreadedDocument() {
         });
       }
     },
-    [editingModel, availableModels]
+    [editingModel]
   );
 
   const getModelDetails = (modelId: string | undefined) => {
@@ -1682,6 +1682,7 @@ export default function ThreadedDocument() {
     editingMessage,
     currentThread,
     editingThreadTitle,
+    cancelEditThreadTitle,
     threads,
     editingModel,
     generateAIReply,
