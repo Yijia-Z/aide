@@ -1042,7 +1042,7 @@ export default function ThreadedDocument() {
         space-x-1 
         p-1 
         rounded-md
-        ${isSelectedOrParent ? "bg-muted custom-shadow transition-scale hover:py-2.5 hover:-my-1.5" : "text-muted-foreground"}
+        ${isSelectedOrParent ? "custom-shadow transition-scale hover:py-2.5 hover:-my-1.5" : "text-muted-foreground"}
       `}
           onClick={() => {
             setSelectedMessage(message.id);
@@ -1738,8 +1738,8 @@ export default function ThreadedDocument() {
             {sortedThreads.map((thread) => (
               <div
                 key={thread.id}
-                className={`font-serif pl-1 cursor-pointer transition-scale hover:py-1.5 hover:mb-0.5 hover:-mt-1.5 custom-shadow rounded-md mb-2 ${currentThread === thread.id
-                  ? "bg-secondary"
+                className={`font-serif pl-1 cursor-pointer transition-scale hover:py-1.5 hover:mb-0.5 hover:-mt-1.5 rounded-md mb-2 ${currentThread === thread.id
+                  ? "bg-inherit custom-shadow"
                   : "hover:bg-secondary text-muted-foreground"
                   }`}
                 onClick={(e) => {
@@ -2150,7 +2150,7 @@ export default function ThreadedDocument() {
               </TabsContent>
             </Tabs>
           </ResizablePanel>
-          <ResizableHandle withHandle className="mx-2" />
+          <ResizableHandle className="mx-2 p-px" />
           <ResizablePanel defaultSize={69}>
             <div className="h-full overflow-y-auto">{renderMessages()}</div>
           </ResizablePanel>
