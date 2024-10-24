@@ -78,11 +78,11 @@ interface Message {
   content: string;
   publisher: "user" | "ai";
   modelId?: string;
-  modelConfig?: Partial<Model>; // Add this line
+  modelConfig?: Partial<Model>;
   replies: Message[];
   isCollapsed: boolean;
+  userCollapsed: boolean;
 }
-
 interface Thread {
   id: string;
   title: string;
@@ -383,11 +383,12 @@ export default function ThreadedDocument() {
           const loadedThreads: Thread[] = data.threads.map((t: any) => ({
             id: t.threadId || t.id,
             title: t.thread?.title || t.title || "Untitled Thread",
-            messages: t.thread?.messages || t.messages || [],
+            messages: (t.thread?.messages || t.messages || []).map((m: any) => ({
+              ...m,
+              userCollapsed: m.userCollapsed || false, // Ensure userCollapsed is set
+            })),
             isPinned: t.thread?.isPinned || t.isPinned || false,
-          }));
-
-          // Add a default thread if there are no threads
+          }));          // Add a default thread if there are no threads
           if (loadedThreads.length === 0) {
             const defaultThread: Thread = {
               id: Date.now().toString(),
@@ -398,6 +399,7 @@ export default function ThreadedDocument() {
                 publisher: "ai",
                 replies: [],
                 isCollapsed: false,
+                userCollapsed: false,
               }],
               isPinned: false,
             };
@@ -422,6 +424,7 @@ export default function ThreadedDocument() {
             publisher: "ai",
             replies: [],
             isCollapsed: false,
+            userCollapsed: false,
           }],
           isPinned: false,
         };
@@ -494,6 +497,7 @@ export default function ThreadedDocument() {
             modelConfig: publisher === "ai" ? { ...model } : undefined, // Add this line
             replies: [],
             isCollapsed: false,
+            userCollapsed: false,
           };
           setSelectedMessage(newMessage.id);
 
@@ -523,7 +527,11 @@ export default function ThreadedDocument() {
         const toggleMessage = (messages: Message[]): Message[] => {
           return messages.map((message) => {
             if (message.id === messageId) {
-              return { ...message, isCollapsed: !message.isCollapsed };
+              return {
+                ...message,
+                isCollapsed: !message.isCollapsed,
+                userCollapsed: !message.isCollapsed
+              };
             }
             return { ...message, replies: toggleMessage(message.replies) };
           });
@@ -532,7 +540,6 @@ export default function ThreadedDocument() {
       })
     );
   }, []);
-
   // Delete a message
   const deleteMessage = useCallback(
     (threadId: string, messageId: string, deleteChildren: boolean) => {
@@ -655,6 +662,7 @@ export default function ThreadedDocument() {
         publisher: "user",
         replies: [],
         isCollapsed: false,
+        userCollapsed: false,
       });
 
       const newMessageElement = document.getElementById(
@@ -877,13 +885,13 @@ export default function ThreadedDocument() {
       window.innerWidth >= 768 ? 7 :
         window.innerWidth >= 480 ? 6 : 5;
 
-    const isCollapsed = isSelectedBranch
+    const shouldAutoCollapse = isSelectedBranch
       ? currentDepth - selectedDepth >= maxDepth
       : currentDepth >= maxDepth;
 
     return {
       ...msg,
-      isCollapsed: isCollapsed,
+      isCollapsed: msg.userCollapsed || shouldAutoCollapse,
       replies: msg.replies.map(reply => collapseDeepChildren(reply, selectedDepth, currentDepth + 1, isSelectedBranch))
     };
   }, []);
@@ -1049,7 +1057,7 @@ export default function ThreadedDocument() {
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 20 }}
         transition={{
-          duration: 0.2,
+          duration: 0.3,
           ease: "easeInOut"
         }}
         className={"mt-2"}
@@ -1086,14 +1094,18 @@ export default function ThreadedDocument() {
                       toggleCollapse(threadId, message.id);
                     }}
                   >
-                    <ChevronRight
-                      className={`h-4 m-0 transition-transform ${message.isCollapsed ? 'rotate-0' : 'rotate-90'
-                        }`}
-                    />
-                  </Button>
-                  <span
+                    {message.isCollapsed ? (
+                      message.userCollapsed ? (
+                        <ChevronRight className="h-4 m-0 transition-transform" />
+                      ) : (
+                        <ChevronRight className="h-4 m-0 transition-transform text-muted-foreground" />
+                      )
+                    ) : (
+                      <ChevronRight className="h-4 m-0 transition-transform rotate-90" />
+                    )}
+                  </Button>                  <span
                     className={`font-bold truncate ${message.publisher === "ai"
-                      ? "text-blue-600"
+                      ? "text-blue-500"
                       : "text-green-600"
                       }`}
                   >
