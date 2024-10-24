@@ -207,7 +207,7 @@ export default function ThreadedDocument() {
   const [isConnected, setIsConnected] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   
-  const [messagesClipboard, setMessagesClipboard] = useState<string | null>(null);
+  const [messagesClipboard, setMessagesClipboard] = useState<Message[] | null>(null);
   
   // Focus on thread title input when editing
   useEffect(() => {
@@ -387,13 +387,16 @@ export default function ThreadedDocument() {
 
   // Copy a message to the clipboard along with its children
   const copyMessageToClipboard = useCallback((message: Message) => {
-      navigator.clipboard.writeText(JSON.stringify(message, null, 2));
-      for(const reply of message.replies) {
-        copyMessageToClipboard(reply);
-      }
-      console.log("Copied message to clipboard:", message);
-  }, []);
-
+    const copyChildren = (message: Message): Message[] => {
+      return [message, ...message.replies.flatMap(copyChildren)];
+    }
+  
+    const messages = copyChildren(message);
+    setMessagesClipboard(messages);
+    console.log("Copied messages to clipboard:", messages);
+    console.log("Messages clipboard:", messagesClipboard);
+  } , []);
+  
   // Start editing a message
   const startEditingMessage = useCallback((message: Message) => {
     setEditingMessage(message.id);
@@ -1150,6 +1153,27 @@ export default function ThreadedDocument() {
             }
           }
           break;
+        case "v":
+          if (event.ctrlKey && editingMessage !== selectedMessage) {
+            // Ctrl+V for pasting a message from the clipboard
+            console.log("ctrl + v pressed");
+            event.preventDefault();
+            if (messagesClipboard) {
+              const message = findMessageById(
+                currentThreadData.messages,
+                selectedMessage
+              );
+              if (message) {
+                const content = messagesClipboard
+                  .map((m) => m.content)
+                  .join("\n");
+                addMessage(currentThread, selectedMessage, content, "user");
+            } 
+          } else {
+            console.log("No messages in clipboard");
+          }
+          break;
+        }
         case "g":
           if (event.altKey && editingMessage !== selectedMessage) {
             // Alt+G for generating AI reply
