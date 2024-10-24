@@ -407,7 +407,7 @@ export function SelectBaseModel({ value, onValueChange, fetchAvailableModels, ex
           {renderParameter('temperature')}
           <Accordion type="single" collapsible className="w-full">
             <AccordionItem value="additional-parameters">
-              <AccordionTrigger className="text-sm">Additional Parameters</AccordionTrigger>
+              <AccordionTrigger className="text-sm rounded-md h-10">Additional Parameters</AccordionTrigger>
               <AccordionContent>
                 <div className="space-y-4">
                   {parameters.supported_parameters
