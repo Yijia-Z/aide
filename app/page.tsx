@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useCallback, useRef, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
@@ -133,6 +134,12 @@ function findMessageAndParents(
     if (found) return [found, foundParents];
   }
   return [null, []];
+}
+
+function getSiblings(messages: Message[], messageId: string): Message[] {
+  const [_, parents] = findMessageAndParents(messages, messageId);
+  if (parents.length === 0) return messages;
+  return parents[parents.length - 1].replies;
 }
 
 // Recursive function to find all parent messages for a given message
@@ -537,38 +544,36 @@ export default function ThreadedDocument() {
             const [messageToDelete, parentMessages] = findMessageAndParents(messages, messageId);
             if (!messageToDelete) return messages;
 
-            if (parentMessages.length === 0) {
-              // Message is at the root level
-              const newMessages = deleteChildren
-                ? messages.filter((m) => m.id !== messageId)
-                : [...messages.filter((m) => m.id !== messageId), ...messageToDelete.replies];
+            const filterAndMerge = (msgs: Message[]) =>
+              deleteChildren
+                ? msgs.filter((m) => m.id !== messageId)
+                : [...msgs.filter((m) => m.id !== messageId), ...messageToDelete.replies];
 
-              // Set selection to the previous sibling or the first message
-              if (newMessages.length > 0) {
+            const updateSelection = (newMsgs: Message[], parentMsg?: Message) => {
+              if (newMsgs.length > 0) {
                 const index = messages.findIndex(m => m.id === messageId);
-                const newSelectedId = index > 0 ? newMessages[index - 1].id : newMessages[0].id;
+                const newSelectedId = index > 0 ? newMsgs[index - 1].id : newMsgs[0].id;
                 setSelectedMessage(newSelectedId);
+              } else if (parentMsg) {
+                setSelectedMessage(parentMsg.id);
               } else {
                 setSelectedMessage(null);
               }
+            };
 
+            if (parentMessages.length === 0) {
+              // Message is at the root level
+              const newMessages = filterAndMerge(messages);
+              updateSelection(newMessages);
               return newMessages;
             }
 
             // Message is nested
             const updateParent = (message: Message): Message => {
               if (message.id === parentMessages[parentMessages.length - 1].id) {
-                const newReplies = deleteChildren
-                  ? message.replies.filter((m) => m.id !== messageId)
-                  : [...message.replies.filter((m) => m.id !== messageId), ...messageToDelete.replies];
-
-                // Set selection to the parent
-                setSelectedMessage(message.id);
-
-                return {
-                  ...message,
-                  replies: newReplies,
-                };
+                const newReplies = filterAndMerge(message.replies);
+                updateSelection(newReplies, message);
+                return { ...message, replies: newReplies };
               }
               return { ...message, replies: message.replies.map(updateParent) };
             };
@@ -597,6 +602,8 @@ export default function ThreadedDocument() {
           return messages.reduce((acc: Message[], message) => {
             if (message.id === editingMessage) {
               if (message.content.trim() === "") {
+                // Call deleteMessage if the message is empty
+                deleteMessage(thread.id, message.id, false);
                 return acc;
               }
             }
@@ -611,7 +618,7 @@ export default function ThreadedDocument() {
     );
     setEditingMessage(null);
     setEditingContent("");
-  }, [editingMessage]);
+  }, [editingMessage, deleteMessage]);
 
   // Confirm editing a message
   const confirmEditingMessage = useCallback(
@@ -620,18 +627,12 @@ export default function ThreadedDocument() {
         prev.map((thread) => {
           if (thread.id !== threadId) return thread;
           const editMessage = (messages: Message[]): Message[] => {
-            return messages.reduce((acc: Message[], message) => {
+            return messages.map((message) => {
               if (message.id === messageId) {
-                if (editingContent.trim() === "") {
-                  return acc;
-                }
-                return [...acc, { ...message, content: editingContent }];
+                return { ...message, content: editingContent };
               }
-              return [
-                ...acc,
-                { ...message, replies: editMessage(message.replies) },
-              ];
-            }, []);
+              return { ...message, replies: editMessage(message.replies) };
+            });
           };
           return { ...thread, messages: editMessage(thread.messages) };
         })
@@ -998,10 +999,6 @@ export default function ThreadedDocument() {
       return msg.replies.reduce((total, reply) => total + 1 + getTotalReplies(reply), 0);
     };
 
-    const getSiblings = (parent: Message | null): Message[] => {
-      return parent ? parent.replies : currentThreadData?.messages || [];
-    };
-
     const handleCopy = (codeString: string, codeBlockId: string) => {
       navigator.clipboard.writeText(codeString);
       setCopiedStates(prev => ({ ...prev, [codeBlockId]: true }));
@@ -1026,18 +1023,13 @@ export default function ThreadedDocument() {
     const currentThreadData = threads.find((t) => t.id === currentThread);
     if (!currentThreadData) return null;
 
-    const [currentMessage, parentMessages] = findMessageAndParents(
-      currentThreadData.messages,
-      message.id
-    );
-    if (!currentMessage) return null;
-
+    const [currentMessage, parentMessages] = findMessageAndParents(currentThreadData.messages, message.id);
     const parentMessage = parentMessages.length > 0 ? parentMessages[parentMessages.length - 1] : null;
-    const siblings = getSiblings(parentMessage);
+    const siblings = getSiblings(currentThreadData.messages, message.id);
+    const currentIndex = siblings.findIndex((m) => m.id === message.id);
 
     // Additional data
     const totalReplies = getTotalReplies(message);
-    const currentIndex = siblings.findIndex((m) => m.id === currentMessage.id);
     const modelDetails = message.modelConfig;
     const modelName = getModelDetails(message.modelId)?.name;
     if (modelName && modelDetails && modelName !== modelDetails.name) {
@@ -1051,10 +1043,18 @@ export default function ThreadedDocument() {
     }
 
     return (
-      <div
+      <motion.div
         key={message.id}
-        className="mt-2"
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 20 }}
+        transition={{
+          duration: 0.2,
+          ease: "easeInOut"
+        }}
+        className={"mt-2"}
         style={{ marginLeft: `${indent}px` }}
+        layout // Add this prop to enable layout animations
         id={`message-${message.id}`}
       >
         <div
@@ -1063,7 +1063,7 @@ export default function ThreadedDocument() {
         space-x-1 
         p-1 
         rounded-md
-        ${isSelectedOrParent ? "custom-shadow transition-scale hover:py-2.5 hover:-my-1.5" : "text-muted-foreground"}
+        ${isSelectedOrParent ? "custom-shadow" : "text-muted-foreground"}
         ${glowingMessageId === message.id ? "glow-effect" : ""}
       `}
           onClick={() => {
@@ -1087,7 +1087,7 @@ export default function ThreadedDocument() {
                     }}
                   >
                     <ChevronRight
-                      className={`h-4 m-0 transition-transform duration-200 ${message.isCollapsed ? 'rotate-0' : 'rotate-90'
+                      className={`h-4 m-0 transition-transform ${message.isCollapsed ? 'rotate-0' : 'rotate-90'
                         }`}
                     />
                   </Button>
@@ -1138,7 +1138,7 @@ export default function ThreadedDocument() {
                       <ArrowLeft className="h-4 w-4" />
                     </Button>
                   )}
-                  {currentMessage.replies.length > 0 && (
+                  {currentMessage?.replies && currentMessage.replies.length > 0 && (
                     <Button
                       variant="ghost"
                       size="sm"
@@ -1307,7 +1307,7 @@ export default function ThreadedDocument() {
                 {editingMessage === message.id ? (
                   <>
                     <Button
-                      className="hover:bg-background space-x-2"
+                      className="hover:bg-background space-x-2 transition-scale-zoom"
                       size="sm"
                       variant="ghost"
                       onClick={() =>
@@ -1320,7 +1320,7 @@ export default function ThreadedDocument() {
                       </span>
                     </Button>
                     <Button
-                      className="hover:bg-background space-x-2"
+                      className="hover:bg-background space-x-2 transition-scale-zoom"
                       size="sm"
                       variant="ghost"
                       onClick={cancelEditingMessage}
@@ -1334,7 +1334,7 @@ export default function ThreadedDocument() {
                 ) : (
                   <>
                     <Button
-                      className="h-10 hover:bg-background"
+                      className="h-10 hover:bg-background transition-scale-zoom"
                       size="sm"
                       variant="ghost"
                       onClick={() => {
@@ -1350,9 +1350,9 @@ export default function ThreadedDocument() {
                       <MenubarMenu>
                         <MenubarTrigger
                           className={cn(
-                            "h-10 rounded-lg hover:bg-background",
+                            "h-10 rounded-lg hover:bg-blue-900 transition-scale-zoom",
                             isGenerating &&
-                            "animate-pulse bg-blue-200 dark:bg-blue-900"
+                            "animate-pulse bg-blue-200 dark:bg-blue-900 duration-1000"
                           )}
                         >
                           <Sparkle className="h-4 w-4" />
@@ -1402,7 +1402,7 @@ export default function ThreadedDocument() {
                       </MenubarMenu>
                     </Menubar>
                     <Button
-                      className="h-10 hover:bg-background"
+                      className="h-10 hover:bg-background transition-scale-zoom"
                       size="sm"
                       variant="ghost"
                       onClick={() => {
@@ -1415,7 +1415,7 @@ export default function ThreadedDocument() {
                     </Button>
                     <Menubar className="p-0 border-none bg-transparent">
                       <MenubarMenu>
-                        <MenubarTrigger className="h-10 hover:bg-background">
+                        <MenubarTrigger className="h-10 hover:bg-destructive transition-scale-zoom">
                           <Trash className="h-4 w-4" />
                           <span className="hidden md:inline ml-2">Delete</span>
                         </MenubarTrigger>
@@ -1449,19 +1449,26 @@ export default function ThreadedDocument() {
             )}
           </div>
         </div>
-        {!message.isCollapsed && (
-          <div>
-            {message.replies.map((reply) => (
-              <div
-                key={reply.id}
-                className={`${isSelected ? "border-l-2 border-b-2 rounded-bl-lg border-border ml-4" : "ml-4"}`}
-              >
-                {renderMessage(reply, threadId, depth + 1, message.id)}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+        <AnimatePresence>
+          {!message.isCollapsed && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.1 }}
+            >
+              {message.replies.map((reply) => (
+                <div
+                  key={reply.id}
+                  className={`${isSelected ? "border-l-2 border-b-2 rounded-bl-lg border-border ml-4" : "ml-4"}`}
+                >
+                  {renderMessage(reply, threadId, depth + 1, message.id)}
+                </div>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
     );
   }
 
@@ -1523,8 +1530,10 @@ export default function ThreadedDocument() {
       setThreads((prev: Thread[]) => {
         const updatedThreads = prev.filter((thread) => thread.id !== threadId);
         if (currentThread === threadId) {
+          const currentIndex = prev.findIndex((thread) => thread.id === threadId);
+          const newIndex = currentIndex > 0 ? currentIndex - 1 : 0;
           setCurrentThread(
-            updatedThreads.length > 0 ? updatedThreads[0].id : null
+            updatedThreads.length > 0 ? updatedThreads[newIndex]?.id || null : null
           );
         }
         return updatedThreads;
@@ -1613,50 +1622,32 @@ export default function ThreadedDocument() {
         const currentThreadData = threads.find((t) => t.id === currentThread);
         if (!currentThreadData) return;
 
-        const [currentMessage, parentMessages] = findMessageAndParents(
-          currentThreadData.messages,
-          selectedMessage
-        );
+        const [currentMessage, parentMessages] = findMessageAndParents(currentThreadData.messages, selectedMessage);
         const parentMessage = parentMessages.length > 0 ? parentMessages[parentMessages.length - 1] : null;
         if (!currentMessage) return;
 
-        // Helper function to get sibling messages
-        const getSiblings = (parent: Message | null): Message[] => {
-          if (!parent) return currentThreadData.messages;
-          return parent.replies;
-        };
+        const siblings = getSiblings(currentThreadData.messages, selectedMessage);
+        const currentIndex = siblings.findIndex((m) => m.id === currentMessage.id);
 
         switch (event.key) {
           case "ArrowLeft":
-            // Select parent message
             if (parentMessage) {
               setSelectedMessage(parentMessage.id);
             }
             break;
           case "ArrowRight":
-            // Select first child message
             if (currentMessage.replies.length > 0) {
               setSelectedMessage(currentMessage.replies[0].id);
             }
             break;
           case "ArrowUp":
-            // Select previous sibling
-            const siblings = getSiblings(parentMessage);
-            const currentIndex = siblings.findIndex(
-              (m) => m.id === currentMessage.id
-            );
             if (currentIndex > 0) {
               setSelectedMessage(siblings[currentIndex - 1].id);
             }
             break;
           case "ArrowDown":
-            // Select next sibling
-            const nextSiblings = getSiblings(parentMessage);
-            const nextIndex = nextSiblings.findIndex(
-              (m) => m.id === currentMessage.id
-            );
-            if (nextIndex < nextSiblings.length - 1) {
-              setSelectedMessage(nextSiblings[nextIndex + 1].id);
+            if (currentIndex < siblings.length - 1) {
+              setSelectedMessage(siblings[currentIndex + 1].id);
             }
             break;
           case "r":
@@ -1736,6 +1727,13 @@ export default function ThreadedDocument() {
 
   // Render the list of threads
   function renderThreadsList() {
+    // Sort threads with newer threads (higher id) at the top, and pinned threads taking precedence
+    const sortedThreads = threads.sort((a, b) => {
+      if (a.isPinned && !b.isPinned) return -1;
+      if (!a.isPinned && b.isPinned) return 1;
+      return parseInt(b.id) - parseInt(a.id); // Assuming id is a string representation of a number
+    });
+
     return (
       <div className="flex flex-col relative h-[calc(97vh)]">
         <div
@@ -1764,107 +1762,127 @@ export default function ThreadedDocument() {
             }
           }}
         >
-          <div className="my-2">
-            {sortedThreads.map((thread) => (
-              <div
-                key={thread.id}
-                className={`font-serif pl-1 cursor-pointer transition-scale hover:py-1.5 hover:mb-0.5 hover:-mt-1.5 rounded-md mb-2 ${currentThread === thread.id
-                  ? "bg-inherit custom-shadow"
-                  : "hover:bg-secondary text-muted-foreground"
-                  }`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setCurrentThread(thread.id);
-                }}
-              >
-                <div className="flex-grow">
-                  {editingThreadTitle === thread.id ? (
-                    <div className="flex items-center justify-between">
-                      <Input
-                        ref={threadTitleInputRef}
-                        value={thread.title}
-                        onChange={(e) =>
-                          setThreads((prev: Thread[]) =>
-                            prev.map((t) =>
-                              t.id === thread.id ? { ...t, title: e.target.value } : t
+          <AnimatePresence>
+            <motion.div className="my-2">
+              {sortedThreads.map((thread) => (
+                <motion.div
+                  key={thread.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.1 }}
+                  whileHover={{
+                    borderRadius: '8px',
+                    y: -2,
+                    transition: { duration: 0.2 }
+                  }}
+                  className={`
+                    font-serif
+                    pl-1
+                    cursor-pointer
+                    rounded-md
+                    mb-2
+                    hover:shadow-[inset_0_0_10px_10px_rgba(128,128,128,0.2)]
+                    active:shadow-[inset_0px_0px_10px_rgba(0,0,0,0.7)]
+                    ${currentThread === thread.id
+                      ? "bg-background custom-shadow"
+                      : "bg-transparent text-muted-foreground"
+                    }
+                  `}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCurrentThread(thread.id);
+                  }}
+                >
+                  <div className="flex-grow">
+                    {editingThreadTitle === thread.id ? (
+                      <div className="flex items-center justify-between">
+                        <Input
+                          ref={threadTitleInputRef}
+                          value={thread.title}
+                          onChange={(e) =>
+                            setThreads((prev: Thread[]) =>
+                              prev.map((t) =>
+                                t.id === thread.id ? { ...t, title: e.target.value } : t
+                              )
                             )
-                          )
-                        }
-                        className="min-font-size flex-grow h-8 p-1 my-1"
-                        onClick={(e) => e.stopPropagation()}
-                        maxLength={64}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            confirmEditThreadTitle(thread.id, thread.title);
-                          } else if (e.key === "Escape") {
-                            e.preventDefault();
-                            cancelEditThreadTitle();
                           }
-                        }}
-                      />
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          confirmEditThreadTitle(thread.id, thread.title);
-                        }}
-                      >
-                        <Check className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          cancelEditThreadTitle();
-                        }}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <div
-                      className="flex items-center justify-between"
-                      onDoubleClick={(e) => {
-                        e.stopPropagation();
-                        startEditingThreadTitle(thread.id, thread.title);
-                      }}
-                    >
-                      <span className="pl-1 flex-grow">{thread.title}</span>
-                      <div className="flex items-center">
+                          className="min-font-size flex-grow h-8 p-1 my-1"
+                          onClick={(e) => e.stopPropagation()}
+                          maxLength={64}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              confirmEditThreadTitle(thread.id, thread.title);
+                            } else if (e.key === "Escape") {
+                              e.preventDefault();
+                              cancelEditThreadTitle();
+                            }
+                          }}
+                        />
                         <Button
+                          size="sm"
                           variant="ghost"
-                          size="icon"
                           onClick={(e) => {
                             e.stopPropagation();
-                            toggleThreadPin(thread.id);
+                            confirmEditThreadTitle(thread.id, thread.title);
                           }}
                         >
-                          {thread.isPinned ? (
-                            <PinOff className="h-4 w-4" />
-                          ) : (
-                            <Pin className="h-4 w-4" />
-                          )}
+                          <Check className="h-4 w-4" />
                         </Button>
                         <Button
+                          size="sm"
                           variant="ghost"
-                          size="icon"
                           onClick={(e) => {
                             e.stopPropagation();
-                            deleteThread(thread.id);
+                            cancelEditThreadTitle();
                           }}
                         >
-                          <Trash className="h-4 w-4" />
+                          <X className="h-4 w-4" />
                         </Button>
                       </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
+                    ) : (
+                      <div
+                        className="flex items-center justify-between"
+                        onDoubleClick={(e) => {
+                          e.stopPropagation();
+                          startEditingThreadTitle(thread.id, thread.title);
+                        }}
+                      >
+                        <span className="pl-1 flex-grow">{thread.title}</span>
+                        <div className="flex items-center">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleThreadPin(thread.id);
+                            }}
+                          >
+                            {thread.isPinned ? (
+                              <PinOff className="h-4 w-4" />
+                            ) : (
+                              <Pin className="h-4 w-4" />
+                            )}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteThread(thread.id);
+                            }}
+                          >
+                            <Trash className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              ))}
+            </motion.div>
+          </AnimatePresence>
         </ScrollArea>
       </div>
     );
@@ -1963,7 +1981,6 @@ export default function ThreadedDocument() {
     );
   }
 
-  // Render model configuration
   function renderModelConfig() {
     return (
       <div className="flex flex-col relative h-[calc(97vh)] overflow-clip select-none">
@@ -1996,76 +2013,89 @@ export default function ThreadedDocument() {
           </Button>
         </div>
         <ScrollArea className="flex-grow">
-          <div className="flex-grow overflow-y-visible mt-2">
-            {models.map((model) => (
-              <div key={model.id} className="p-2 border rounded-md mb-2 transition-scale hover:py-3.5 hover:-mt-1.5 hover:mb-0.5 custom-shadow">
-                <div onDoubleClick={() => setEditingModel(model)}>
-                  <div className="flex justify-between items-center mb-2">
-                    <h3 className="font-bold">{model.name}</h3>
-                  </div>
-                  {editingModel?.id === model.id ? (
-                    <div className="space-y-2 text-muted-foreground">
-                      <Label>Name</Label>
-                      <Input
-                        className="min-font-size text-foreground"
-                        value={editingModel?.name}
-                        onChange={(e) =>
-                          handleModelChange("name", e.target.value)
-                        }
-                      />
-                      <Label>Base Model</Label>
-                      <SelectBaseModel
-                        value={editingModel.baseModel}
-                        onValueChange={(value, parameters) => {
-                          handleModelChange("baseModel", value);
-                          handleModelChange("parameters", parameters as Partial<ModelParameters>);
-                        }}
-                        fetchAvailableModels={fetchAvailableModels}
-                        fetchModelParameters={fetchModelParameters}
-                        existingParameters={editingModel.parameters}
-                      />
-                      <Label>System Prompt</Label>
-                      <Textarea
-                        className="min-font-size text-foreground"
-                        value={editingModel?.systemPrompt}
-                        onChange={(e) =>
-                          handleModelChange("systemPrompt", e.target.value)
-                        }
-                      />
-                      <div className="flex justify-between items-center mt-2">
-                        <div className="space-x-2 text-foreground">
-                          <Button size="sm" variant="outline" onClick={saveModelChanges}>
-                            <Check className="h-4 w-4" />
-                          </Button>
+          <AnimatePresence>
+            <motion.div className="flex-grow overflow-y-visible mt-2">
+              {models.map((model) => (
+                <motion.div
+                  key={model.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.1 }}
+                  whileHover={{
+                    boxShadow: 'inset 0px 0px 10px rgba(128, 128, 128, 0.2)',
+                    borderRadius: '8px',
+                    transition: { duration: 0.2 }
+                  }}
+                  className="p-2 border rounded-md mb-2 custom-shadow"                >
+                  <div onDoubleClick={() => setEditingModel(model)}>
+                    <div className="flex justify-between items-center mb-2">
+                      <h3 className="font-bold">{model.name}</h3>
+                    </div>
+                    {editingModel?.id === model.id ? (
+                      <div className="space-y-2 text-muted-foreground">
+                        <Label>Name</Label>
+                        <Input
+                          className="min-font-size text-foreground"
+                          value={editingModel?.name}
+                          onChange={(e) =>
+                            handleModelChange("name", e.target.value)
+                          }
+                        />
+                        <Label>Base Model</Label>
+                        <SelectBaseModel
+                          value={editingModel.baseModel}
+                          onValueChange={(value, parameters) => {
+                            handleModelChange("baseModel", value);
+                            handleModelChange("parameters", parameters as Partial<ModelParameters>);
+                          }}
+                          fetchAvailableModels={fetchAvailableModels}
+                          fetchModelParameters={fetchModelParameters}
+                          existingParameters={editingModel.parameters}
+                        />
+                        <Label>System Prompt</Label>
+                        <Textarea
+                          className="min-font-size text-foreground"
+                          value={editingModel?.systemPrompt}
+                          onChange={(e) =>
+                            handleModelChange("systemPrompt", e.target.value)
+                          }
+                        />
+                        <div className="flex justify-between items-center mt-2">
+                          <div className="space-x-2 text-foreground">
+                            <Button size="sm" variant="outline" onClick={saveModelChanges}>
+                              <Check className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setEditingModel(null)}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
                           <Button
-                            variant="outline"
+                            variant="destructive"
                             size="sm"
-                            onClick={() => setEditingModel(null)}
+                            onClick={() => deleteModel(model.id)}
+                            disabled={models.length === 1}
                           >
-                            <X className="h-4 w-4" />
+                            <Trash className="h-4 w-4" />
                           </Button>
                         </div>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => deleteModel(model.id)}
-                          disabled={models.length === 1}
-                        >
-                          <Trash className="h-4 w-4" />
-                        </Button>
                       </div>
-                    </div>
-                  ) : (
-                    <div className="text-sm cursor-pointer">
-                      <p><span className="text-muted-foreground">Base Model:</span> {model.baseModel.split('/').pop()}</p>
-                      <p><span className="text-muted-foreground">Temperature:</span> {model.parameters.temperature}</p>
-                      <p><span className="text-muted-foreground">Max Tokens:</span> {model.parameters.max_tokens}</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
+                    ) : (
+                      <div className="text-sm cursor-pointer">
+                        <p><span className="text-muted-foreground">Base Model:</span> {model.baseModel.split('/').pop()}</p>
+                        <p><span className="text-muted-foreground">Temperature:</span> {model.parameters.temperature}</p>
+                        <p><span className="text-muted-foreground">Max Tokens:</span> {model.parameters.max_tokens}</p>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              ))}
+            </motion.div>
+          </AnimatePresence>
         </ScrollArea>
       </div>
     );

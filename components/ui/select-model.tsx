@@ -249,21 +249,21 @@ export function SelectBaseModel({ value, onValueChange, fetchAvailableModels, ex
               <Label>{renderTooltip(param, tooltip)}</Label>
               <Input
                 type="number"
-                value={value ?? defaultValue}
-                onChange={(e) => handleParameterChange(param, parseFloat(e.target.value))}
-                className="min-font-size text-foreground p-1 ml-2 w-flex h-6 text-right text-xs"
+                value={Math.min(value ?? defaultValue, max)}
+                onChange={(e) => handleParameterChange(param, Math.min(parseFloat(e.target.value), max))}
+                className="min-font-size text-foreground p-1 ml-2 w-fit h-6 text-right text-xs"
                 step={step.toString()}
                 min={min}
                 max={max}
               />
             </div>
             <Slider
-              defaultValue={[value ?? defaultValue]}
+              defaultValue={[Math.min(value ?? defaultValue, max)]}
               max={max}
               min={min}
               step={step}
-              value={[value ?? defaultValue]}
-              onValueChange={([val]) => handleParameterChange(param, val)}
+              value={[Math.min(value ?? defaultValue, max)]}
+              onValueChange={([val]) => handleParameterChange(param, Math.min(val, max))}
               className="h-2"
             />
           </div>
@@ -275,21 +275,21 @@ export function SelectBaseModel({ value, onValueChange, fetchAvailableModels, ex
               <Label>{renderTooltip(param, tooltip)}</Label>
               <Input
                 type="number"
-                value={value || 0}
+                value={Math.min(value || 0, max)}
                 onChange={(e) => handleParameterChange(param, Math.min(parseInt(e.target.value), max))}
-                className="min-font-size text-foreground p-1 ml-2 w-full h-6 text-right text-xs"
+                className="min-font-size text-foreground p-1 ml-2 w-fit h-6 text-right text-xs"
                 step={step.toString()}
                 min={min}
                 max={max}
               />
             </div>
             <Slider
-              defaultValue={[value || 0]}
+              defaultValue={[Math.min(value || 0, max)]}
               max={max}
               min={min}
               step={step}
-              value={[value || 0]}
-              onValueChange={([val]) => handleParameterChange(param, val)}
+              value={[Math.min(value || 0, max)]}
+              onValueChange={([val]) => handleParameterChange(param, Math.min(val, max))}
               className="h-4"
             />
           </div>
@@ -335,8 +335,8 @@ export function SelectBaseModel({ value, onValueChange, fetchAvailableModels, ex
             <Label>{renderTooltip(param, tooltip)}</Label>
             <Input
               type="number"
-              value={value || 0}
-              onChange={(e) => handleParameterChange(param, parseInt(e.target.value))}
+              value={Math.min(value || 0, max)}
+              onChange={(e) => handleParameterChange(param, Math.min(parseInt(e.target.value), max))}
               min={min}
               max={max}
             />
@@ -405,9 +405,9 @@ export function SelectBaseModel({ value, onValueChange, fetchAvailableModels, ex
           {renderParameter('max_tokens')}
           {renderParameter('top_p')}
           {renderParameter('temperature')}
-          <Accordion type="single" collapsible className="w-full">
+          <Accordion type="single" collapsible className="w-auto">
             <AccordionItem value="additional-parameters">
-              <AccordionTrigger className="text-sm rounded-md h-10">Additional Parameters</AccordionTrigger>
+              <AccordionTrigger className="text-sm rounded-md mb-2 h-10">Additional Parameters</AccordionTrigger>
               <AccordionContent>
                 <div className="space-y-4">
                   {parameters.supported_parameters
