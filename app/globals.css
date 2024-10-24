@@ -32,8 +32,8 @@
   }
 
   .dark {
-    --background: 20 10.3% 9.1%;
-    --foreground: 60 9.1% 87.8%;
+    --background: 20 10.3% 13.1%;
+    --foreground: 60 9.1% 97.8%;
     --card: 20 14.3% 4.1%;
     --card-foreground: 60 9.1% 97.8%;
     --popover: 20 14.3% 4.1%;
@@ -48,7 +48,7 @@
     --accent-foreground: 60 9.1% 97.8%;
     --destructive: 0 52.8% 25.6%;
     --destructive-foreground: 60 9.1% 97.8%;
-    --border: 12 6.5% 15.1%;
+    --border: 12 6.5% 25.1%;
     --input: 12 6.5% 15.1%;
     --ring: 24 5.7% 20.9%;
     --chart-1: 220 70% 50%;
@@ -65,7 +65,7 @@
   }
   body {
     @apply bg-background text-foreground;
-    text-shadow: 1px 2px 4px rgba(0, 0, 0, 0.3);
+    text-shadow: 1px 2px 4px rgba(0, 0, 0, 0.5);
   }
 }
 
@@ -167,23 +167,45 @@
 }
 
 /* Button hover effect */
+.dark button:hover,
+.dark .button:hover,
 button:hover,
 .button:hover {
-  background-color: hsl(var(--secondary));
-  transition: background-color 0.1s ease-in-out;
+  box-shadow: inset 0 0 10px 10px rgba(128, 128, 128, 0.2);
 }
 
 /* Button active effect */
+.dark button:active,
+.dark .button:active,
 button:active,
 .button:active {
-  background-color: hsl(var(--secondary));
-  box-shadow: inset 0 0 5px 2px rgba(0, 0, 0, 0.1);
+  box-shadow: inset 0 0 5px 2px rgba(0, 0, 0, 0.7);
 }
 
-/* Dark mode adjustments */
-.dark button:hover,
-.dark .button:hover,
-.dark button:active,
-.dark .button:active {
-  background-color: hsl(var(--secondary));
+/* Heavy shadows for icons */
+button svg,
+.button svg {
+  filter: drop-shadow(1px 2px 4px rgba(0, 0, 0, 0.5));
+}
+
+/* Adjust shadow for dark mode */
+.dark button svg,
+.dark .button svg {
+  filter: drop-shadow(1px 2px 4px rgba(0, 0, 0, 0.7));
+}
+
+@keyframes glow {
+  0% {
+    box-shadow: inset 0 0 5px rgba(255, 255, 255, 0.2);
+  }
+  50% {
+    box-shadow: inset 0 0 20px rgba(255, 255, 255, 0.4);
+  }
+  100% {
+    box-shadow: inset 0 0 5px rgba(255, 255, 255, 0.2);
+  }
+}
+
+.glow-effect {
+  animation: glow 1.5s infinite;
 }

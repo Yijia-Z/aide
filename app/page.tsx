@@ -77,7 +77,6 @@ interface Message {
   content: string;
   publisher: "user" | "ai";
   modelId?: string;
-  modelName?: string;
   modelConfig?: Partial<Model>; // Add this line
   replies: Message[];
   isCollapsed: boolean;
@@ -190,7 +189,7 @@ async function generateAIResponse(
       body: JSON.stringify(requestPayload),
     }
   );
-
+  console.log(response);
   if (!response.ok) {
     throw new Error("Failed to generate AI response");
   }
@@ -218,6 +217,7 @@ export default function ThreadedDocument() {
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [editingMessage, setEditingMessage] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState("");
+  const [glowingMessageId, setGlowingMessageId] = useState<string | null>(null);
   const replyBoxRef = useRef<HTMLDivElement>(null);
 
   const [modelsLoaded, setModelsLoaded] = useState(false);
@@ -484,7 +484,6 @@ export default function ThreadedDocument() {
             content,
             publisher,
             modelId: publisher === "ai" ? model?.id : undefined,
-            modelName: publisher === "ai" ? model?.name : undefined,
             modelConfig: publisher === "ai" ? { ...model } : undefined, // Add this line
             replies: [],
             isCollapsed: false,
@@ -1011,6 +1010,18 @@ export default function ThreadedDocument() {
       }, 2000);
     };
 
+    const updateMessageModelConfig = (messages: Message[], targetId: string, newModelName: string): Message[] => {
+      return messages.map((message) => {
+        if (message.id === targetId) {
+          return { ...message, modelConfig: { ...message.modelConfig, name: newModelName } };
+        }
+        if (message.replies.length > 0) {
+          return { ...message, replies: updateMessageModelConfig(message.replies, targetId, newModelName) };
+        }
+        return message;
+      });
+    };
+
     // Thread and message data
     const currentThreadData = threads.find((t) => t.id === currentThread);
     if (!currentThreadData) return null;
@@ -1027,7 +1038,17 @@ export default function ThreadedDocument() {
     // Additional data
     const totalReplies = getTotalReplies(message);
     const currentIndex = siblings.findIndex((m) => m.id === currentMessage.id);
-    const modelDetails = message.modelConfig || getModelDetails(message.modelId);
+    const modelDetails = message.modelConfig;
+    const modelName = getModelDetails(message.modelId)?.name;
+    if (modelName && modelDetails && modelName !== modelDetails.name) {
+      // Update the original message's modelConfig name only
+      setThreads((prevThreads) =>
+        prevThreads.map((thread) => ({
+          ...thread,
+          messages: updateMessageModelConfig(thread.messages, message.id, modelName)
+        }))
+      );
+    }
 
     return (
       <div
@@ -1043,6 +1064,7 @@ export default function ThreadedDocument() {
         p-1 
         rounded-md
         ${isSelectedOrParent ? "custom-shadow transition-scale hover:py-2.5 hover:-my-1.5" : "text-muted-foreground"}
+        ${glowingMessageId === message.id ? "glow-effect" : ""}
       `}
           onClick={() => {
             setSelectedMessage(message.id);
@@ -1083,7 +1105,7 @@ export default function ThreadedDocument() {
                         parentId
                       )?.publisher
                       ? message.publisher === "ai"
-                        ? message.modelName || "AI"
+                        ? modelDetails?.name || "AI"
                         : "User"
                       : null}
                   </span>
@@ -1095,7 +1117,6 @@ export default function ThreadedDocument() {
                     </div>
                   )}
                 </div>
-                {/* New navigation controls */}
                 <div
                   className={`flex space-x-1 ${isSelectedOrParent || isSelected
                     ? "opacity-100"
@@ -1111,6 +1132,8 @@ export default function ThreadedDocument() {
                         e.stopPropagation();
                         setSelectedMessage(parentMessage.id);
                       }}
+                      onMouseEnter={() => setGlowingMessageId(parentMessage.id)}
+                      onMouseLeave={() => setGlowingMessageId(null)}
                     >
                       <ArrowLeft className="h-4 w-4" />
                     </Button>
@@ -1124,6 +1147,8 @@ export default function ThreadedDocument() {
                         e.stopPropagation();
                         setSelectedMessage(currentMessage.replies[0].id);
                       }}
+                      onMouseEnter={() => setGlowingMessageId(currentMessage.replies[0].id)}
+                      onMouseLeave={() => setGlowingMessageId(null)}
                     >
                       <ArrowRight className="h-4 w-4" />
                     </Button>
@@ -1137,6 +1162,8 @@ export default function ThreadedDocument() {
                         e.stopPropagation();
                         setSelectedMessage(siblings[currentIndex - 1].id);
                       }}
+                      onMouseEnter={() => setGlowingMessageId(siblings[currentIndex - 1].id)}
+                      onMouseLeave={() => setGlowingMessageId(null)}
                     >
                       <ArrowUp className="h-4 w-4" />
                     </Button>
@@ -1150,6 +1177,8 @@ export default function ThreadedDocument() {
                         e.stopPropagation();
                         setSelectedMessage(siblings[currentIndex + 1].id);
                       }}
+                      onMouseEnter={() => setGlowingMessageId(siblings[currentIndex + 1].id)}
+                      onMouseLeave={() => setGlowingMessageId(null)}
                     >
                       <ArrowDown className="h-4 w-4" />
                     </Button>
@@ -1425,7 +1454,7 @@ export default function ThreadedDocument() {
             {message.replies.map((reply) => (
               <div
                 key={reply.id}
-                className={`${isSelected ? "border-l-2 border-b-2 rounded-bl-md border-border ml-4" : "ml-4"}`}
+                className={`${isSelected ? "border-l-2 border-b-2 rounded-bl-lg border-border ml-4" : "ml-4"}`}
               >
                 {renderMessage(reply, threadId, depth + 1, message.id)}
               </div>
@@ -1435,19 +1464,20 @@ export default function ThreadedDocument() {
       </div>
     );
   }
+
   const saveModelChanges = useCallback(() => {
     if (editingModel) {
       setModels((prev: Model[]) =>
-        prev.map((model: Model) =>
-          model.id === editingModel.id ? { ...editingModel, id: Date.now().toString() } : model
-        )
+        prev.map((model: Model) => {
+          if (model.id === editingModel.id) {
+            return { ...editingModel };
+          }
+          return model;
+        })
       );
-      if (selectedModel === editingModel.id) {
-        setSelectedModel(Date.now().toString());
-      }
       setEditingModel(null);
     }
-  }, [editingModel, selectedModel]);
+  }, [editingModel]);
 
   const deleteModel = useCallback(
     (id: string) => {
@@ -1944,7 +1974,7 @@ export default function ThreadedDocument() {
             backdropFilter: "blur(1px)",
           }}
         >
-          <Select value={selectedModel ?? undefined} onValueChange={setSelectedModel}>
+          <Select value={selectedModel ?? models[0]?.id} onValueChange={setSelectedModel}>
             <SelectTrigger className="custom-shadow transition-scale-zoom">
               <SelectValue placeholder="Select a model" />
             </SelectTrigger>
@@ -2150,7 +2180,7 @@ export default function ThreadedDocument() {
               </TabsContent>
             </Tabs>
           </ResizablePanel>
-          <ResizableHandle className="mx-2 p-px" />
+          <ResizableHandle className="mx-2 p-px bg-gradient-to-b from-background via-transparent to-background" />
           <ResizablePanel defaultSize={69}>
             <div className="h-full overflow-y-auto">{renderMessages()}</div>
           </ResizablePanel>
