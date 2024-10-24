@@ -1057,7 +1057,7 @@ export default function ThreadedDocument() {
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 20 }}
         transition={{
-          duration: 0.3,
+          duration: 0.2,
           ease: "easeInOut"
         }}
         className={"mt-2"}
