@@ -78,6 +78,7 @@ import {
   ContextMenuSubTrigger,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
+import { storage } from "./store";
 
 const DEFAULT_MODEL: Model = {
   id: 'default',
@@ -363,6 +364,10 @@ export default function ThreadedDocument() {
   const debouncedSaveThreads = useCallback(
     debounce(async (threadsToSave: Thread[]) => {
       try {
+        // Save to localStorage first
+        storage.set('threads', threadsToSave);
+
+        // Then save to backend
         const savePromises = threadsToSave.map((thread: Thread) =>
           fetch(
             apiBaseUrl ? `${apiBaseUrl}/api/save_thread` : "/api/save_thread",
@@ -381,13 +386,13 @@ export default function ThreadedDocument() {
 
         const results = await Promise.all(savePromises);
         console.log(
-          "All threads have been successfully saved to the backend.",
+          "All threads have been successfully saved.",
           results
         );
       } catch (error) {
         console.error("Failed to save threads:", error);
       }
-    }, 2000), // 2 seconds
+    }, 2000),
     [apiBaseUrl]
   );
 
@@ -395,70 +400,55 @@ export default function ThreadedDocument() {
   useEffect(() => {
     const loadThreads = async () => {
       try {
+        // First try to load from localStorage
+        const cachedThreads = storage.get('threads');
+        if (cachedThreads) {
+          setThreads(cachedThreads);
+          setCurrentThread(cachedThreads[0]?.id || null);
+          return;
+        }
+
+        // If no cached data, load from API
         const response = await fetch(
           apiBaseUrl ? `${apiBaseUrl}/api/load_threads` : "/api/load_threads",
           {
             method: "GET",
           }
         );
+
         if (response.ok) {
           const data = await response.json();
-          console.log("Loaded threads data:", data.threads);
-          const loadedThreads: Thread[] = data.threads.map((t: any) => ({
-            id: t.threadId || t.id,
-            title: t.thread?.title || t.title || "Untitled Thread",
-            messages: (t.thread?.messages || t.messages || []).map((m: any) => ({
-              ...m,
-              userCollapsed: m.userCollapsed || false, // Ensure userCollapsed is set
-            })),
-            isPinned: t.thread?.isPinned || t.isPinned || false,
-          }));          // Add a default thread if there are no threads
-          if (loadedThreads.length === 0) {
-            const defaultThread: Thread = {
-              id: Date.now().toString(),
-              title: "Welcome Thread",
-              messages: [{
-                id: Date.now().toString(),
-                content: "Welcome to your new chat thread! You can start a conversation here or create a new thread.",
-                publisher: "ai",
-                replies: [],
-                isCollapsed: false,
-                userCollapsed: false,
-              }],
-              isPinned: false,
-            };
-            loadedThreads.push(defaultThread);
-          }
-
-          setThreads(loadedThreads);
-          setCurrentThread(loadedThreads[0].id);
-          console.log(`Successfully loaded ${loadedThreads.length} threads.`);
+          setThreads(data.threads || []);
+          setCurrentThread(data.threads[0]?.id || null);
+          // Cache the loaded threads
+          storage.set('threads', data.threads || []);
         } else {
-          throw new Error("Failed to load thread data");
+          throw new Error("Failed to load threads from backend");
         }
       } catch (error) {
         console.error("Load failed:", error);
         // Create a default thread if loading fails
-        const defaultThread: Thread = {
+        const defaultThread = {
           id: Date.now().toString(),
           title: "Welcome Thread",
+          isPinned: false,
           messages: [{
             id: Date.now().toString(),
             content: "Welcome to your new chat thread! You can start a conversation here or create a new thread.",
-            publisher: "ai",
+            publisher: "ai" as const,
             replies: [],
             isCollapsed: false,
             userCollapsed: false,
-          }],
-          isPinned: false,
+          }]
         };
         setThreads([defaultThread]);
         setCurrentThread(defaultThread.id);
+        storage.set('threads', [defaultThread]);
       }
     };
 
     loadThreads();
-  }, []);
+  }, [apiBaseUrl]);
 
   useEffect(() => {
     debouncedSaveThreads(threads);
