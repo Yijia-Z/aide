@@ -19,6 +19,7 @@ import {
   ChevronRight,
   Edit,
   Trash,
+  Trash2,
   ListPlus,
   MessageSquare,
   X,
@@ -29,6 +30,8 @@ import {
   PinOff,
   Sparkle,
   Copy,
+  Scissors,
+  ClipboardPaste,
 } from "lucide-react";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -60,6 +63,21 @@ import {
   MenubarShortcut,
   MenubarTrigger,
 } from "@/components/ui/menubar";
+import {
+  ContextMenu,
+  ContextMenuCheckboxItem,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuLabel,
+  ContextMenuRadioGroup,
+  ContextMenuRadioItem,
+  ContextMenuSeparator,
+  ContextMenuShortcut,
+  ContextMenuSub,
+  ContextMenuSubContent,
+  ContextMenuSubTrigger,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu"
 
 const DEFAULT_MODEL: Model = {
   id: 'default',
@@ -224,6 +242,12 @@ export default function ThreadedDocument() {
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [editingMessage, setEditingMessage] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState("");
+  const [clipboardMessage, setClipboardMessage] = useState<{
+    message: Message;
+    operation: "copy" | "cut";
+    sourceThreadId: string | null;
+    originalMessageId: string | null;
+  } | null>(null);
   const [glowingMessageId, setGlowingMessageId] = useState<string | null>(null);
   const replyBoxRef = useRef<HTMLDivElement>(null);
 
@@ -677,6 +701,111 @@ export default function ThreadedDocument() {
     },
     [addMessage, startEditingMessage]
   );
+
+  // Add helper function to deep clone a message and its replies with new IDs
+  const cloneMessageWithNewIds = useCallback((message: Message): Message => {
+    const newId = Date.now().toString() + Math.random().toString(36).slice(2);
+    return {
+      ...message,
+      id: newId,
+      replies: message.replies.map(reply => cloneMessageWithNewIds(reply))
+    };
+  }, []);
+
+  // Add copy/cut function
+  const copyOrCutMessage = useCallback((threadId: string, messageId: string, operation: "copy" | "cut") => {
+    setThreads(prev => {
+      const thread = prev.find(t => t.id === threadId);
+      if (!thread) return prev;
+
+      const [message] = findMessageAndParents(thread.messages, messageId);
+      if (!message) return prev;
+
+      setClipboardMessage({
+        message: cloneMessageWithNewIds(message),
+        operation,
+        sourceThreadId: threadId,
+        originalMessageId: messageId
+      });
+
+      return prev;
+    });
+  }, [cloneMessageWithNewIds]);
+
+  const pasteMessage = useCallback((threadId: string, parentId: string | null) => {
+    if (!clipboardMessage) return;
+
+    // Don't allow pasting on the original message
+    if (parentId === clipboardMessage.originalMessageId) return;
+
+    setThreads(prev => {
+      let updatedThreads = [...prev];
+
+      // First handle deletion of original message if this was a cut operation
+      if (clipboardMessage.operation === "cut" && clipboardMessage.sourceThreadId) {
+        updatedThreads = updatedThreads.map(thread => {
+          if (thread.id !== clipboardMessage.sourceThreadId) return thread;
+
+          const deleteMessageFromThread = (messages: Message[]): Message[] => {
+            return messages.filter(msg => {
+              if (msg.id === clipboardMessage.originalMessageId) {
+                return false;
+              }
+              msg.replies = deleteMessageFromThread(msg.replies);
+              return true;
+            });
+          };
+
+          return {
+            ...thread,
+            messages: deleteMessageFromThread(thread.messages)
+          };
+        });
+      }
+
+      // Then handle the paste operation
+      return updatedThreads.map(thread => {
+        if (thread.id !== threadId) return thread;
+
+        // If thread has no messages array, initialize it
+        if (!thread.messages) {
+          thread.messages = [];
+        }
+
+        // If no parentId is provided or thread is empty, paste at the root level
+        if (!parentId || thread.messages.length === 0) {
+          return {
+            ...thread,
+            messages: [...thread.messages, clipboardMessage.message]
+          };
+        }
+
+        // Otherwise, paste as a reply to the specified parent
+        const addMessageToParent = (messages: Message[]): Message[] => {
+          return messages.map(message => {
+            if (message.id === parentId) {
+              return {
+                ...message,
+                replies: [...message.replies, clipboardMessage.message]
+              };
+            }
+            return {
+              ...message,
+              replies: addMessageToParent(message.replies)
+            };
+          });
+        };
+
+        return {
+          ...thread,
+          messages: addMessageToParent(thread.messages)
+        };
+      });
+    });
+
+    setSelectedMessage(clipboardMessage.message.id);
+    setClipboardMessage(null);
+  }, [clipboardMessage]);
 
   const findMessageById = useCallback(
     (messages: Message[], id: string): Message | null => {
@@ -1233,85 +1362,145 @@ export default function ThreadedDocument() {
                   }}
                 />
               ) : (
-                <div
-                  className="whitespace-normal break-words markdown-content font-serif overflow-hidden pt-0.5 px-1 "
-                  onDoubleClick={() => {
-                    cancelEditingMessage();
-                    startEditingMessage(message);
-                  }}
-                >
-                  {message.isCollapsed ? (
-                    <div className="flex flex-col">
-                      <div>
-                        {`${message.content.split("\n")[0].slice(0, 50)}
+                <ContextMenu>
+                  <ContextMenuTrigger onContextMenu={() => setSelectedMessage(message.id)}>
+                    <div
+                      className="whitespace-normal break-words markdown-content font-serif overflow-hidden pt-0.5 px-1 "
+                      onDoubleClick={() => {
+                        cancelEditingMessage();
+                        startEditingMessage(message);
+                      }}
+                    >
+                      {message.isCollapsed ? (
+                        <div className="flex flex-col">
+                          <div>
+                            {`${message.content.split("\n")[0].slice(0, 50)}
                         ${message.content.length > 50 ? "..." : ""}`}
-                      </div>
-                      {totalReplies > 0 && (
-                        <div className="self-end">
-                          <span className="text-yellow-600">
-                            {`(${totalReplies} ${totalReplies === 1 ? "reply" : "replies"})`}
-                          </span>
+                          </div>
+                          {totalReplies > 0 && (
+                            <div className="self-end">
+                              <span className="text-yellow-600">
+                                {`(${totalReplies} ${totalReplies === 1 ? "reply" : "replies"})`}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="markdown-content">
+                          <Markdown
+                            remarkPlugins={[remarkGfm]}
+                            rehypePlugins={[rehypeRaw]}
+                            components={{
+                              code({
+                                node,
+                                inline,
+                                className,
+                                children,
+                                ...props
+                              }: any) {
+                                const match = /language-(\w+)/.exec(className || "");
+                                const codeString = String(children).replace(/\n$/, "");
+                                // Create a unique ID for each code block within the message
+                                const codeBlockId = `${message.id}-${match?.[1] || 'unknown'}-${codeString.slice(0, 32)}`;
+                                return !inline && match ? (
+                                  <div className="relative">
+                                    <div className="absolute -top-4 w-full text-muted-foreground flex justify-between items-center p-1 pb-0 pl-3 rounded-sm text-xs bg-[#1D2021]">
+                                      <span>{match[1]}</span>
+                                      <Button
+                                        className="w-6 h-6 p-0"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleCopy(codeString, codeBlockId)}
+                                      >
+                                        {copiedStates[codeBlockId] ? (
+                                          <Check className="h-4 w-4" />
+                                        ) : (
+                                          <Copy className="h-4 w-4" />
+                                        )}
+                                      </Button>
+                                    </div>
+                                    <SyntaxHighlighter
+                                      className="text-xs"
+                                      PreTag={"pre"}
+                                      style={gruvboxDark}
+                                      language={match[1]}
+                                      // showLineNumbers
+                                      wrapLines
+                                      {...props}
+                                    >
+                                      {codeString}
+                                    </SyntaxHighlighter>
+                                  </div>
+                                ) : (
+                                  <code className={className} {...props}>
+                                    {children}
+                                  </code>
+                                );
+                              },
+                            }}
+                          >
+                            {message.content}
+                          </Markdown>
                         </div>
                       )}
                     </div>
-                  ) : (
-                    <div className="markdown-content">
-                      <Markdown
-                        remarkPlugins={[remarkGfm]}
-                        rehypePlugins={[rehypeRaw]}
-                        components={{
-                          code({
-                            node,
-                            inline,
-                            className,
-                            children,
-                            ...props
-                          }: any) {
-                            const match = /language-(\w+)/.exec(className || "");
-                            const codeString = String(children).replace(/\n$/, "");
-                            const codeBlockId = `code-${message.id}-${match ? match[1] : 'unknown'}`;
-                            return !inline && match ? (
-                              <div className="relative">
-                                <div className="absolute -top-6 w-full text-muted-foreground flex justify-between items-center p-0 text-xs">
-                                  <span>{match[1]}</span>
-                                  <Button
-                                    className="w-6 h-6 p-0"
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleCopy(codeString, codeBlockId)}
-                                  >
-                                    {copiedStates[codeBlockId] ? (
-                                      <Check className="h-4 w-4" />
-                                    ) : (
-                                      <Copy className="h-4 w-4" />
-                                    )}
-                                  </Button>
-                                </div>
-                                <SyntaxHighlighter
-                                  className="text-xs"
-                                  PreTag={"pre"}
-                                  style={gruvboxDark}
-                                  language={match[1]}
-                                  // showLineNumbers
-                                  wrapLines
-                                  {...props}
-                                >
-                                  {codeString}
-                                </SyntaxHighlighter>
-                              </div>
-                            ) : (
-                              <code className={className} {...props}>
-                                {children}
-                              </code>
-                            );
-                          },
-                        }}
-                      >
-                        {message.content}
-                      </Markdown>
-                    </div>
-                  )}
-                </div>
+                  </ContextMenuTrigger>
+                  <ContextMenuContent className="custom-shadow bg-transparent">
+                    <ContextMenuItem onClick={() => addEmptyReply(threadId, message.id)}>
+                      <MessageSquare className="h-4 w-4 mr-2" />
+                      Reply
+                      <ContextMenuShortcut>R</ContextMenuShortcut>
+                    </ContextMenuItem>
+                    <ContextMenuItem onClick={() => generateAIReply(threadId, message.id, 1)}>
+                      <Sparkle className="h-4 w-4 mr-2" />
+                      Generate AI Reply
+                      <ContextMenuShortcut>G</ContextMenuShortcut>
+                    </ContextMenuItem>
+                    <ContextMenuItem onClick={() => {
+                      cancelEditingMessage();
+                      startEditingMessage(message);
+                    }}>
+                      <Edit className="h-4 w-4 mr-2" />
+                      Edit
+                      <ContextMenuShortcut>E</ContextMenuShortcut>
+                    </ContextMenuItem>
+                    <ContextMenuSeparator />
+                    <ContextMenuItem onClick={() => copyOrCutMessage(threadId, message.id, "copy")}>
+                      <Copy className="h-4 w-4 mr-2" />
+                      Copy
+                      <ContextMenuShortcut>⌘ C</ContextMenuShortcut>
+                    </ContextMenuItem>
+                    <ContextMenuItem onClick={() => copyOrCutMessage(threadId, message.id, "cut")}>
+                      <Scissors className="h-4 w-4 mr-2" />
+                      Cut
+                      <ContextMenuShortcut>⌘ X</ContextMenuShortcut>
+                    </ContextMenuItem>
+                    {clipboardMessage && (
+                      <ContextMenuItem onClick={() => pasteMessage(threadId, message.id)}>
+                        <ClipboardPaste className="h-4 w-4 mr-2" />
+                        Paste
+                        <ContextMenuShortcut>⌘ V</ContextMenuShortcut>
+                      </ContextMenuItem>
+                    )}
+                    <ContextMenuSeparator />
+                    <ContextMenuItem
+                      className="text-red-500"
+                      onClick={() => deleteMessage(threadId, message.id, false)}
+                    >
+                      <Trash className="h-4 w-4 mr-2" />
+                      Delete
+                      <ContextMenuShortcut>⌫</ContextMenuShortcut>
+                    </ContextMenuItem>
+                    <ContextMenuItem
+                      className="text-red-500"
+                      onClick={() => deleteMessage(threadId, message.id, true)}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete with Replies
+                      <ContextMenuShortcut className="ml-2">⇧ ⌫</ContextMenuShortcut>
+                    </ContextMenuItem>
+                  </ContextMenuContent>
+                </ContextMenu>
               )}
             </div>
             {selectedMessage === message.id && (
@@ -1427,6 +1616,53 @@ export default function ThreadedDocument() {
                     </Button>
                     <Menubar className="p-0 border-none bg-transparent">
                       <MenubarMenu>
+                        <MenubarTrigger className="h-10 hover:bg-background transition-scale-zoom">
+                          {clipboardMessage ? (
+                            <ClipboardPaste className="h-4 w-4" />
+                          ) : (
+                            <Copy className="h-4 w-4" />
+                          )}
+                          <span className="hidden md:inline ml-2">
+                            {clipboardMessage ? "Paste" : "Copy"}
+                          </span>
+                        </MenubarTrigger>
+                        <MenubarContent className="custom-shadow">
+                          {clipboardMessage ? (
+                            <>
+                              <MenubarItem onClick={() => pasteMessage(threadId, message.id)}>
+                                Paste Here
+                                <span className="hidden md:inline ml-auto">
+                                  <MenubarShortcut>⌘ V</MenubarShortcut>
+                                </span>
+                              </MenubarItem>
+                              <MenubarItem onClick={() => setClipboardMessage(null)}>
+                                Clear Clipboard
+                                <span className="hidden md:inline ml-auto">
+                                  <MenubarShortcut>Esc</MenubarShortcut>
+                                </span>
+                              </MenubarItem>
+                            </>
+                          ) : (
+                            <>
+                              <MenubarItem onClick={() => copyOrCutMessage(threadId, message.id, "copy")}>
+                                Copy
+                                <span className="hidden md:inline ml-auto">
+                                  <MenubarShortcut>⌘ C</MenubarShortcut>
+                                </span>
+                              </MenubarItem>
+                              <MenubarItem onClick={() => copyOrCutMessage(threadId, message.id, "cut")}>
+                                Cut
+                                <span className="hidden md:inline ml-auto">
+                                  <MenubarShortcut>⌘ X</MenubarShortcut>
+                                </span>
+                              </MenubarItem>
+                            </>
+                          )}
+                        </MenubarContent>
+                      </MenubarMenu>
+                    </Menubar>
+                    <Menubar className="p-0 border-none bg-transparent">
+                      <MenubarMenu>
                         <MenubarTrigger className="h-10 hover:bg-destructive transition-scale-zoom">
                           <Trash className="h-4 w-4" />
                           <span className="hidden md:inline ml-2">Delete</span>
@@ -1437,7 +1673,7 @@ export default function ThreadedDocument() {
                               deleteMessage(threadId, message.id, false)
                             }
                           >
-                            Keep Children
+                            Keep Replies
                             <span className="hidden md:inline ml-auto">
                               <MenubarShortcut>⌫</MenubarShortcut>
                             </span>
@@ -1447,7 +1683,7 @@ export default function ThreadedDocument() {
                               deleteMessage(threadId, message.id, true)
                             }
                           >
-                            With Children
+                            With Replies
                             <span className="hidden md:inline ml-auto">
                               <MenubarShortcut>⇧ ⌫</MenubarShortcut>
                             </span>
@@ -1629,6 +1865,39 @@ export default function ThreadedDocument() {
 
       // Only handle navigation and action hotkeys if no input is focused
       if (!isInputFocused) {
+        // Handle copy/paste operations that only require thread selection
+        if (currentThread) {
+          switch (event.key) {
+            case 'c':
+              if ((event.metaKey || event.ctrlKey) && selectedMessage) {
+                event.preventDefault();
+                copyOrCutMessage(currentThread, selectedMessage, "copy");
+              }
+              break;
+            case 'x':
+              if ((event.metaKey || event.ctrlKey) && selectedMessage) {
+                event.preventDefault();
+                copyOrCutMessage(currentThread, selectedMessage, "cut");
+              }
+              break;
+            case 'v':
+              if (event.metaKey || event.ctrlKey) {
+                event.preventDefault();
+                if (clipboardMessage) {
+                  // If no message is selected, paste at thread root level
+                  pasteMessage(currentThread, selectedMessage || null);
+                }
+              }
+              break;
+            case 'Escape':
+              if (clipboardMessage) {
+                setClipboardMessage(null);
+              }
+              break;
+          }
+        }
+
+        // Handle operations that require both thread and message selection
         if (!selectedMessage || !currentThread) return;
 
         const currentThreadData = threads.find((t) => t.id === currentThread);
@@ -1759,7 +2028,10 @@ export default function ThreadedDocument() {
           <Button
             className="bg-background hover:bg-secondary custom-shadow transition-scale-zoom text-primary border border-border"
             size="default"
-            onClick={addThread}
+            onClick={() => {
+              addThread();
+              setSelectedMessage(null);
+            }}
           >
             <ListPlus className="h-4 w-4" />
             <span className="ml-2 hidden md:inline">New Thread</span>
@@ -1934,8 +2206,8 @@ export default function ThreadedDocument() {
             </Button>
           )}
         </div>
-        <ScrollArea className="flex-grow">
-          <div className="mb-4">
+        <ScrollArea className="flex-grow" onClick={() => setSelectedMessage(null)}>
+          <div className="mb-4" onClick={(e) => e.stopPropagation()}>
             {currentThreadData?.messages.map((message: any) =>
               renderMessage(message, currentThread)
             )}
@@ -1954,7 +2226,7 @@ export default function ThreadedDocument() {
             <span>  Enter                 ┃ Confirm edit</span><br />
             <span>  Escape                ┃ Cancel edit</span><br />
             <span>  Delete                ┃ Delete message</span><br />
-            <span>  Shift+Delete          ┃ Delete with children</span>
+            <span>  Shift+Delete          ┃ Delete with replies</span>
           </p>
           <div className="mt-4 text-center text-sm text-muted-foreground font-serif">
             <span>Select a thread to view messages.</span>
