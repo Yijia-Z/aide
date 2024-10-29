@@ -328,6 +328,8 @@ export default function ThreadedDocument() {
   // Connect to backend on component mount
   useEffect(() => {
     const connectToBackend = async () => {
+      if (!apiBaseUrl) return;
+
       try {
         const response = await fetch(`${apiBaseUrl}/api/connect`, {
           method: "GET",
@@ -359,7 +361,7 @@ export default function ThreadedDocument() {
     }, 5000);
 
     return () => clearInterval(intervalId);
-  }, [isConnected, lastAttemptTime]);
+  }, [isConnected, lastAttemptTime, apiBaseUrl]);
 
   const debouncedSaveThreads = useCallback(
     debounce(async (threadsToSave: Thread[]) => {
@@ -367,28 +369,27 @@ export default function ThreadedDocument() {
         // Save to localStorage first
         storage.set('threads', threadsToSave);
 
-        // Then save to backend
-        const savePromises = threadsToSave.map((thread: Thread) =>
-          fetch(
-            apiBaseUrl ? `${apiBaseUrl}/api/save_thread` : "/api/save_thread",
-            {
+        // Only save to backend if apiBaseUrl is available
+        if (apiBaseUrl) {
+          const savePromises = threadsToSave.map((thread: Thread) =>
+            fetch(`${apiBaseUrl}/api/save_thread`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ threadId: thread.id, thread }),
-            }
-          ).then((response) => {
-            if (!response.ok) {
-              throw new Error(`Failed to save thread ${thread.id}`);
-            }
-            return response.json();
-          })
-        );
+            }).then((response) => {
+              if (!response.ok) {
+                throw new Error(`Failed to save thread ${thread.id}`);
+              }
+              return response.json();
+            })
+          );
 
-        const results = await Promise.all(savePromises);
-        console.log(
-          "All threads have been successfully saved.",
-          results
-        );
+          const results = await Promise.all(savePromises);
+          console.log(
+            "All threads have been successfully saved.",
+            results
+          );
+        }
       } catch (error) {
         console.error("Failed to save threads:", error);
       }
@@ -408,19 +409,36 @@ export default function ThreadedDocument() {
           return;
         }
 
-        // If no cached data, load from API
-        const response = await fetch(
-          apiBaseUrl ? `${apiBaseUrl}/api/load_threads` : "/api/load_threads",
-          {
-            method: "GET",
-          }
-        );
+        // If no cached data and no apiBaseUrl, create default thread
+        if (!apiBaseUrl) {
+          const defaultThread = {
+            id: Date.now().toString(),
+            title: "Welcome Thread",
+            isPinned: false,
+            messages: [{
+              id: Date.now().toString(),
+              content: "Welcome to your new chat thread! You can start a conversation here or create a new thread.",
+              publisher: "ai" as const,
+              replies: [],
+              isCollapsed: false,
+              userCollapsed: false,
+            }]
+          };
+          setThreads([defaultThread]);
+          setCurrentThread(defaultThread.id);
+          storage.set('threads', [defaultThread]);
+          return;
+        }
+
+        // If apiBaseUrl exists, try to load from API
+        const response = await fetch(`${apiBaseUrl}/api/load_threads`, {
+          method: "GET",
+        });
 
         if (response.ok) {
           const data = await response.json();
           setThreads(data.threads || []);
           setCurrentThread(data.threads[0]?.id || null);
-          // Cache the loaded threads
           storage.set('threads', data.threads || []);
         } else {
           throw new Error("Failed to load threads from backend");
@@ -469,26 +487,38 @@ export default function ThreadedDocument() {
     setOriginalThreadTitle("New Thread");
   }, []);
 
-  const saveThreadToBackend = async (
-    threadId: string,
-    updatedData: Partial<Thread>
-  ) => {
-    try {
-      const response = await fetch(
-        apiBaseUrl ? `${apiBaseUrl}/api/save_thread` : "/api/save_thread",
-        {
-          method: "POST", // 修改为 POST
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ threadId, thread: { ...updatedData } }), // 确保后端接收到正确的结构
+  const saveThreadToBackend = useCallback(
+    async (threadId: string, updatedData: Partial<Thread>) => {
+      try {
+        // Cache the thread data to local storage
+        const cachedThreads = JSON.parse(localStorage.getItem('threads') || '[]');
+        const updatedThreads = cachedThreads.map((thread: Thread) =>
+          thread.id === threadId ? { ...thread, ...updatedData } : thread
+        );
+        localStorage.setItem('threads', JSON.stringify(updatedThreads));
+
+        // Only update the backend if apiBaseUrl is available
+        if (apiBaseUrl) {
+          const lastUpdateTime = parseInt(localStorage.getItem('lastThreadUpdateTime') || '0');
+          const currentTime = Date.now();
+          if (currentTime - lastUpdateTime > 60000) { // Update every 60 seconds
+            const response = await fetch(`${apiBaseUrl}/api/save_thread`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ threadId, thread: { ...updatedData } }),
+            });
+            if (!response.ok) {
+              throw new Error(`editthread ${threadId} fail`);
+            }
+            localStorage.setItem('lastThreadUpdateTime', currentTime.toString());
+          }
         }
-      );
-      if (!response.ok) {
-        throw new Error(`editthread ${threadId} fail`);
+      } catch (error) {
+        console.error(`update ${threadId} datafail:`, error);
       }
-    } catch (error) {
-      console.error(`update ${threadId} datafail:`, error);
-    }
-  };
+    },
+    [apiBaseUrl]
+  );
 
   // Add a new message to a thread
   const addMessage = useCallback(
@@ -811,6 +841,19 @@ export default function ThreadedDocument() {
 
   const fetchAvailableModels = useCallback(async () => {
     try {
+      // Check if models are already cached in localStorage
+      const cachedModels = localStorage.getItem('availableModels');
+      const lastFetchTime = localStorage.getItem('lastFetchTime');
+      const currentTime = Date.now();
+
+      // If cached models exist and were fetched less than an hour ago, use them
+      if (cachedModels && lastFetchTime && currentTime - parseInt(lastFetchTime) < 3600000) {
+        const modelData = JSON.parse(cachedModels);
+        setAvailableModels(modelData);
+        return modelData;
+      }
+
+      // Fetch from API if no valid cache is found
       const response = await fetch("https://openrouter.ai/api/v1/models", {
         method: "GET",
         headers: {
@@ -851,6 +894,11 @@ export default function ThreadedDocument() {
           },
         };
       });
+
+      // Cache the fetched models and update the fetch time
+      localStorage.setItem('availableModels', JSON.stringify(modelData));
+      localStorage.setItem('lastFetchTime', currentTime.toString());
+
       setAvailableModels(modelData);
       return modelData;
     } catch (error) {
@@ -914,13 +962,28 @@ export default function ThreadedDocument() {
 
   useEffect(() => {
     const loadModels = async () => {
+      // First, try to load models from cache
+      const cachedModels = storage.get('models');
+      if (cachedModels) {
+        setModels(cachedModels);
+        setSelectedModel(cachedModels[0]?.id || null);
+        setModelsLoaded(true);
+      }
+
+      if (!apiBaseUrl) {
+        // If no apiBaseUrl, ensure default model is set
+        if (!cachedModels) {
+          setModels([DEFAULT_MODEL]);
+          setSelectedModel(DEFAULT_MODEL.id);
+          setModelsLoaded(true);
+        }
+        return;
+      }
+
       try {
-        const response = await fetch(
-          apiBaseUrl ? `${apiBaseUrl}/api/load_models` : "/api/load_models",
-          {
-            method: "GET",
-          }
-        );
+        const response = await fetch(`${apiBaseUrl}/api/load_models`, {
+          method: "GET",
+        });
         if (response.ok) {
           const data = await response.json();
           console.log("Loaded models:", data.models);
@@ -934,19 +997,26 @@ export default function ThreadedDocument() {
           setModels(loadedModels);
           setSelectedModel(loadedModels[0].id);
           setModelsLoaded(true);
+
+          // Update cache with the newly fetched models
+          storage.set('models', loadedModels);
         } else {
           console.error("Failed to load models from backend.");
-          // Add default model if loading fails
+          // Ensure default model is set if loading fails and no cache exists
+          if (!cachedModels) {
+            setModels([DEFAULT_MODEL]);
+            setSelectedModel(DEFAULT_MODEL.id);
+            setModelsLoaded(true);
+          }
+        }
+      } catch (error) {
+        console.error("Error loading models:", error);
+        // Ensure default model is set if an error occurs and no cache exists
+        if (!cachedModels) {
           setModels([DEFAULT_MODEL]);
           setSelectedModel(DEFAULT_MODEL.id);
           setModelsLoaded(true);
         }
-      } catch (error) {
-        console.error("Error loading models:", error);
-        // Add default model if an error occurs
-        setModels([DEFAULT_MODEL]);
-        setSelectedModel(DEFAULT_MODEL.id);
-        setModelsLoaded(true);
       }
     };
 
@@ -955,15 +1025,18 @@ export default function ThreadedDocument() {
 
   useEffect(() => {
     const saveModels = async () => {
+      if (!apiBaseUrl) {
+        // Cache models to browser storage if apiBaseUrl is not present
+        storage.set('models', models);
+        return;
+      }
+
       try {
-        await fetch(
-          apiBaseUrl ? `${apiBaseUrl}/api/save_models` : "/api/save_models",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ models }),
-          }
-        );
+        await fetch(`${apiBaseUrl}/api/save_models`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ models }),
+        });
       } catch (error) {
         console.error("保存模型数据失败：", error);
       }
@@ -1176,12 +1249,12 @@ export default function ThreadedDocument() {
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 20 }}
         transition={{
-          duration: 0.2,
+          duration: 0.3,
           ease: "easeInOut"
         }}
         className={"mt-2"}
         style={{ marginLeft: `${indent}px` }}
-        layout // Add this prop to enable layout animations
+        layout={"preserve-aspect"} // Add this prop to enable layout animations
         id={`message-${message.id}`}
       >
         <div
@@ -1778,16 +1851,14 @@ export default function ThreadedDocument() {
       });
 
       const deleteThreadFromBackend = async () => {
+        if (!apiBaseUrl) {
+          return;
+        }
         try {
-          const response = await fetch(
-            apiBaseUrl
-              ? `${apiBaseUrl}/api/delete_thread/${threadId}`
-              : `/api/delete_thread/${threadId}`,
-            {
-              method: "DELETE",
-              headers: { "Content-Type": "application/json" },
-            }
-          );
+          const response = await fetch(`${apiBaseUrl}/api/delete_thread/${threadId}`, {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+          });
           if (!response.ok) {
             throw new Error(`Failed to delete thread ${threadId}`);
           }
