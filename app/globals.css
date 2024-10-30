@@ -50,7 +50,7 @@
     --muted-foreground: 24 5.4% 63.9%;
     --accent: 12 6.5% 15.1%;
     --accent-foreground: 60 9.1% 97.8%;
-    --destructive: 0 52.8% 25.6%;
+    --destructive: 0 52.8% 35.6%;
     --destructive-foreground: 60 9.1% 97.8%;
     --border: 12 6.5% 33.3%;
     --input: 12 6.5% 25.1%;
@@ -141,7 +141,7 @@
     @apply bg-background rounded px-1 font-mono text-sm text-muted-foreground;
   }
   pre {
-    @apply bg-transparent rounded overflow-auto pt-6;
+    @apply bg-transparent rounded overflow-auto pt-4;
   }
   pre code {
     @apply bg-transparent p-0;
@@ -199,4 +199,8 @@ button svg,
   transition-property: all;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   transition-duration: 200ms;
+}
+.select-none {
+  -webkit-user-select: none; /* Safari 3+ */
+  user-select: none;
 }

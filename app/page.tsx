@@ -20,6 +20,7 @@ import {
   ChevronRight,
   Edit,
   Trash,
+  Trash2,
   ListPlus,
   MessageSquare,
   X,
@@ -30,6 +31,8 @@ import {
   PinOff,
   Sparkle,
   Copy,
+  Scissors,
+  ClipboardPaste,
 } from "lucide-react";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -61,6 +64,22 @@ import {
   MenubarShortcut,
   MenubarTrigger,
 } from "@/components/ui/menubar";
+import {
+  ContextMenu,
+  ContextMenuCheckboxItem,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuLabel,
+  ContextMenuRadioGroup,
+  ContextMenuRadioItem,
+  ContextMenuSeparator,
+  ContextMenuShortcut,
+  ContextMenuSub,
+  ContextMenuSubContent,
+  ContextMenuSubTrigger,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu"
+import { storage } from "./store";
 
 const DEFAULT_MODEL: Model = {
   id: 'default',
@@ -227,6 +246,12 @@ export default function ThreadedDocument() {
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [editingMessage, setEditingMessage] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState("");
+  const [clipboardMessage, setClipboardMessage] = useState<{
+    message: Message;
+    operation: "copy" | "cut";
+    sourceThreadId: string | null;
+    originalMessageId: string | null;
+  } | null>(null);
   const [glowingMessageId, setGlowingMessageId] = useState<string | null>(null);
   const replyBoxRef = useRef<HTMLDivElement>(null);
 
@@ -372,6 +397,8 @@ const addCustomTool = () => {
   // Connect to backend on component mount
   useEffect(() => {
     const connectToBackend = async () => {
+      if (!apiBaseUrl) return;
+
       try {
         const response = await fetch(`${apiBaseUrl}/api/connect`, {
           method: "GET",
@@ -403,36 +430,39 @@ const addCustomTool = () => {
     }, 5000);
 
     return () => clearInterval(intervalId);
-  }, [isConnected, lastAttemptTime]);
+  }, [isConnected, lastAttemptTime, apiBaseUrl]);
 
   const debouncedSaveThreads = useCallback(
     debounce(async (threadsToSave: Thread[]) => {
       try {
-        const savePromises = threadsToSave.map((thread: Thread) =>
-          fetch(
-            apiBaseUrl ? `${apiBaseUrl}/api/save_thread` : "/api/save_thread",
-            {
+        // Save to localStorage first
+        storage.set('threads', threadsToSave);
+
+        // Only save to backend if apiBaseUrl is available
+        if (apiBaseUrl) {
+          const savePromises = threadsToSave.map((thread: Thread) =>
+            fetch(`${apiBaseUrl}/api/save_thread`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ threadId: thread.id, thread }),
-            }
-          ).then((response) => {
-            if (!response.ok) {
-              throw new Error(`Failed to save thread ${thread.id}`);
-            }
-            return response.json();
-          })
-        );
+            }).then((response) => {
+              if (!response.ok) {
+                throw new Error(`Failed to save thread ${thread.id}`);
+              }
+              return response.json();
+            })
+          );
 
-        const results = await Promise.all(savePromises);
-        console.log(
-          "All threads have been successfully saved to the backend.",
-          results
-        );
+          const results = await Promise.all(savePromises);
+          console.log(
+            "All threads have been successfully saved.",
+            results
+          );
+        }
       } catch (error) {
         console.error("Failed to save threads:", error);
       }
-    }, 2000), // 2 seconds
+    }, 2000),
     [apiBaseUrl]
   );
 
@@ -440,70 +470,72 @@ const addCustomTool = () => {
   useEffect(() => {
     const loadThreads = async () => {
       try {
-        const response = await fetch(
-          apiBaseUrl ? `${apiBaseUrl}/api/load_threads` : "/api/load_threads",
-          {
-            method: "GET",
-          }
-        );
+        // First try to load from localStorage
+        const cachedThreads = storage.get('threads');
+        if (cachedThreads) {
+          setThreads(cachedThreads);
+          setCurrentThread(cachedThreads[0]?.id || null);
+          return;
+        }
+
+        // If no cached data and no apiBaseUrl, create default thread
+        if (!apiBaseUrl) {
+          const defaultThread = {
+            id: Date.now().toString(),
+            title: "Welcome Thread",
+            isPinned: false,
+            messages: [{
+              id: Date.now().toString(),
+              content: "Welcome to your new chat thread! You can start a conversation here or create a new thread.",
+              publisher: "ai" as const,
+              replies: [],
+              isCollapsed: false,
+              userCollapsed: false,
+            }]
+          };
+          setThreads([defaultThread]);
+          setCurrentThread(defaultThread.id);
+          storage.set('threads', [defaultThread]);
+          return;
+        }
+
+        // If apiBaseUrl exists, try to load from API
+        const response = await fetch(`${apiBaseUrl}/api/load_threads`, {
+          method: "GET",
+        });
+
         if (response.ok) {
           const data = await response.json();
-          console.log("Loaded threads data:", data.threads);
-          const loadedThreads: Thread[] = data.threads.map((t: any) => ({
-            id: t.threadId || t.id,
-            title: t.thread?.title || t.title || "Untitled Thread",
-            messages: (t.thread?.messages || t.messages || []).map((m: any) => ({
-              ...m,
-              userCollapsed: m.userCollapsed || false, // Ensure userCollapsed is set
-            })),
-            isPinned: t.thread?.isPinned || t.isPinned || false,
-          }));          // Add a default thread if there are no threads
-          if (loadedThreads.length === 0) {
-            const defaultThread: Thread = {
-              id: Date.now().toString(),
-              title: "Welcome Thread",
-              messages: [{
-                id: Date.now().toString(),
-                content: "Welcome to your new chat thread! You can start a conversation here or create a new thread.",
-                publisher: "ai",
-                replies: [],
-                isCollapsed: false,
-                userCollapsed: false,
-              }],
-              isPinned: false,
-            };
-            loadedThreads.push(defaultThread);
-          }
-
-          setThreads(loadedThreads);
-          setCurrentThread(loadedThreads[0].id);
-          console.log(`Successfully loaded ${loadedThreads.length} threads.`);
+          setThreads(data.threads || []);
+          setCurrentThread(data.threads[0]?.id || null);
+          storage.set('threads', data.threads || []);
         } else {
-          throw new Error("Failed to load thread data");
+          throw new Error("Failed to load threads from backend");
         }
       } catch (error) {
         console.error("Load failed:", error);
         // Create a default thread if loading fails
-        const defaultThread: Thread = {
+        const defaultThread = {
           id: Date.now().toString(),
           title: "Welcome Thread",
+          isPinned: false,
           messages: [{
             id: Date.now().toString(),
             content: "Welcome to your new chat thread! You can start a conversation here or create a new thread.",
-            publisher: "ai",
+            publisher: "ai" as const,
             replies: [],
             isCollapsed: false,
             userCollapsed: false,
-          }],
-          isPinned: false,
+          }]
         };
         setThreads([defaultThread]);
         setCurrentThread(defaultThread.id);
+        storage.set('threads', [defaultThread]);
       }
     };
 
     loadThreads();
-  }, []);
+  }, [apiBaseUrl]);
 
   useEffect(() => {
     debouncedSaveThreads(threads);
@@ -524,26 +556,38 @@ const addCustomTool = () => {
     setOriginalThreadTitle("New Thread");
   }, []);
 
-  const saveThreadToBackend = async (
-    threadId: string,
-    updatedData: Partial<Thread>
-  ) => {
-    try {
-      const response = await fetch(
-        apiBaseUrl ? `${apiBaseUrl}/api/save_thread` : "/api/save_thread",
-        {
-          method: "POST", // 修改为 POST
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ threadId, thread: { ...updatedData } }), // 确保后端接收到正确的结构
+  const saveThreadToBackend = useCallback(
+    async (threadId: string, updatedData: Partial<Thread>) => {
+      try {
+        // Cache the thread data to local storage
+        const cachedThreads = JSON.parse(localStorage.getItem('threads') || '[]');
+        const updatedThreads = cachedThreads.map((thread: Thread) =>
+          thread.id === threadId ? { ...thread, ...updatedData } : thread
+        );
+        localStorage.setItem('threads', JSON.stringify(updatedThreads));
+
+        // Only update the backend if apiBaseUrl is available
+        if (apiBaseUrl) {
+          const lastUpdateTime = parseInt(localStorage.getItem('lastThreadUpdateTime') || '0');
+          const currentTime = Date.now();
+          if (currentTime - lastUpdateTime > 60000) { // Update every 60 seconds
+            const response = await fetch(`${apiBaseUrl}/api/save_thread`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ threadId, thread: { ...updatedData } }),
+            });
+            if (!response.ok) {
+              throw new Error(`editthread ${threadId} fail`);
+            }
+            localStorage.setItem('lastThreadUpdateTime', currentTime.toString());
+          }
         }
-      );
-      if (!response.ok) {
-        throw new Error(`editthread ${threadId} fail`);
+      } catch (error) {
+        console.error(`update ${threadId} datafail:`, error);
       }
-    } catch (error) {
-      console.error(`update ${threadId} datafail:`, error);
-    }
-  };
+    },
+    [apiBaseUrl]
+  );
 
   // Add a new message to a thread
   const addMessage = useCallback(
@@ -747,6 +791,111 @@ const addCustomTool = () => {
     [addMessage, startEditingMessage]
   );
 
+  // Add helper function to deep clone a message and its replies with new IDs
+  const cloneMessageWithNewIds = useCallback((message: Message): Message => {
+    const newId = Date.now().toString() + Math.random().toString(36).slice(2);
+    return {
+      ...message,
+      id: newId,
+      replies: message.replies.map(reply => cloneMessageWithNewIds(reply))
+    };
+  }, []);
+
+  // Add copy/cut function
+  const copyOrCutMessage = useCallback((threadId: string, messageId: string, operation: "copy" | "cut") => {
+    setThreads(prev => {
+      const thread = prev.find(t => t.id === threadId);
+      if (!thread) return prev;
+
+      const [message] = findMessageAndParents(thread.messages, messageId);
+      if (!message) return prev;
+
+      setClipboardMessage({
+        message: cloneMessageWithNewIds(message),
+        operation,
+        sourceThreadId: threadId,
+        originalMessageId: messageId
+      });
+
+      return prev;
+    });
+  }, [cloneMessageWithNewIds]);
+
+  const pasteMessage = useCallback((threadId: string, parentId: string | null) => {
+    if (!clipboardMessage) return;
+
+    // Don't allow pasting on the original message
+    if (parentId === clipboardMessage.originalMessageId) return;
+
+    setThreads(prev => {
+      let updatedThreads = [...prev];
+
+      // First handle deletion of original message if this was a cut operation
+      if (clipboardMessage.operation === "cut" && clipboardMessage.sourceThreadId) {
+        updatedThreads = updatedThreads.map(thread => {
+          if (thread.id !== clipboardMessage.sourceThreadId) return thread;
+
+          const deleteMessageFromThread = (messages: Message[]): Message[] => {
+            return messages.filter(msg => {
+              if (msg.id === clipboardMessage.originalMessageId) {
+                return false;
+              }
+              msg.replies = deleteMessageFromThread(msg.replies);
+              return true;
+            });
+          };
+
+          return {
+            ...thread,
+            messages: deleteMessageFromThread(thread.messages)
+          };
+        });
+      }
+
+      // Then handle the paste operation
+      return updatedThreads.map(thread => {
+        if (thread.id !== threadId) return thread;
+
+        // If thread has no messages array, initialize it
+        if (!thread.messages) {
+          thread.messages = [];
+        }
+
+        // If no parentId is provided or thread is empty, paste at the root level
+        if (!parentId || thread.messages.length === 0) {
+          return {
+            ...thread,
+            messages: [...thread.messages, clipboardMessage.message]
+          };
+        }
+
+        // Otherwise, paste as a reply to the specified parent
+        const addMessageToParent = (messages: Message[]): Message[] => {
+          return messages.map(message => {
+            if (message.id === parentId) {
+              return {
+                ...message,
+                replies: [...message.replies, clipboardMessage.message]
+              };
+            }
+            return {
+              ...message,
+              replies: addMessageToParent(message.replies)
+            };
+          });
+        };
+
+        return {
+          ...thread,
+          messages: addMessageToParent(thread.messages)
+        };
+      });
+    });
+
+    setSelectedMessage(clipboardMessage.message.id);
+    setClipboardMessage(null);
+  }, [clipboardMessage]);
+
   const findMessageById = useCallback(
     (messages: Message[], id: string): Message | null => {
       for (const message of messages) {
@@ -761,6 +910,19 @@ const addCustomTool = () => {
 
   const fetchAvailableModels = useCallback(async () => {
     try {
+      // Check if models are already cached in localStorage
+      const cachedModels = localStorage.getItem('availableModels');
+      const lastFetchTime = localStorage.getItem('lastFetchTime');
+      const currentTime = Date.now();
+
+      // If cached models exist and were fetched less than an hour ago, use them
+      if (cachedModels && lastFetchTime && currentTime - parseInt(lastFetchTime) < 3600000) {
+        const modelData = JSON.parse(cachedModels);
+        setAvailableModels(modelData);
+        return modelData;
+      }
+
+      // Fetch from API if no valid cache is found
       const response = await fetch("https://openrouter.ai/api/v1/models", {
         method: "GET",
         headers: {
@@ -801,6 +963,11 @@ const addCustomTool = () => {
           },
         };
       });
+
+      // Cache the fetched models and update the fetch time
+      localStorage.setItem('availableModels', JSON.stringify(modelData));
+      localStorage.setItem('lastFetchTime', currentTime.toString());
+
       setAvailableModels(modelData);
       return modelData;
     } catch (error) {
@@ -864,13 +1031,28 @@ const addCustomTool = () => {
 
   useEffect(() => {
     const loadModels = async () => {
+      // First, try to load models from cache
+      const cachedModels = storage.get('models');
+      if (cachedModels) {
+        setModels(cachedModels);
+        setSelectedModel(cachedModels[0]?.id || null);
+        setModelsLoaded(true);
+      }
+
+      if (!apiBaseUrl) {
+        // If no apiBaseUrl, ensure default model is set
+        if (!cachedModels) {
+          setModels([DEFAULT_MODEL]);
+          setSelectedModel(DEFAULT_MODEL.id);
+          setModelsLoaded(true);
+        }
+        return;
+      }
+
       try {
-        const response = await fetch(
-          apiBaseUrl ? `${apiBaseUrl}/api/load_models` : "/api/load_models",
-          {
-            method: "GET",
-          }
-        );
+        const response = await fetch(`${apiBaseUrl}/api/load_models`, {
+          method: "GET",
+        });
         if (response.ok) {
           const data = await response.json();
           console.log("Loaded models:", data.models);
@@ -884,19 +1066,26 @@ const addCustomTool = () => {
           setModels(loadedModels);
           setSelectedModel(loadedModels[0].id);
           setModelsLoaded(true);
+
+          // Update cache with the newly fetched models
+          storage.set('models', loadedModels);
         } else {
           console.error("Failed to load models from backend.");
-          // Add default model if loading fails
+          // Ensure default model is set if loading fails and no cache exists
+          if (!cachedModels) {
+            setModels([DEFAULT_MODEL]);
+            setSelectedModel(DEFAULT_MODEL.id);
+            setModelsLoaded(true);
+          }
+        }
+      } catch (error) {
+        console.error("Error loading models:", error);
+        // Ensure default model is set if an error occurs and no cache exists
+        if (!cachedModels) {
           setModels([DEFAULT_MODEL]);
           setSelectedModel(DEFAULT_MODEL.id);
           setModelsLoaded(true);
         }
-      } catch (error) {
-        console.error("Error loading models:", error);
-        // Add default model if an error occurs
-        setModels([DEFAULT_MODEL]);
-        setSelectedModel(DEFAULT_MODEL.id);
-        setModelsLoaded(true);
       }
     };
 
@@ -905,15 +1094,18 @@ const addCustomTool = () => {
 
   useEffect(() => {
     const saveModels = async () => {
+      if (!apiBaseUrl) {
+        // Cache models to browser storage if apiBaseUrl is not present
+        storage.set('models', models);
+        return;
+      }
+
       try {
-        await fetch(
-          apiBaseUrl ? `${apiBaseUrl}/api/save_models` : "/api/save_models",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ models }),
-          }
-        );
+        await fetch(`${apiBaseUrl}/api/save_models`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ models }),
+        });
       } catch (error) {
         console.error("保存模型数据失败：", error);
       }
@@ -1136,12 +1328,12 @@ const addCustomTool = () => {
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: 20 }}
         transition={{
-          duration: 0.2,
+          duration: 0.3,
           ease: "easeInOut"
         }}
         className={"mt-2"}
         style={{ marginLeft: `${indent}px` }}
-        layout // Add this prop to enable layout animations
+        layout={"preserve-aspect"} // Add this prop to enable layout animations
         id={`message-${message.id}`}
       >
         <div
@@ -1312,85 +1504,145 @@ const addCustomTool = () => {
                   }}
                 />
               ) : (
-                <div
-                  className="whitespace-normal break-words markdown-content font-serif overflow-hidden pt-0.5 px-1 "
-                  onDoubleClick={() => {
-                    cancelEditingMessage();
-                    startEditingMessage(message);
-                  }}
-                >
-                  {message.isCollapsed ? (
-                    <div className="flex flex-col">
-                      <div>
-                        {`${message.content.split("\n")[0].slice(0, 50)}
+                <ContextMenu>
+                  <ContextMenuTrigger onContextMenu={() => setSelectedMessage(message.id)}>
+                    <div
+                      className="whitespace-normal break-words markdown-content font-serif overflow-hidden pt-0.5 px-1 "
+                      onDoubleClick={() => {
+                        cancelEditingMessage();
+                        startEditingMessage(message);
+                      }}
+                    >
+                      {message.isCollapsed ? (
+                        <div className="flex flex-col">
+                          <div>
+                            {`${message.content.split("\n")[0].slice(0, 50)}
                         ${message.content.length > 50 ? "..." : ""}`}
-                      </div>
-                      {totalReplies > 0 && (
-                        <div className="self-end">
-                          <span className="text-yellow-600">
-                            {`(${totalReplies} ${totalReplies === 1 ? "reply" : "replies"})`}
-                          </span>
+                          </div>
+                          {totalReplies > 0 && (
+                            <div className="self-end">
+                              <span className="text-yellow-600">
+                                {`(${totalReplies} ${totalReplies === 1 ? "reply" : "replies"})`}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="markdown-content">
+                          <Markdown
+                            remarkPlugins={[remarkGfm]}
+                            rehypePlugins={[rehypeRaw]}
+                            components={{
+                              code({
+                                node,
+                                inline,
+                                className,
+                                children,
+                                ...props
+                              }: any) {
+                                const match = /language-(\w+)/.exec(className || "");
+                                const codeString = String(children).replace(/\n$/, "");
+                                // Create a unique ID for each code block within the message
+                                const codeBlockId = `${message.id}-${match?.[1] || 'unknown'}-${codeString.slice(0, 32)}`;
+                                return !inline && match ? (
+                                  <div className="relative">
+                                    <div className="absolute -top-4 w-full text-muted-foreground flex justify-between items-center p-1 pb-0 pl-3 rounded-sm text-xs bg-[#1D2021]">
+                                      <span>{match[1]}</span>
+                                      <Button
+                                        className="w-6 h-6 p-0"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleCopy(codeString, codeBlockId)}
+                                      >
+                                        {copiedStates[codeBlockId] ? (
+                                          <Check className="h-4 w-4" />
+                                        ) : (
+                                          <Copy className="h-4 w-4" />
+                                        )}
+                                      </Button>
+                                    </div>
+                                    <SyntaxHighlighter
+                                      className="text-xs"
+                                      PreTag={"pre"}
+                                      style={gruvboxDark}
+                                      language={match[1]}
+                                      // showLineNumbers
+                                      wrapLines
+                                      {...props}
+                                    >
+                                      {codeString}
+                                    </SyntaxHighlighter>
+                                  </div>
+                                ) : (
+                                  <code className={className} {...props}>
+                                    {children}
+                                  </code>
+                                );
+                              },
+                            }}
+                          >
+                            {message.content}
+                          </Markdown>
                         </div>
                       )}
                     </div>
-                  ) : (
-                    <div className="markdown-content">
-                      <Markdown
-                        remarkPlugins={[remarkGfm]}
-                        rehypePlugins={[rehypeRaw]}
-                        components={{
-                          code({
-                            node,
-                            inline,
-                            className,
-                            children,
-                            ...props
-                          }: any) {
-                            const match = /language-(\w+)/.exec(className || "");
-                            const codeString = String(children).replace(/\n$/, "");
-                            const codeBlockId = `code-${message.id}-${match ? match[1] : 'unknown'}`;
-                            return !inline && match ? (
-                              <div className="relative">
-                                <div className="absolute -top-6 w-full text-muted-foreground flex justify-between items-center p-0 text-xs">
-                                  <span>{match[1]}</span>
-                                  <Button
-                                    className="w-6 h-6 p-0"
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleCopy(codeString, codeBlockId)}
-                                  >
-                                    {copiedStates[codeBlockId] ? (
-                                      <Check className="h-4 w-4" />
-                                    ) : (
-                                      <Copy className="h-4 w-4" />
-                                    )}
-                                  </Button>
-                                </div>
-                                <SyntaxHighlighter
-                                  className="text-xs"
-                                  PreTag={"pre"}
-                                  style={gruvboxDark}
-                                  language={match[1]}
-                                  // showLineNumbers
-                                  wrapLines
-                                  {...props}
-                                >
-                                  {codeString}
-                                </SyntaxHighlighter>
-                              </div>
-                            ) : (
-                              <code className={className} {...props}>
-                                {children}
-                              </code>
-                            );
-                          },
-                        }}
-                      >
-                        {message.content}
-                      </Markdown>
-                    </div>
-                  )}
-                </div>
+                  </ContextMenuTrigger>
+                  <ContextMenuContent className="custom-shadow bg-transparent">
+                    <ContextMenuItem onClick={() => addEmptyReply(threadId, message.id)}>
+                      <MessageSquare className="h-4 w-4 mr-2" />
+                      Reply
+                      <ContextMenuShortcut>R</ContextMenuShortcut>
+                    </ContextMenuItem>
+                    <ContextMenuItem onClick={() => generateAIReply(threadId, message.id, 1)}>
+                      <Sparkle className="h-4 w-4 mr-2" />
+                      Generate AI Reply
+                      <ContextMenuShortcut>G</ContextMenuShortcut>
+                    </ContextMenuItem>
+                    <ContextMenuItem onClick={() => {
+                      cancelEditingMessage();
+                      startEditingMessage(message);
+                    }}>
+                      <Edit className="h-4 w-4 mr-2" />
+                      Edit
+                      <ContextMenuShortcut>E</ContextMenuShortcut>
+                    </ContextMenuItem>
+                    <ContextMenuSeparator />
+                    <ContextMenuItem onClick={() => copyOrCutMessage(threadId, message.id, "copy")}>
+                      <Copy className="h-4 w-4 mr-2" />
+                      Copy
+                      <ContextMenuShortcut>⌘ C</ContextMenuShortcut>
+                    </ContextMenuItem>
+                    <ContextMenuItem onClick={() => copyOrCutMessage(threadId, message.id, "cut")}>
+                      <Scissors className="h-4 w-4 mr-2" />
+                      Cut
+                      <ContextMenuShortcut>⌘ X</ContextMenuShortcut>
+                    </ContextMenuItem>
+                    {clipboardMessage && (
+                      <ContextMenuItem onClick={() => pasteMessage(threadId, message.id)}>
+                        <ClipboardPaste className="h-4 w-4 mr-2" />
+                        Paste
+                        <ContextMenuShortcut>⌘ V</ContextMenuShortcut>
+                      </ContextMenuItem>
+                    )}
+                    <ContextMenuSeparator />
+                    <ContextMenuItem
+                      className="text-red-500"
+                      onClick={() => deleteMessage(threadId, message.id, false)}
+                    >
+                      <Trash className="h-4 w-4 mr-2" />
+                      Delete
+                      <ContextMenuShortcut>⌫</ContextMenuShortcut>
+                    </ContextMenuItem>
+                    <ContextMenuItem
+                      className="text-red-500"
+                      onClick={() => deleteMessage(threadId, message.id, true)}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete with Replies
+                      <ContextMenuShortcut className="ml-2">⇧ ⌫</ContextMenuShortcut>
+                    </ContextMenuItem>
+                  </ContextMenuContent>
+                </ContextMenu>
               )}
             </div>
             {selectedMessage === message.id && (
@@ -1506,6 +1758,53 @@ const addCustomTool = () => {
                     </Button>
                     <Menubar className="p-0 border-none bg-transparent">
                       <MenubarMenu>
+                        <MenubarTrigger className="h-10 hover:bg-background transition-scale-zoom">
+                          {clipboardMessage ? (
+                            <ClipboardPaste className="h-4 w-4" />
+                          ) : (
+                            <Copy className="h-4 w-4" />
+                          )}
+                          <span className="hidden md:inline ml-2">
+                            {clipboardMessage ? "Paste" : "Copy"}
+                          </span>
+                        </MenubarTrigger>
+                        <MenubarContent className="custom-shadow">
+                          {clipboardMessage ? (
+                            <>
+                              <MenubarItem onClick={() => pasteMessage(threadId, message.id)}>
+                                Paste Here
+                                <span className="hidden md:inline ml-auto">
+                                  <MenubarShortcut>⌘ V</MenubarShortcut>
+                                </span>
+                              </MenubarItem>
+                              <MenubarItem onClick={() => setClipboardMessage(null)}>
+                                Clear Clipboard
+                                <span className="hidden md:inline ml-auto">
+                                  <MenubarShortcut>Esc</MenubarShortcut>
+                                </span>
+                              </MenubarItem>
+                            </>
+                          ) : (
+                            <>
+                              <MenubarItem onClick={() => copyOrCutMessage(threadId, message.id, "copy")}>
+                                Copy
+                                <span className="hidden md:inline ml-auto">
+                                  <MenubarShortcut>⌘ C</MenubarShortcut>
+                                </span>
+                              </MenubarItem>
+                              <MenubarItem onClick={() => copyOrCutMessage(threadId, message.id, "cut")}>
+                                Cut
+                                <span className="hidden md:inline ml-auto">
+                                  <MenubarShortcut>⌘ X</MenubarShortcut>
+                                </span>
+                              </MenubarItem>
+                            </>
+                          )}
+                        </MenubarContent>
+                      </MenubarMenu>
+                    </Menubar>
+                    <Menubar className="p-0 border-none bg-transparent">
+                      <MenubarMenu>
                         <MenubarTrigger className="h-10 hover:bg-destructive transition-scale-zoom">
                           <Trash className="h-4 w-4" />
                           <span className="hidden md:inline ml-2">Delete</span>
@@ -1516,7 +1815,7 @@ const addCustomTool = () => {
                               deleteMessage(threadId, message.id, false)
                             }
                           >
-                            Keep Children
+                            Keep Replies
                             <span className="hidden md:inline ml-auto">
                               <MenubarShortcut>⌫</MenubarShortcut>
                             </span>
@@ -1526,7 +1825,7 @@ const addCustomTool = () => {
                               deleteMessage(threadId, message.id, true)
                             }
                           >
-                            With Children
+                            With Replies
                             <span className="hidden md:inline ml-auto">
                               <MenubarShortcut>⇧ ⌫</MenubarShortcut>
                             </span>
@@ -1631,16 +1930,14 @@ const addCustomTool = () => {
       });
 
       const deleteThreadFromBackend = async () => {
+        if (!apiBaseUrl) {
+          return;
+        }
         try {
-          const response = await fetch(
-            apiBaseUrl
-              ? `${apiBaseUrl}/api/delete_thread/${threadId}`
-              : `/api/delete_thread/${threadId}`,
-            {
-              method: "DELETE",
-              headers: { "Content-Type": "application/json" },
-            }
-          );
+          const response = await fetch(`${apiBaseUrl}/api/delete_thread/${threadId}`, {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+          });
           if (!response.ok) {
             throw new Error(`Failed to delete thread ${threadId}`);
           }
@@ -1708,6 +2005,39 @@ const addCustomTool = () => {
 
       // Only handle navigation and action hotkeys if no input is focused
       if (!isInputFocused) {
+        // Handle copy/paste operations that only require thread selection
+        if (currentThread) {
+          switch (event.key) {
+            case 'c':
+              if ((event.metaKey || event.ctrlKey) && selectedMessage) {
+                event.preventDefault();
+                copyOrCutMessage(currentThread, selectedMessage, "copy");
+              }
+              break;
+            case 'x':
+              if ((event.metaKey || event.ctrlKey) && selectedMessage) {
+                event.preventDefault();
+                copyOrCutMessage(currentThread, selectedMessage, "cut");
+              }
+              break;
+            case 'v':
+              if (event.metaKey || event.ctrlKey) {
+                event.preventDefault();
+                if (clipboardMessage) {
+                  // If no message is selected, paste at thread root level
+                  pasteMessage(currentThread, selectedMessage || null);
+                }
+              }
+              break;
+            case 'Escape':
+              if (clipboardMessage) {
+                setClipboardMessage(null);
+              }
+              break;
+          }
+        }
+
+        // Handle operations that require both thread and message selection
         if (!selectedMessage || !currentThread) return;
 
         const currentThreadData = threads.find((t) => t.id === currentThread);
@@ -1838,7 +2168,10 @@ const addCustomTool = () => {
           <Button
             className="bg-background hover:bg-secondary custom-shadow transition-scale-zoom text-primary border border-border"
             size="default"
-            onClick={addThread}
+            onClick={() => {
+              addThread();
+              setSelectedMessage(null);
+            }}
           >
             <ListPlus className="h-4 w-4" />
             <span className="ml-2 hidden md:inline">New Thread</span>
@@ -2015,8 +2348,8 @@ const addCustomTool = () => {
             </Button>
           )}
         </div>
-        <ScrollArea className="flex-grow">
-          <div className="mb-4">
+        <ScrollArea className="flex-grow" onClick={() => setSelectedMessage(null)}>
+          <div className="mb-4" onClick={(e) => e.stopPropagation()}>
             {currentThreadData?.messages.map((message: any) =>
               renderMessage(message, currentThread)
             )}
@@ -2035,7 +2368,7 @@ const addCustomTool = () => {
             <span>  Enter                 ┃ Confirm edit</span><br />
             <span>  Escape                ┃ Cancel edit</span><br />
             <span>  Delete                ┃ Delete message</span><br />
-            <span>  Shift+Delete          ┃ Delete with children</span>
+            <span>  Shift+Delete          ┃ Delete with replies</span>
           </p>
           <div className="mt-4 text-center text-sm text-muted-foreground font-serif">
             <span>Select a thread to view messages.</span>
