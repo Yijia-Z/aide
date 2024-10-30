@@ -361,7 +361,7 @@ async def chat(request: ChatRequest):
             base_url="https://openrouter.ai/api/v1",
             api_key=openrouter_api_key,
         )
-        sgl.set_default_backend(backend)
+        sgl.set_backend(backend)
 
         logger.info(f"Generating response with configuration: {request.configuration}")
 

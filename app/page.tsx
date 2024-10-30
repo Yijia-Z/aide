@@ -7,9 +7,10 @@ import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { gruvboxDark } from "react-syntax-highlighter/dist/esm/styles/prism";
-
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import debounce from "lodash.debounce";
+import Draggable from "react-draggable";
 
 import {
   ArrowUp,
@@ -167,7 +168,8 @@ async function generateAIResponse(
   model: Model,
   threads: Thread[],
   currentThread: string | null,
-  replyingTo: string | null
+  replyingTo: string | null,
+  tools
 ) {
   const requestPayload = {
     messages: [
@@ -183,13 +185,14 @@ async function generateAIResponse(
     configuration: {
       model: model.baseModel,
       ...model.parameters,
+      tools,
     },
   };
 
   console.log("Request payload:", JSON.stringify(requestPayload, null, 2));
 
   const response = await fetch(
-    apiBaseUrl ? `${apiBaseUrl}/api/chat` : "/api/chat",
+     '/api/chat',
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -237,6 +240,72 @@ export default function ThreadedDocument() {
   const [isConnected, setIsConnected] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [copiedStates, setCopiedStates] = useState<{ [key: string]: boolean }>({});
+  const [isToolModalOpen, setIsToolModalOpen] = useState(false);
+const [tools, setTools] = useState([
+  {
+    name: 'Get Current Weather',
+    description: 'Provides the current weather for a specified location.',
+    enabled: false,
+    type: 'function',
+    function: {
+      name: 'get_current_weather',
+      description: 'Get the current weather in a given location',
+      parameters: {
+        type: 'object',
+        properties: {
+          location: {
+            type: 'string',
+            description: 'The city and state, e.g. San Francisco, CA',
+          },
+          unit: {
+            type: 'string',
+            enum: ['celsius', 'fahrenheit'],
+          },
+        },
+        required: ['location'],
+      },
+    },
+  },
+  
+]);
+const [newTool, setNewTool] = useState({
+  name: '',
+  description: '',
+  parameters: '',
+});
+const openToolModal = () => {
+  setIsToolModalOpen(true);
+};
+
+const closeToolModal = () => {
+  setIsToolModalOpen(false);
+};
+
+const handleToolInputChange = (e) => {
+  const { name, value } = e.target;
+  setNewTool((prev) => ({ ...prev, [name]: value }));
+};
+
+const addCustomTool = () => {
+  try {
+    const parameters = JSON.parse(newTool.parameters);
+    const customTool = {
+      name: newTool.name,
+      description: newTool.description,
+      enabled: false,
+      type: 'function',
+      function: {
+        name: newTool.name.toLowerCase().replace(/\s+/g, '_'),
+        description: newTool.description,
+        parameters,
+      },
+    };
+    setTools((prev) => [...prev, customTool]);
+    setNewTool({ name: '', description: '', parameters: '' });
+  } catch (error) {
+    alert('参数中的 JSON 无效');
+  }
+};
 
   // Focus on thread title input when editing
   useEffect(() => {
@@ -937,6 +1006,14 @@ export default function ThreadedDocument() {
       try {
         const model =
           models.find((m: { id: any }) => m.id === selectedModel) || models[0];
+
+          const enabledTools = tools
+        .filter((tool) => tool.enabled)
+        .map((tool) => ({
+          type: tool.type,
+          function: tool.function,
+        }));
+
         for (let i = 0; i < count; i++) {
           const reader = await generateAIResponse(
             message.content,
@@ -944,7 +1021,8 @@ export default function ThreadedDocument() {
             model,
             threads,
             threadId,
-            messageId
+            messageId,
+            enabledTools
           );
 
           const newMessageId = Date.now().toString();
@@ -983,6 +1061,7 @@ export default function ThreadedDocument() {
       setSelectedMessage,
       findMessageById,
       updateMessageContent,
+      tools
     ]
   );
 
@@ -1914,6 +1993,8 @@ export default function ThreadedDocument() {
             backdropFilter: "blur(1px)",
           }}
         >
+          
+
           <h1 className="text-2xl font-serif font-bold pl-2 overflow-hidden">
             <span className="block truncate text-2xl sm:text-sm md:text-base lg:text-xl xl:text-2xl">
               {currentThreadData?.title}
@@ -2228,6 +2309,94 @@ export default function ThreadedDocument() {
           </ResizablePanel>
         </ResizablePanelGroup>
       </div>
-    </div>
+      <Draggable>
+        <div
+          className="fixed bottom-4 right-4 bg-white dark:bg-gray-800 p-3 rounded-full shadow-lg cursor-pointer z-50"
+          onClick={openToolModal}
+        >
+          <Plus className="h-6 w-6 text-gray-600 dark:text-gray-300" />
+        </div>
+      </Draggable>
+      <AnimatePresence>
+        {isToolModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-40"
+          >
+            <motion.div
+              initial={{ scale: 0.8 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.8 }}
+              className="bg-white dark:bg-gray-800 p-6 rounded-md shadow-lg w-11/12 max-w-md overflow-y-auto"
+            >
+              <h2 className="text-xl font-bold mb-4">管理工具</h2>
+              <div className="space-y-4">
+                {tools.map((tool, index) => (
+                  <div key={index} className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-semibold">{tool.name}</h3>
+                      <p className="text-sm text-muted-foreground">{tool.description}</p>
+                    </div>
+                    <Switch
+                      checked={tool.enabled}
+                      onCheckedChange={(value) => {
+                        const updatedTools = [...tools];
+                        updatedTools[index].enabled = value;
+                        setTools(updatedTools);
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+              <div className="flex justify-end mt-4 space-x-2">
+                <Button variant="outline" onClick={closeToolModal}>
+                  关闭
+                </Button>
+                <Button onClick={addCustomTool}>添加工具</Button>
+              </div>
+              {/* 添加自定义工具表单 */}
+              <div className="mt-6">
+                <h3 className="text-lg font-semibold mb-2">添加自定义工具</h3>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="tool-name">工具名称</Label>
+                    <Input
+                      id="tool-name"
+                      name="name"
+                      value={newTool.name}
+                      onChange={handleToolInputChange}
+                      placeholder="工具名称"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="tool-description">描述</Label>
+                    <Textarea
+                      id="tool-description"
+                      name="description"
+                      value={newTool.description}
+                      onChange={handleToolInputChange}
+                      placeholder="工具描述"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="tool-parameters">参数（JSON）</Label>
+                    <Textarea
+                      id="tool-parameters"
+                      name="parameters"
+                      value={newTool.parameters}
+                      onChange={handleToolInputChange}
+                      placeholder='{"type": "object", "properties": {...}}'
+                    />
+                  </div>
+                  <Button onClick={addCustomTool}>添加工具</Button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      </div>
   );
 }
