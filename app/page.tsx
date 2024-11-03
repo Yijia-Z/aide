@@ -89,90 +89,6 @@ const DEFAULT_MODEL: Model = {
   },
 };
 
-interface Message {
-  id: string;
-  content: string;
-  publisher: "user" | "ai";
-  modelId?: string;
-  modelConfig?: Partial<Model>;
-  replies: Message[];
-  isCollapsed: boolean;
-  userCollapsed: boolean;
-}
-interface Thread {
-  id: string;
-  title: string;
-  messages: Message[];
-  isPinned: boolean;
-}
-
-interface Model {
-  id: string;
-  name: string;
-  baseModel: string;
-  systemPrompt: string;
-  parameters: ModelParameters;
-}
-
-interface ModelParameters {
-  temperature?: number;
-  top_p?: number;
-  top_k?: number;
-  frequency_penalty?: number;
-  presence_penalty?: number;
-  repetition_penalty?: number;
-  min_p?: number;
-  top_a?: number;
-  seed?: number;
-  max_tokens?: number;
-  max_output?: number;
-  context_length?: number;
-  logit_bias?: { [key: string]: number };
-  logprobs?: boolean;
-  top_logprobs?: number;
-  response_format?: { type: string };
-  stop?: string[];
-  tools?: any[];
-  tool_choice?: string | { type: string; function: { name: string } };
-}
-
-// Helper function to find a message and its parents
-function findMessageAndParents(
-  messages: Message[],
-  targetId: string,
-  parents: Message[] = []
-): [Message | null, Message[]] {
-  for (const message of messages) {
-    if (message.id === targetId) {
-      return [message, parents];
-    }
-    const [found, foundParents] = findMessageAndParents(message.replies, targetId, [...parents, message]);
-    if (found) return [found, foundParents];
-  }
-  return [null, []];
-}
-
-function getSiblings(messages: Message[], messageId: string): Message[] {
-  const [_, parents] = findMessageAndParents(messages, messageId);
-  if (parents.length === 0) return messages;
-  return parents[parents.length - 1].replies;
-}
-
-// Recursive function to find all parent messages for a given message
-function findAllParentMessages(
-  threads: Thread[],
-  currentThreadId: string | null,
-  replyingToId: string | null
-): Message[] {
-  if (!currentThreadId || !replyingToId) return [];
-
-  const currentThread = threads.find((thread) => thread.id === currentThreadId);
-  if (!currentThread) return [];
-
-  const [_, parentMessages] = findMessageAndParents(currentThread.messages, replyingToId);
-  return parentMessages;
-}
-
 const apiBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 console.log("API Base URL:", apiBaseUrl);
 
@@ -230,16 +146,11 @@ export default function ThreadedDocument() {
     "threads"
   );
 
-  const [threads, setThreads] = useState<Thread[]>([]);
-  const [currentThread, setCurrentThread] = useState<string | null>(null);
-  const [editingThreadTitle, setEditingThreadTitle] = useState<string | null>(null);
-  const [originalThreadTitle, setOriginalThreadTitle] = useState<string>("");
+  
   const threadTitleInputRef = useRef<HTMLInputElement>(null);
 
-  const [selectedMessage, setSelectedMessage] = useState<string | null>(null);
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
-  const [editingMessage, setEditingMessage] = useState<string | null>(null);
-  const [editingContent, setEditingContent] = useState("");
+  
   const [clipboardMessage, setClipboardMessage] = useState<{
     message: Message;
     operation: "copy" | "cut";
@@ -248,12 +159,6 @@ export default function ThreadedDocument() {
   } | null>(null);
   const [glowingMessageId, setGlowingMessageId] = useState<string | null>(null);
   const replyBoxRef = useRef<HTMLDivElement>(null);
-
-  const [modelsLoaded, setModelsLoaded] = useState(false);
-  const [availableModels, setAvailableModels] = useState<Model[]>([]);
-  const [models, setModels] = useState<Model[]>([]);
-  const [selectedModel, setSelectedModel] = useState<string | null>(null);
-  const [editingModel, setEditingModel] = useState<Model | null>(null);
 
   const [lastAttemptTime, setLastAttemptTime] = useState<number | null>(null);
   const [isConnected, setIsConnected] = useState(false);
