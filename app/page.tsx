@@ -85,7 +85,13 @@ const DEFAULT_MODEL: Model = {
   id: 'default',
   name: 'Default Model',
   baseModel: 'meta-llama/llama-3.2-3b-instruct:free',
-  systemPrompt: 'You are a helpful assistant.',
+  systemPrompt: `
+  You are a helpful assistant.
+  
+  Use the tools when it's helpful, but if you can answer the user's question without it, feel free to do so.
+  
+  Do not mention tools to the user unless necessary. Provide clear and direct answers to the user's queries.
+  `,
   parameters: {
     temperature: 1.3,
     top_p: 1,
@@ -188,7 +194,8 @@ async function generateAIResponse(
   threads: Thread[],
   currentThread: string | null,
   replyingTo: string | null,
-  tools
+  tools,
+  onData: (chunk: string) => void
 ) {
   const requestPayload = {
     messages: [
@@ -211,26 +218,30 @@ async function generateAIResponse(
   console.log("Request payload:", JSON.stringify(requestPayload, null, 2));
 
   const response = await fetch(
-     '/api/chat',
+    apiBaseUrl ? `${apiBaseUrl}/api/chat` : "/api/chat",
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(requestPayload),
     }
   );
-  console.log(response);
+  
   if (!response.ok) {
     throw new Error("Failed to generate AI response");
   }
-
-  const reader = response.body?.getReader();
-  if (!reader) {
-    throw new Error("Failed to get response reader");
+  
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder("utf-8");
+  let doneReading = false;
+  while (!doneReading) {
+    const { value, done } = await reader.read();
+    doneReading = done;
+    if (value) {
+      const chunkValue = decoder.decode(value, { stream: true });
+      onData(chunkValue); // 使用回调处理每个数据块
+    }
   }
-
-  return reader;
 }
-
 export default function ThreadedDocument() {
   const [activeTab, setActiveTab] = useState<"threads" | "messages" | "models">(
     "threads"
@@ -262,7 +273,7 @@ export default function ThreadedDocument() {
   const [editingModel, setEditingModel] = useState<Model | null>(null);
 
   const [lastAttemptTime, setLastAttemptTime] = useState<number | null>(null);
-  const [isConnected, setIsConnected] = useState(false);
+
   const [isGenerating, setIsGenerating] = useState(false);
   const [copiedStates, setCopiedStates] = useState<{ [key: string]: boolean }>({});
   const [isToolModalOpen, setIsToolModalOpen] = useState(false);
@@ -395,7 +406,7 @@ const addCustomTool = () => {
   }, [replyingTo]);
 
   // Connect to backend on component mount
-  useEffect(() => {
+/*   useEffect(() => {
     const connectToBackend = async () => {
       if (!apiBaseUrl) return;
 
@@ -431,7 +442,7 @@ const addCustomTool = () => {
 
     return () => clearInterval(intervalId);
   }, [isConnected, lastAttemptTime, apiBaseUrl]);
-
+ */
   const debouncedSaveThreads = useCallback(
     debounce(async (threadsToSave: Thread[]) => {
       try {
@@ -1190,23 +1201,82 @@ const addCustomTool = () => {
     async (threadId: string, messageId: string, count: number = 1) => {
       const thread = threads.find((t: { id: string }) => t.id === threadId);
       if (!thread) return;
-
+  
       const message = findMessageById(thread.messages, messageId);
       if (!message) return;
-
+  
       setIsGenerating(true);
       try {
         const model =
           models.find((m: { id: any }) => m.id === selectedModel) || models[0];
-
-          const enabledTools = tools
-        .filter((tool) => tool.enabled)
-        .map((tool) => ({
-          type: tool.type,
-          function: tool.function,
-        }));
-
+  
+        const enabledTools = tools
+          .filter((tool) => tool.enabled)
+          .map((tool) => ({
+            type: tool.type,
+            function: tool.function,
+          }));
+  
         for (let i = 0; i < count; i++) {
+          const newMessageId = Date.now().toString();
+          addMessage(threadId, messageId, "", "ai", newMessageId);
+          setSelectedMessage(newMessageId);
+  
+          let fullResponse = "";
+          await generateAIResponse(
+            message.content,
+            message.publisher,
+            model,
+            threads,
+            threadId,
+            messageId,
+            enabledTools,
+            (chunk) => {
+              // 处理每个数据块
+              const lines = chunk.split("\n");
+              for (const line of lines) {
+                if (line.startsWith("data:")) {
+                  const dataStr = line.replace("data:", "").trim();
+                  if (dataStr === "[DONE]") {
+                    // 结束符，停止处理
+                    return;
+                  }
+                  try {
+                    const data = JSON.parse(dataStr);
+                    const delta = data.choices[0].delta || {};
+                    if (delta.content) {
+                      fullResponse += delta.content;
+                      updateMessageContent(threadId, newMessageId, fullResponse);
+                    }
+                  } catch (error) {
+                    console.error("Error parsing chunk:", error);
+                  }
+                }
+              }
+            }
+          );
+        }
+      } catch (error) {
+        console.error("Failed to generate AI response:", error);
+      } finally {
+        setIsGenerating(false);
+      }
+    },
+    [
+      threads,
+      models,
+      selectedModel,
+      addMessage,
+      setSelectedMessage,
+      findMessageById,
+      updateMessageContent,
+      tools,
+    ]
+  );
+  
+        
+
+        /* for (let i = 0; i < count; i++) {
           const reader = await generateAIResponse(
             message.content,
             message.publisher,
@@ -1238,24 +1308,8 @@ const addCustomTool = () => {
               updateMessageContent(threadId, newMessageId, fullResponse);
             }
           }
-        }
-      } catch (error) {
-        console.error("Failed to generate AI response:", error);
-      } finally {
-        setIsGenerating(false);
-      }
-    },
-    [
-      threads,
-      models,
-      selectedModel,
-      addMessage,
-      setSelectedMessage,
-      findMessageById,
-      updateMessageContent,
-      tools
-    ]
-  );
+        } */
+
 
   // Render a single message
   function renderMessage(
@@ -1894,7 +1948,17 @@ const addCustomTool = () => {
       id: Date.now().toString(),
       name: "New Model",
       baseModel: "none",
-      systemPrompt: "You are a helpful assistant.",
+      systemPrompt: `
+  You are a helpful assistant.
+  
+  You have access to the following tool:
+  
+  - get_current_weather: Get the current weather in a given location.
+  
+  Use the tool when it's helpful, but if you can answer the user's question without it, feel free to do so.
+  
+  Do not mention tools to the user unless necessary. Provide clear and direct answers to the user's queries.
+  `,
       parameters: {
         temperature: 1,
         top_p: 1,
