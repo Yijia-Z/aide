@@ -1,17 +1,37 @@
 "use client";
 
 import React, { useState, useCallback, useRef, useEffect } from "react";
-import { motion } from "framer-motion";
 import debounce from "lodash.debounce";
-import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight, ChevronRight, Plus } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { motion, AnimatePresence } from "framer-motion";
+import Markdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import rehypeRaw from "rehype-raw";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { gruvboxDark } from "react-syntax-highlighter/dist/esm/styles/prism";
+import { cn } from "@/lib/utils";
+import { ArrowUp, ArrowDown, ArrowLeft, ArrowRight, ChevronRight, Edit, Trash, Trash2, ListPlus, MessageSquare, X, Plus, Check, MessageSquarePlus, Pin, PinOff, Sparkle, Copy, Scissors, ClipboardPaste } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SelectBaseModel } from "@/components/model/model-selector";
+import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Menubar, MenubarContent, MenubarItem, MenubarMenu, MenubarSeparator, MenubarShortcut, MenubarTrigger } from "@/components/ui/menubar";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ContextMenu, ContextMenuCheckboxItem, ContextMenuContent, ContextMenuItem, ContextMenuLabel, ContextMenuRadioGroup, ContextMenuRadioItem, ContextMenuSeparator, ContextMenuShortcut, ContextMenuSub, ContextMenuSubContent, ContextMenuSubTrigger, ContextMenuTrigger } from "@/components/ui/context-menu";
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable";
+import { findAllParentMessages, getSiblings, findMessageAndParents } from "@/components/utils/helpers";
 import { storage } from "./store";
 import ThreadList from "@/components/thread/thread-list";
 import MessageList from "@/components/message/message-list";
 import MessageEditor from "@/components/message/message-editor";
+import { generateAIResponse, fetchAvailableModels } from "@/components/utils/api";
 import AideTabs from "@/components/ui/aide-tabs";
 import { Thread, Message, Model, ModelParameters } from "./types";
 
@@ -33,92 +53,75 @@ export default function ThreadedDocument() {
   const [activeTab, setActiveTab] = useState<"threads" | "messages" | "models">("threads");
   const [threads, setThreads] = useState<Thread[]>([]);
   const [currentThread, setCurrentThread] = useState<string | null>(null);
+  const [editingThreadTitle, setEditingThreadTitle] = useState<string | null>(null);
+  const [originalThreadTitle, setOriginalThreadTitle] = useState<string>("");
+  const threadTitleInputRef = useRef<HTMLInputElement>(null);
+
+  // Message-related state
   const [selectedMessage, setSelectedMessage] = useState<string | null>(null);
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [editingMessage, setEditingMessage] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState("");
-  const [editingThreadTitle, setEditingThreadTitle] = useState<string | null>(null);
-  const [originalThreadTitle, setOriginalThreadTitle] = useState("");
-  const [replyingTo, setReplyingTo] = useState<string | null>(null);
-  const [models, setModels] = useState<Model[]>([DEFAULT_MODEL]);
-  const [selectedModel, setSelectedModel] = useState<string | null>(DEFAULT_MODEL.id);
-  const [editingModel, setEditingModel] = useState<Model | null>(null);
-  const [availableModels, setAvailableModels] = useState<Model[]>([]);
-  const [isConnected, setIsConnected] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
   const [clipboardMessage, setClipboardMessage] = useState<{
     message: Message;
     operation: "copy" | "cut";
-    sourceThreadId: string;
-    originalMessageId: string;
+    sourceThreadId: string | null;
+    originalMessageId: string | null;
   } | null>(null);
-
-  const threadTitleInputRef = useRef<HTMLInputElement>(null);
+  const [glowingMessageId, setGlowingMessageId] = useState<string | null>(null);
   const replyBoxRef = useRef<HTMLDivElement>(null);
 
-  // Load threads
-  useEffect(() => {
-    const loadThreads = async () => {
-      try {
-        const cachedThreads = storage.get('threads');
-        if (cachedThreads) {
-          setThreads(cachedThreads);
-          setCurrentThread(cachedThreads[0]?.id || null);
-          return;
-        }
+  // Model-related state
+  const [modelsLoaded, setModelsLoaded] = useState(false);
+  const [availableModels, setAvailableModels] = useState<Model[]>([]);
+  const [models, setModels] = useState<Model[]>([]);
+  const [selectedModel, setSelectedModel] = useState<string | null>(null);
+  const [editingModel, setEditingModel] = useState<Model | null>(null);
 
-        if (!apiBaseUrl) {
-          const defaultThread = {
-            id: Date.now().toString(),
-            title: "Welcome Thread",
-            isPinned: false,
-            messages: [{
-              id: Date.now().toString(),
-              content: "Welcome to your new chat thread! You can start a conversation here or create a new thread.",
-              publisher: "ai" as const,
-              replies: [],
-              isCollapsed: false,
-              userCollapsed: false,
-            }]
-          };
-          setThreads([defaultThread]);
-          setCurrentThread(defaultThread.id);
-          storage.set('threads', [defaultThread]);
-          return;
-        }
+  // Connection and generation state
+  const [lastAttemptTime, setLastAttemptTime] = useState<number | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [copiedStates, setCopiedStates] = useState<{ [key: string]: boolean }>({});
 
-        const response = await fetch(`${apiBaseUrl}/api/load_threads`, { method: "GET" });
-        if (response.ok) {
-          const data = await response.json();
-          setThreads(data.threads || []);
-          setCurrentThread(data.threads[0]?.id || null);
-          storage.set('threads', data.threads || []);
-        } else {
-          throw new Error("Failed to load threads from backend");
-        }
-      } catch (error) {
-        console.error("Load failed:", error);
-        const defaultThread = {
-          id: Date.now().toString(),
-          title: "Welcome Thread",
-          isPinned: false,
-          messages: [{
-            id: Date.now().toString(),
-            content: "Welcome to your new chat thread! You can start a conversation here or create a new thread.",
-            publisher: "ai" as const,
-            replies: [],
-            isCollapsed: false,
-            userCollapsed: false,
-          }]
-        };
-        setThreads([defaultThread]);
-        setCurrentThread(defaultThread.id);
-        storage.set('threads', [defaultThread]);
-      }
+  // Helper methods
+  const getModelDetails = (modelId: string | undefined) => {
+    if (!modelId) return null;
+    const model = models.find(m => m.id === modelId);
+    if (!model) return null;
+    return {
+      name: model.name,
+      baseModel: model.baseModel.split('/').pop(),
+      temperature: model.parameters.temperature,
+      maxTokens: model.parameters.max_tokens,
+      systemPrompt: model.systemPrompt,
     };
+  };
 
-    loadThreads();
-  }, []);
+  // Confirm editing a message
+  const confirmEditingMessage = useCallback(
+    (threadId: string, messageId: string) => {
+      setThreads((prev: Thread[]) =>
+        prev.map((thread) => {
+          if (thread.id !== threadId) return thread;
+          const editMessage = (messages: Message[]): Message[] => {
+            return messages.map((message) => {
+              if (message.id === messageId) {
+                return { ...message, content: editingContent };
+              }
+              return { ...message, replies: editMessage(message.replies) };
+            });
+          };
+          return { ...thread, messages: editMessage(thread.messages) };
+        })
+      );
+      setEditingMessage(null);
+      setEditingContent("");
+    },
+    [editingContent]
+  );
 
+  // useCallback methods
   // Save threads
   const debouncedSaveThreads = useCallback(
     debounce(async (threadsToSave: Thread[]) => {
@@ -145,11 +148,6 @@ export default function ThreadedDocument() {
     }, 2000),
     [apiBaseUrl]
   );
-
-  useEffect(() => {
-    debouncedSaveThreads(threads);
-    return debouncedSaveThreads.cancel;
-  }, [threads, debouncedSaveThreads]);
 
   // Add new thread
   const addThread = useCallback(() => {
@@ -201,6 +199,7 @@ export default function ThreadedDocument() {
     [models, selectedModel]
   );
 
+  // Change the model
   const handleModelChange = useCallback(
 		(field: keyof Model, value: string | number | Partial<ModelParameters>) => {
 			if (editingModel) {
@@ -219,6 +218,7 @@ export default function ThreadedDocument() {
 		[editingModel]
 	);
 
+  // Find a message and its parents
 	const findMessageAndParents = (
 		messages: Message[],
 		targetId: string,
@@ -236,6 +236,7 @@ export default function ThreadedDocument() {
 		return [null, []];
 	};
 
+  // Get siblings of a message
 	const getSiblings = (messages: Message[], messageId: string): Message[] => {
 		for (const message of messages) {
 			if (message.id === messageId) {
@@ -249,6 +250,7 @@ export default function ThreadedDocument() {
 		return [];
 	};
 
+  // Find all parent messages of a message
 	const findAllParentMessages = (
 		threads: Thread[],
 		currentThreadId: string | null,
@@ -263,11 +265,13 @@ export default function ThreadedDocument() {
 		return parents.concat(targetMessage ? [targetMessage] : []);
 	};
 
+  // Start editing a thread title
 	const startEditingThreadTitle = useCallback((threadId: string, currentTitle: string) => {
 		setEditingThreadTitle(threadId);
 		setOriginalThreadTitle(currentTitle);
 	}, []);
 
+  // Save thread to backend
 	const saveThreadToBackend = useCallback(
     async (threadId: string, updatedData: Partial<Thread>) => {
       try {
@@ -301,6 +305,7 @@ export default function ThreadedDocument() {
     [apiBaseUrl]
   );
 
+  // Confirm editing a thread title
 	const confirmEditThreadTitle = useCallback((threadId: string, newTitle: string) => {
 		setThreads((prev: Thread[]) => 
 			prev.map((thread) => 
@@ -329,7 +334,7 @@ export default function ThreadedDocument() {
 		}
 	}, [editingThreadTitle, originalThreadTitle]);
 
-
+  // Add a new message
 	const addEmptyReply = useCallback(
     (threadId: string, parentId: string | null) => {
       const newMessageId = Date.now().toString();
@@ -412,7 +417,6 @@ export default function ThreadedDocument() {
     [setSelectedMessage]
   );
 	
-
   // Toggle message collapse state
   const toggleCollapse = useCallback((threadId: string, messageId: string) => {
     setThreads((prev: Thread[]) =>
@@ -491,74 +495,6 @@ export default function ThreadedDocument() {
     setEditingContent("");
   }, [editingMessage, deleteMessage]);
 
-  const fetchAvailableModels = useCallback(async () => {
-    try {
-      // Check if models are already cached in localStorage
-      const cachedModels = localStorage.getItem('availableModels');
-      const lastFetchTime = localStorage.getItem('lastFetchTime');
-      const currentTime = Date.now();
-
-      // If cached models exist and were fetched less than an hour ago, use them
-      if (cachedModels && lastFetchTime && currentTime - parseInt(lastFetchTime) < 3600000) {
-        const modelData = JSON.parse(cachedModels);
-        setAvailableModels(modelData);
-        return modelData;
-      }
-
-      // Fetch from API if no valid cache is found
-      const response = await fetch("https://openrouter.ai/api/v1/models", {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${process.env.NEXT_PUBLIC_OPENROUTER_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Failed to fetch available models from OpenRouter:", errorText);
-        throw new Error("Failed to fetch available models from OpenRouter");
-      }
-
-      const data = await response.json();
-      console.log("Received data from OpenRouter:", data);
-
-      if (!data.data) {
-        console.error('Response data does not contain "data" key.');
-        throw new Error("Invalid response format from OpenRouter");
-      }
-
-      const modelData = data.data.map((model: any) => {
-        const maxOutput = model.top_provider?.max_completion_tokens ?? model.context_length ?? 9999;
-        return {
-          id: model.id,
-          name: model.name,
-          baseModel: model.id,
-          systemPrompt: "",
-          parameters: {
-            top_p: 1,
-            temperature: 0.7,
-            frequency_penalty: 0,
-            presence_penalty: 0,
-            top_k: 0,
-            max_tokens: maxOutput, // Set initial max_tokens to maxOutput
-            max_output: maxOutput, // Include max_output in the parameters
-          },
-        };
-      });
-
-      // Cache the fetched models and update the fetch time
-      localStorage.setItem('availableModels', JSON.stringify(modelData));
-      localStorage.setItem('lastFetchTime', currentTime.toString());
-
-      setAvailableModels(modelData);
-      return modelData;
-    } catch (error) {
-      console.error("Error fetching available models:", error);
-      return [];
-    }
-  }, []);
-
   const fetchModelParameters = async (modelId: string) => {
     console.log(`Fetching parameters for model ID: ${modelId}`);
     try {
@@ -581,138 +517,1655 @@ export default function ThreadedDocument() {
     }
   };
 
+  const saveModelChanges = useCallback(() => {
+    if (editingModel) {
+      setModels((prev: Model[]) =>
+        prev.map((model: Model) => {
+          if (model.id === editingModel.id) {
+            return { ...editingModel };
+          }
+          return model;
+        })
+      );
+      setEditingModel(null);
+    }
+  }, [editingModel]);
+
+  const deleteModel = useCallback(
+    (id: string) => {
+      setModels((prev: any[]) =>
+        prev.filter((model: { id: string }) => model.id !== id)
+      );
+      // If the deleted model was selected, switch to the first available model
+      if (selectedModel === id) {
+        setSelectedModel(models[0].id);
+      }
+    },
+    [models, selectedModel]
+  );
+
+  const addNewModel = useCallback(() => {
+    const newModel: Model = {
+      id: Date.now().toString(),
+      name: "New Model",
+      baseModel: "none",
+      systemPrompt: "You are a helpful assistant.",
+      parameters: {
+        temperature: 1,
+        top_p: 1,
+        max_tokens: 2000,
+      },
+    };
+    setModels((prev: any) => [...prev, newModel]);
+    setEditingModel(newModel);
+  }, []);
+
+  const toggleThreadPin = useCallback((threadId: string) => {
+    setThreads((prev: Thread[]) =>
+      prev.map((thread) =>
+        thread.id === threadId
+          ? { ...thread, isPinned: !thread.isPinned }
+          : thread
+      )
+    );
+  }, []);
+
+  const deleteThread = useCallback(
+    (threadId: string) => {
+      setThreads((prev: Thread[]) => {
+        const updatedThreads = prev.filter((thread) => thread.id !== threadId);
+        if (currentThread === threadId) {
+          const currentIndex = prev.findIndex((thread) => thread.id === threadId);
+          const newIndex = currentIndex > 0 ? currentIndex - 1 : 0;
+          setCurrentThread(
+            updatedThreads.length > 0 ? updatedThreads[newIndex]?.id || null : null
+          );
+        }
+        return updatedThreads;
+      });
+
+      const deleteThreadFromBackend = async () => {
+        if (!apiBaseUrl) {
+          return;
+        }
+        try {
+          const response = await fetch(`${apiBaseUrl}/api/delete_thread/${threadId}`, {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+          });
+          if (!response.ok) {
+            throw new Error(`Failed to delete thread ${threadId}`);
+          }
+          console.log(`Thread ${threadId} has been successfully deleted.`);
+        } catch (error) {
+          console.error(`Failed to delete thread ${threadId} data:`, error);
+        }
+      };
+
+      deleteThreadFromBackend();
+    },
+    [currentThread]
+  );
+
+  // Update message content
+  const updateMessageContent = useCallback(
+    (threadId: string, messageId: string, content: string) => {
+      setThreads((prev: Thread[]) =>
+        prev.map((thread) => {
+          if (thread.id !== threadId) return thread;
+          const updateContent = (messages: Message[]): Message[] => {
+            return messages.map((message) => {
+              if (message.id === messageId) {
+                return { ...message, content };
+              }
+              return { ...message, replies: updateContent(message.replies) };
+            });
+          };
+          return { ...thread, messages: updateContent(thread.messages) };
+        })
+      );
+    },
+    []
+  );
+  
+  
+  const pasteMessage = useCallback((threadId: string, parentId: string | null) => {
+    if (!clipboardMessage) return;
+
+    // Don't allow pasting on the original message
+    if (parentId === clipboardMessage.originalMessageId) return;
+
+    setThreads(prev => {
+      let updatedThreads = [...prev];
+
+      // First handle deletion of original message if this was a cut operation
+      if (clipboardMessage.operation === "cut" && clipboardMessage.sourceThreadId) {
+        updatedThreads = updatedThreads.map(thread => {
+          if (thread.id !== clipboardMessage.sourceThreadId) return thread;
+
+          const deleteMessageFromThread = (messages: Message[]): Message[] => {
+            return messages.filter(msg => {
+              if (msg.id === clipboardMessage.originalMessageId) {
+                return false;
+              }
+              msg.replies = deleteMessageFromThread(msg.replies);
+              return true;
+            });
+          };
+
+          return {
+            ...thread,
+            messages: deleteMessageFromThread(thread.messages)
+          };
+        });
+      }
+
+      // Then handle the paste operation
+      return updatedThreads.map(thread => {
+        if (thread.id !== threadId) return thread;
+
+        // If thread has no messages array, initialize it
+        if (!thread.messages) {
+          thread.messages = [];
+        }
+
+        // If no parentId is provided or thread is empty, paste at the root level
+        if (!parentId || thread.messages.length === 0) {
+          return {
+            ...thread,
+            messages: [...thread.messages, clipboardMessage.message]
+          };
+        }
+
+        // Otherwise, paste as a reply to the specified parent
+        const addMessageToParent = (messages: Message[]): Message[] => {
+          return messages.map(message => {
+            if (message.id === parentId) {
+              return {
+                ...message,
+                replies: [...message.replies, clipboardMessage.message]
+              };
+            }
+            return {
+              ...message,
+              replies: addMessageToParent(message.replies)
+            };
+          });
+        };
+
+        return {
+          ...thread,
+          messages: addMessageToParent(thread.messages)
+        };
+      });
+    });
+
+    setSelectedMessage(clipboardMessage.message.id);
+    setClipboardMessage(null);
+  }, [clipboardMessage]);
+
+  // Find message by ID
+  const findMessageById = useCallback(
+    (messages: Message[], id: string): Message | null => {
+      for (const message of messages) {
+        if (message.id === id) return message;
+        const found = findMessageById(message.replies, id);
+        if (found) return found;
+      }
+      return null;
+    },
+    []
+  );
+
+  // Collapse deep children
+  const collapseDeepChildren = useCallback((msg: Message, selectedDepth: number, currentDepth: number, isSelectedBranch: boolean): Message => {
+    const maxDepth = window.innerWidth >= 1024 ? 8 :
+      window.innerWidth >= 768 ? 7 :
+        window.innerWidth >= 480 ? 6 : 5;
+
+    const shouldAutoCollapse = isSelectedBranch
+      ? currentDepth - selectedDepth >= maxDepth
+      : currentDepth >= maxDepth;
+
+    return {
+      ...msg,
+      isCollapsed: msg.userCollapsed || shouldAutoCollapse,
+      replies: msg.replies.map(reply => collapseDeepChildren(reply, selectedDepth, currentDepth + 1, isSelectedBranch))
+    };
+  }, []);
+
+  // Generate AI reply
+  const generateAIReply = useCallback(
+    async (threadId: string, messageId: string, count: number = 1) => {
+      const thread = threads.find((t: { id: string }) => t.id === threadId);
+      if (!thread) return;
+
+      const message = findMessageById(thread.messages, messageId);
+      if (!message) return;
+
+      setIsGenerating(true);
+      try {
+        const model =
+          models.find((m: { id: any }) => m.id === selectedModel) || models[0];
+        for (let i = 0; i < count; i++) {
+          const reader = await generateAIResponse(
+            message.content,
+            message.publisher,
+            model,
+            threads,
+            threadId,
+            messageId
+          );
+
+          const newMessageId = Date.now().toString();
+          addMessage(threadId, messageId, "", "ai", newMessageId);
+          setSelectedMessage(newMessageId);
+
+          let fullResponse = "";
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            const chunk = new TextDecoder().decode(value);
+            // console.log(chunk);
+            const lines = chunk.split("data: ");
+            for (const line of lines) {
+              const data = line.replace(/\n\n$/, "");
+              if (data === "[DONE]") {
+                break;
+              }
+              fullResponse += data;
+              updateMessageContent(threadId, newMessageId, fullResponse);
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Failed to generate AI response:", error);
+      } finally {
+        setIsGenerating(false);
+      }
+    },
+    [
+      threads,
+      models,
+      selectedModel,
+      addMessage,
+      setSelectedMessage,
+      findMessageById,
+      updateMessageContent,
+    ]
+  );
+
+
+
+
+
+  // useEffect hooks
+  // Load threads
+  useEffect(() => {
+    const loadThreads = async () => {
+      try {
+        const cachedThreads = storage.get('threads');
+        if (cachedThreads) {
+          setThreads(cachedThreads);
+          setCurrentThread(cachedThreads[0]?.id || null);
+          return;
+        }
+
+        if (!apiBaseUrl) {
+          const defaultThread = {
+            id: Date.now().toString(),
+            title: "Welcome Thread",
+            isPinned: false,
+            messages: [{
+              id: Date.now().toString(),
+              content: "Welcome to your new chat thread! You can start a conversation here or create a new thread.",
+              publisher: "ai" as const,
+              replies: [],
+              isCollapsed: false,
+              userCollapsed: false,
+            }]
+          };
+          setThreads([defaultThread]);
+          setCurrentThread(defaultThread.id);
+          storage.set('threads', [defaultThread]);
+          return;
+        }
+
+        const response = await fetch(`${apiBaseUrl}/api/load_threads`, { method: "GET" });
+        if (response.ok) {
+          const data = await response.json();
+          setThreads(data.threads || []);
+          setCurrentThread(data.threads[0]?.id || null);
+          storage.set('threads', data.threads || []);
+        } else {
+          throw new Error("Failed to load threads from backend");
+        }
+      } catch (error) {
+        console.error("Load failed:", error);
+        const defaultThread = {
+          id: Date.now().toString(),
+          title: "Welcome Thread",
+          isPinned: false,
+          messages: [{
+            id: Date.now().toString(),
+            content: "Welcome to your new chat thread! You can start a conversation here or create a new thread.",
+            publisher: "ai" as const,
+            replies: [],
+            isCollapsed: false,
+            userCollapsed: false,
+          }]
+        };
+        setThreads([defaultThread]);
+        setCurrentThread(defaultThread.id);
+        storage.set('threads', [defaultThread]);
+      }
+    };
+
+    loadThreads();
+  }, []);
+
+// Focus on thread title input when editing
+useEffect(() => {
+  if (editingThreadTitle && threadTitleInputRef.current) {
+    threadTitleInputRef.current.focus();
+  }
+}, [editingThreadTitle]);
+
+
+// Scroll to selected message
+useEffect(() => {
+  if (selectedMessage) {
+    const messageElement = document.getElementById(
+      `message-${selectedMessage}`
+    );
+    if (messageElement) {
+      messageElement.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }
+  }
+}, [selectedMessage]);
+
+// Scroll to reply box when replying
+useEffect(() => {
+  if (replyBoxRef.current) {
+    replyBoxRef.current.scrollIntoView({
+      behavior: "smooth",
+      block: "end",
+    });
+  }
+}, [replyingTo]);
+
+// Connect to backend on component mount
+useEffect(() => {
+  const connectToBackend = async () => {
+    if (!apiBaseUrl) return;
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/connect`, {
+        method: "GET",
+      });
+      if (response.ok) {
+        console.log("Connected to backend!");
+        setIsConnected(true);
+      } else {
+        console.error("Failed to connect to backend.");
+      }
+    } catch (error) {
+      console.error("Error connecting to backend:", error);
+    } finally {
+      setLastAttemptTime(Date.now());
+    }
+  };
+
+  if (
+    !isConnected &&
+    (!lastAttemptTime || Date.now() - lastAttemptTime >= 5000)
+  ) {
+    connectToBackend();
+  }
+
+  const intervalId = setInterval(() => {
+    if (!isConnected) {
+      connectToBackend();
+    }
+  }, 5000);
+
+  return () => clearInterval(intervalId);
+}, [isConnected, lastAttemptTime, apiBaseUrl]);
+
+// Save threads
+useEffect(() => {
+  debouncedSaveThreads(threads);
+  return debouncedSaveThreads.cancel;
+}, [threads, debouncedSaveThreads]);
+
+// Add new thread
+useEffect(() => {
+    const loadModels = async () => {
+      // First, try to load models from cache
+      const cachedModels = storage.get('models');
+      if (cachedModels) {
+        setModels(cachedModels);
+        setSelectedModel(cachedModels[0]?.id || null);
+        setModelsLoaded(true);
+      }
+
+      if (!apiBaseUrl) {
+        // If no apiBaseUrl, ensure default model is set
+        if (!cachedModels) {
+          setModels([DEFAULT_MODEL]);
+          setSelectedModel(DEFAULT_MODEL.id);
+          setModelsLoaded(true);
+        }
+        return;
+      }
+
+      try {
+        const response = await fetch(`${apiBaseUrl}/api/load_models`, {
+          method: "GET",
+        });
+        if (response.ok) {
+          const data = await response.json();
+          console.log("Loaded models:", data.models);
+          let loadedModels = data.models || [];
+
+          // If no models are loaded, add the default model
+          if (loadedModels.length === 0) {
+            loadedModels = [DEFAULT_MODEL];
+          }
+
+          setModels(loadedModels);
+          setSelectedModel(loadedModels[0].id);
+          setModelsLoaded(true);
+
+          // Update cache with the newly fetched models
+          storage.set('models', loadedModels);
+        } else {
+          console.error("Failed to load models from backend.");
+          // Ensure default model is set if loading fails and no cache exists
+          if (!cachedModels) {
+            setModels([DEFAULT_MODEL]);
+            setSelectedModel(DEFAULT_MODEL.id);
+            setModelsLoaded(true);
+          }
+        }
+      } catch (error) {
+        console.error("Error loading models:", error);
+        // Ensure default model is set if an error occurs and no cache exists
+        if (!cachedModels) {
+          setModels([DEFAULT_MODEL]);
+          setSelectedModel(DEFAULT_MODEL.id);
+          setModelsLoaded(true);
+        }
+      }
+    };
+
+    loadModels();
+  }, []);
+
+
+  // fetch available models
+  useEffect(() => {
+    const saveModels = async () => {
+      if (!apiBaseUrl) {
+        // Cache models to browser storage if apiBaseUrl is not present
+        storage.set('models', models);
+        return;
+      }
+
+      try {
+        await fetch(`${apiBaseUrl}/api/save_models`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ models }),
+        });
+      } catch (error) {
+        console.error("保存模型数据失败：", error);
+      }
+    };
+
+    if (modelsLoaded && models.length > 0) {
+      saveModels();
+    }
+  }, [models, modelsLoaded]);
+
+  useEffect(() => {
+    fetchAvailableModels();
+  }, [fetchAvailableModels]);
+
+  useEffect(() => {
+    if (selectedMessage && currentThread) {
+      setThreads(prevThreads => prevThreads.map(thread => {
+        if (thread.id === currentThread) {
+          const findSelectedMessageBranch = (messages: Message[], depth: number = 0): [number, Message[]] => {
+            for (const msg of messages) {
+              if (msg.id === selectedMessage) return [depth, [msg]];
+              const [foundDepth, branch] = findSelectedMessageBranch(msg.replies, depth + 1);
+              if (foundDepth !== -1) return [foundDepth, [msg, ...branch]];
+            }
+            return [-1, []];
+          };
+
+          const [selectedDepth, selectedBranch] = findSelectedMessageBranch(thread.messages);
+
+          return {
+            ...thread,
+            messages: thread.messages.map(msg => {
+              const isSelectedBranch = selectedBranch.includes(msg);
+              return collapseDeepChildren(msg, selectedDepth, 0, isSelectedBranch);
+            })
+          };
+        }
+        return thread;
+      }));
+    }
+  }, [selectedMessage, currentThread, collapseDeepChildren]);
+
+  // Render functions
+
+  // Render the list of threads
+  function renderThreadsList() {
+    // Sort threads with newer threads (higher id) at the top, and pinned threads taking precedence
+    const sortedThreads = threads.sort((a, b) => {
+      if (a.isPinned && !b.isPinned) return -1;
+      if (!a.isPinned && b.isPinned) return 1;
+      return parseInt(b.id) - parseInt(a.id); // Assuming id is a string representation of a number
+    });
+
+    return (
+      <div className="flex flex-col relative h-[calc(97vh)]">
+        <div
+          className="top-bar bg-gradient-to-b from-background/100 to-background/00 select-none"
+          style={{
+            mask: "linear-gradient(black, black, transparent)",
+            backdropFilter: "blur(1px)",
+          }}
+        >
+          <h2 className="text-2xl font-serif font-bold pl-2">Threads</h2>
+          <Button
+            className="bg-background hover:bg-secondary custom-shadow transition-scale-zoom text-primary border border-border"
+            size="default"
+            onClick={() => {
+              addThread();
+              setSelectedMessage(null);
+            }}
+          >
+            <ListPlus className="h-4 w-4" />
+            <span className="ml-2 hidden md:inline">New Thread</span>
+          </Button>
+        </div>
+        <ScrollArea
+          className="flex-auto"
+          onClick={() => {
+            setCurrentThread(null);
+            if (editingThreadTitle) {
+              cancelEditThreadTitle();
+            }
+          }}
+        >
+          <AnimatePresence>
+            <motion.div className="my-2">
+              {sortedThreads.map((thread) => (
+                <motion.div
+                  key={thread.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.1 }}
+                  whileHover={{
+                    borderRadius: '8px',
+                    y: -2,
+                    transition: { duration: 0.2 }
+                  }}
+                  className={`
+                    font-serif
+                    pl-1
+                    cursor-pointer
+                    rounded-md
+                    mb-2
+                    hover:shadow-[inset_0_0_10px_10px_rgba(128,128,128,0.2)]
+                    active:shadow-[inset_0px_0px_10px_rgba(0,0,0,0.7)]
+                    ${currentThread === thread.id
+                      ? "bg-background custom-shadow"
+                      : "bg-transparent text-muted-foreground"
+                    }
+                  `}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCurrentThread(thread.id);
+                  }}
+                >
+                  <div className="flex-grow">
+                    {editingThreadTitle === thread.id ? (
+                      <div className="flex items-center justify-between">
+                        <Input
+                          ref={threadTitleInputRef}
+                          value={thread.title}
+                          onChange={(e) =>
+                            setThreads((prev: Thread[]) =>
+                              prev.map((t) =>
+                                t.id === thread.id ? { ...t, title: e.target.value } : t
+                              )
+                            )
+                          }
+                          className="min-font-size flex-grow h-8 p-1 my-1"
+                          onClick={(e) => e.stopPropagation()}
+                          maxLength={64}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              confirmEditThreadTitle(thread.id, thread.title);
+                            } else if (e.key === "Escape") {
+                              e.preventDefault();
+                              cancelEditThreadTitle();
+                            }
+                          }}
+                        />
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            confirmEditThreadTitle(thread.id, thread.title);
+                          }}
+                        >
+                          <Check className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            cancelEditThreadTitle();
+                          }}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div
+                        className="flex items-center justify-between"
+                        onDoubleClick={(e) => {
+                          e.stopPropagation();
+                          startEditingThreadTitle(thread.id, thread.title);
+                        }}
+                      >
+                        <span className="pl-1 flex-grow">{thread.title}</span>
+                        <div className="flex items-center">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleThreadPin(thread.id);
+                            }}
+                          >
+                            {thread.isPinned ? (
+                              <PinOff className="h-4 w-4" />
+                            ) : (
+                              <Pin className="h-4 w-4" />
+                            )}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteThread(thread.id);
+                            }}
+                          >
+                            <Trash className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              ))}
+            </motion.div>
+          </AnimatePresence>
+        </ScrollArea>
+      </div>
+    );
+  }
+  
+  // Render a single message
+  function renderMessage(
+    message: Message,
+    threadId: string,
+    depth = 0,
+    parentId: string | null = null
+  ) {
+    // Message selection and hierarchy
+    const isSelected = selectedMessage === message.id;
+    const isParentOfSelected = selectedMessage !== null &&
+      findMessageById(message.replies, selectedMessage) !== null;
+    const isSelectedOrParent = isSelected || isParentOfSelected || parentId === message.id;
+
+    // Indentation
+    const indent = depth === 0 ? 0 : (isSelectedOrParent ? -16 : 0);
+
+    // Helper functions
+    const getTotalReplies = (msg: Message): number => {
+      return msg.replies.reduce((total, reply) => total + 1 + getTotalReplies(reply), 0);
+    };
+
+    const handleCopy = (codeString: string, codeBlockId: string) => {
+      navigator.clipboard.writeText(codeString);
+      setCopiedStates(prev => ({ ...prev, [codeBlockId]: true }));
+      setTimeout(() => {
+        setCopiedStates(prev => ({ ...prev, [codeBlockId]: false }));
+      }, 2000);
+    };
+
+    const updateMessageModelConfig = (messages: Message[], targetId: string, newModelName: string): Message[] => {
+      return messages.map((message) => {
+        if (message.id === targetId) {
+          return { ...message, modelConfig: { ...message.modelConfig, name: newModelName } };
+        }
+        if (message.replies.length > 0) {
+          return { ...message, replies: updateMessageModelConfig(message.replies, targetId, newModelName) };
+        }
+        return message;
+      });
+    };
+
+    // Thread and message data
+    const currentThreadData = threads.find((t) => t.id === currentThread);
+    if (!currentThreadData) return null;
+
+    const [currentMessage, parentMessages] = findMessageAndParents(currentThreadData.messages, message.id);
+    const parentMessage = parentMessages.length > 0 ? parentMessages[parentMessages.length - 1] : null;
+    const siblings = getSiblings(currentThreadData.messages, message.id);
+    const currentIndex = siblings.findIndex((m) => m.id === message.id);
+
+    // Additional data
+    const totalReplies = getTotalReplies(message);
+    const modelDetails = message.modelConfig;
+    const modelName = getModelDetails(message.modelId)?.name;
+    if (modelName && modelDetails && modelName !== modelDetails.name) {
+      // Update the original message's modelConfig name only
+      setThreads((prevThreads) =>
+        prevThreads.map((thread) => ({
+          ...thread,
+          messages: updateMessageModelConfig(thread.messages, message.id, modelName)
+        }))
+      );
+    }
+
+    return (
+      <motion.div
+        key={message.id}
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 20 }}
+        transition={{
+          duration: 0.3,
+          ease: "easeInOut"
+        }}
+        className={"mt-2"}
+        style={{ marginLeft: `${indent}px` }}
+        layout={"preserve-aspect"} // Add this prop to enable layout animations
+        id={`message-${message.id}`}
+      >
+        <div
+          className={`flex 
+        items-start 
+        space-x-1 
+        p-1 
+        rounded-md
+        ${isSelectedOrParent ? "custom-shadow" : "text-muted-foreground"}
+        ${glowingMessageId === message.id ? "glow-effect" : ""}
+      `}
+          onClick={() => {
+            setSelectedMessage(message.id);
+            if (message.isCollapsed) {
+              toggleCollapse(threadId, message.id);
+            }
+          }}
+        >
+          <div className="flex-grow p-0 overflow-hidden">
+            <div className="flex flex-col">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-6 h-6 p-0 rounded-md hover:bg-secondary bg-background border border-border"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleCollapse(threadId, message.id);
+                    }}
+                  >
+                    {message.isCollapsed ? (
+                      message.userCollapsed ? (
+                        <ChevronRight className="h-4 m-0 transition-transform" />
+                      ) : (
+                        <ChevronRight className="h-4 m-0 transition-transform text-muted-foreground" />
+                      )
+                    ) : (
+                      <ChevronRight className="h-4 m-0 transition-transform rotate-90" />
+                    )}
+                  </Button>                  <span
+                    className={`font-bold truncate ${message.publisher === "ai"
+                      ? "text-blue-500"
+                      : "text-green-600"
+                      }`}
+                  >
+                    {parentId === null ||
+                      message.publisher !==
+                      findMessageById(
+                        threads.find((t) => t.id === currentThread)?.messages ||
+                        [],
+                        parentId
+                      )?.publisher
+                      ? message.publisher === "ai"
+                        ? modelDetails?.name || "AI"
+                        : "User"
+                      : null}
+                  </span>
+                  {modelDetails && (
+                    <div className="flex items-center space-x-1">
+                      <Badge variant="secondary">
+                        {modelDetails.baseModel?.split('/').pop()?.split('-')[0]}
+                      </Badge>
+                    </div>
+                  )}
+                </div>
+                <div
+                  className={`flex space-x-1 ${isSelectedOrParent || isSelected
+                    ? "opacity-100"
+                    : "opacity-0 hover:opacity-100"
+                    } transition-opacity duration-200`}
+                >
+                  {parentMessage && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-6 h-6 p-0"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedMessage(parentMessage.id);
+                      }}
+                      onMouseEnter={() => setGlowingMessageId(parentMessage.id)}
+                      onMouseLeave={() => setGlowingMessageId(null)}
+                    >
+                      <ArrowLeft className="h-4 w-4" />
+                    </Button>
+                  )}
+                  {currentMessage?.replies && currentMessage.replies.length > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-6 h-6 p-0"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedMessage(currentMessage.replies[0].id);
+                      }}
+                      onMouseEnter={() => setGlowingMessageId(currentMessage.replies[0].id)}
+                      onMouseLeave={() => setGlowingMessageId(null)}
+                    >
+                      <ArrowRight className="h-4 w-4" />
+                    </Button>
+                  )}
+                  {siblings[currentIndex - 1] && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-6 h-6 p-0"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedMessage(siblings[currentIndex - 1].id);
+                      }}
+                      onMouseEnter={() => setGlowingMessageId(siblings[currentIndex - 1].id)}
+                      onMouseLeave={() => setGlowingMessageId(null)}
+                    >
+                      <ArrowUp className="h-4 w-4" />
+                    </Button>
+                  )}
+                  {siblings[currentIndex + 1] && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-6 h-6 p-0"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedMessage(siblings[currentIndex + 1].id);
+                      }}
+                      onMouseEnter={() => setGlowingMessageId(siblings[currentIndex + 1].id)}
+                      onMouseLeave={() => setGlowingMessageId(null)}
+                    >
+                      <ArrowDown className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+              {editingMessage === message.id ? (
+                <Textarea
+                  value={editingContent}
+                  onChange={(e) => setEditingContent(e.target.value)}
+                  className="min-font-size font-serif flex-grow w-auto m-1 p-0 bg-inherit"
+                  style={{
+                    minHeight: Math.min(
+                      Math.max(
+                        20,
+                        editingContent.split("\n").length * (
+                          window.innerWidth < 480 ? 35 :
+                            window.innerWidth < 640 ? 30 :
+                              window.innerWidth < 1024 ? 25 :
+                                20
+                        ),
+                        editingContent.length * (
+                          window.innerWidth < 480 ? 0.6 :
+                            window.innerWidth < 640 ? 0.5 :
+                              window.innerWidth < 1024 ? 0.35 :
+                                0.25
+                        )
+                      ),
+                      window.innerHeight * 0.5
+                    ),
+                    maxHeight: "50vh",
+                  }}
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+                      confirmEditingMessage(threadId, message.id);
+                    } else if (e.key === "Escape") {
+                      cancelEditingMessage();
+                    }
+                  }}
+                />
+              ) : (
+                <ContextMenu>
+                  <ContextMenuTrigger onContextMenu={() => setSelectedMessage(message.id)}>
+                    <div
+                      className="whitespace-normal break-words markdown-content font-serif overflow-hidden pt-0.5 px-1 "
+                      onDoubleClick={() => {
+                        cancelEditingMessage();
+                        startEditingMessage(message);
+                      }}
+                    >
+                      {message.isCollapsed ? (
+                        <div className="flex flex-col">
+                          <div>
+                            {`${message.content.split("\n")[0].slice(0, 50)}
+                        ${message.content.length > 50 ? "..." : ""}`}
+                          </div>
+                          {totalReplies > 0 && (
+                            <div className="self-end">
+                              <span className="text-yellow-600">
+                                {`(${totalReplies} ${totalReplies === 1 ? "reply" : "replies"})`}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="markdown-content">
+                          <Markdown
+                            remarkPlugins={[remarkGfm]}
+                            rehypePlugins={[rehypeRaw]}
+                            components={{
+                              code({
+                                node,
+                                inline,
+                                className,
+                                children,
+                                ...props
+                              }: any) {
+                                const match = /language-(\w+)/.exec(className || "");
+                                const codeString = String(children).replace(/\n$/, "");
+                                // Create a unique ID for each code block within the message
+                                const codeBlockId = `${message.id}-${match?.[1] || 'unknown'}-${codeString.slice(0, 32)}`;
+                                return !inline && match ? (
+                                  <div className="relative">
+                                    <div className="absolute -top-4 w-full text-muted-foreground flex justify-between items-center p-1 pb-0 pl-3 rounded-sm text-xs bg-[#1D2021]">
+                                      <span>{match[1]}</span>
+                                      <Button
+                                        className="w-6 h-6 p-0"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleCopy(codeString, codeBlockId)}
+                                      >
+                                        {copiedStates[codeBlockId] ? (
+                                          <Check className="h-4 w-4" />
+                                        ) : (
+                                          <Copy className="h-4 w-4" />
+                                        )}
+                                      </Button>
+                                    </div>
+                                    <SyntaxHighlighter
+                                      className="text-xs"
+                                      PreTag={"pre"}
+                                      style={gruvboxDark}
+                                      language={match[1]}
+                                      // showLineNumbers
+                                      wrapLines
+                                      {...props}
+                                    >
+                                      {codeString}
+                                    </SyntaxHighlighter>
+                                  </div>
+                                ) : (
+                                  <code className={className} {...props}>
+                                    {children}
+                                  </code>
+                                );
+                              },
+                            }}
+                          >
+                            {message.content}
+                          </Markdown>
+                        </div>
+                      )}
+                    </div>
+                  </ContextMenuTrigger>
+                  <ContextMenuContent className="custom-shadow bg-transparent">
+                    <ContextMenuItem onClick={() => addEmptyReply(threadId, message.id)}>
+                      <MessageSquare className="h-4 w-4 mr-2" />
+                      Reply
+                      <ContextMenuShortcut>R</ContextMenuShortcut>
+                    </ContextMenuItem>
+                    <ContextMenuItem onClick={() => generateAIReply(threadId, message.id, 1)}>
+                      <Sparkle className="h-4 w-4 mr-2" />
+                      Generate AI Reply
+                      <ContextMenuShortcut>G</ContextMenuShortcut>
+                    </ContextMenuItem>
+                    <ContextMenuItem onClick={() => {
+                      cancelEditingMessage();
+                      startEditingMessage(message);
+                    }}>
+                      <Edit className="h-4 w-4 mr-2" />
+                      Edit
+                      <ContextMenuShortcut>E</ContextMenuShortcut>
+                    </ContextMenuItem>
+                    <ContextMenuSeparator />
+                    <ContextMenuItem onClick={() => copyOrCutMessage(threadId, message.id, "copy")}>
+                      <Copy className="h-4 w-4 mr-2" />
+                      Copy
+                      <ContextMenuShortcut>⌘ C</ContextMenuShortcut>
+                    </ContextMenuItem>
+                    <ContextMenuItem onClick={() => copyOrCutMessage(threadId, message.id, "cut")}>
+                      <Scissors className="h-4 w-4 mr-2" />
+                      Cut
+                      <ContextMenuShortcut>⌘ X</ContextMenuShortcut>
+                    </ContextMenuItem>
+                    {clipboardMessage && (
+                      <ContextMenuItem onClick={() => pasteMessage(threadId, message.id)}>
+                        <ClipboardPaste className="h-4 w-4 mr-2" />
+                        Paste
+                        <ContextMenuShortcut>⌘ V</ContextMenuShortcut>
+                      </ContextMenuItem>
+                    )}
+                    <ContextMenuSeparator />
+                    <ContextMenuItem
+                      className="text-red-500"
+                      onClick={() => deleteMessage(threadId, message.id, false)}
+                    >
+                      <Trash className="h-4 w-4 mr-2" />
+                      Delete
+                      <ContextMenuShortcut>⌫</ContextMenuShortcut>
+                    </ContextMenuItem>
+                    <ContextMenuItem
+                      className="text-red-500"
+                      onClick={() => deleteMessage(threadId, message.id, true)}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete with Replies
+                      <ContextMenuShortcut className="ml-2">⇧ ⌫</ContextMenuShortcut>
+                    </ContextMenuItem>
+                  </ContextMenuContent>
+                </ContextMenu>
+              )}
+            </div>
+            {selectedMessage === message.id && (
+              <div className="space-x-1 mt-1 flex flex-wrap items-center select-none">
+                {editingMessage === message.id ? (
+                  <>
+                    <Button
+                      className="hover:bg-background space-x-2 transition-scale-zoom"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() =>
+                        confirmEditingMessage(threadId, message.id)
+                      }
+                    >
+                      <Check className="h-4 w-4" />
+                      <span className="hidden md:inline ml-auto">
+                        <MenubarShortcut>⌘ ↩</MenubarShortcut>
+                      </span>
+                    </Button>
+                    <Button
+                      className="hover:bg-background space-x-2 transition-scale-zoom"
+                      size="sm"
+                      variant="ghost"
+                      onClick={cancelEditingMessage}
+                    >
+                      <X className="h-4 w-4" />
+                      <span className="hidden md:inline ml-auto">
+                        <MenubarShortcut>Esc</MenubarShortcut>
+                      </span>
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button
+                      className="h-10 hover:bg-background transition-scale-zoom"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        cancelEditingMessage();
+                        setSelectedMessage(null);
+                        addEmptyReply(threadId, message.id);
+                      }}
+                    >
+                      <MessageSquare className="h-4 w-4" />
+                      <span className="hidden md:inline ml-2">Reply</span>
+                    </Button>
+                    <Menubar className="p-0 border-none bg-transparent">
+                      <MenubarMenu>
+                        <MenubarTrigger
+                          className={cn(
+                            "h-10 rounded-lg hover:bg-blue-900 transition-scale-zoom",
+                            isGenerating &&
+                            "animate-pulse bg-blue-200 dark:bg-blue-900 duration-1000"
+                          )}
+                        >
+                          <Sparkle className="h-4 w-4" />
+                          <span className="hidden md:inline ml-2">
+                            Generate
+                          </span>
+                        </MenubarTrigger>
+                        <MenubarContent className="custom-shadow">
+                          <MenubarItem
+                            onClick={() =>
+                              generateAIReply(threadId, message.id, 1)
+                            }
+                          >
+                            Once
+                            <MenubarShortcut className="ml-auto">
+                              ⎇ G
+                            </MenubarShortcut>
+                          </MenubarItem>
+                          <MenubarItem
+                            onClick={() =>
+                              generateAIReply(threadId, message.id, 3)
+                            }
+                          >
+                            Thrice
+                          </MenubarItem>
+                          <MenubarItem
+                            onClick={() => {
+                              const times = prompt(
+                                "How many times do you want to generate?",
+                                "5"
+                              );
+                              const numTimes = parseInt(times || "0", 10);
+                              if (
+                                !isNaN(numTimes) &&
+                                numTimes > 0 &&
+                                numTimes <= 10
+                              ) {
+                                generateAIReply(threadId, message.id, numTimes);
+                              } else if (numTimes > 10) {
+                                generateAIReply(threadId, message.id, 10);
+                              }
+                            }}
+                          >
+                            Custom
+                          </MenubarItem>
+                        </MenubarContent>
+                      </MenubarMenu>
+                    </Menubar>
+                    <Button
+                      className="h-10 hover:bg-background transition-scale-zoom"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        cancelEditingMessage();
+                        startEditingMessage(message);
+                      }}
+                    >
+                      <Edit className="h-4 w-4" />
+                      <span className="hidden md:inline ml-2">Edit</span>
+                    </Button>
+                    <Menubar className="p-0 border-none bg-transparent">
+                      <MenubarMenu>
+                        <MenubarTrigger className="h-10 hover:bg-background transition-scale-zoom">
+                          {clipboardMessage ? (
+                            <ClipboardPaste className="h-4 w-4" />
+                          ) : (
+                            <Copy className="h-4 w-4" />
+                          )}
+                          <span className="hidden md:inline ml-2">
+                            {clipboardMessage ? "Paste" : "Copy"}
+                          </span>
+                        </MenubarTrigger>
+                        <MenubarContent className="custom-shadow">
+                          {clipboardMessage ? (
+                            <>
+                              <MenubarItem onClick={() => pasteMessage(threadId, message.id)}>
+                                Paste Here
+                                <span className="hidden md:inline ml-auto">
+                                  <MenubarShortcut>⌘ V</MenubarShortcut>
+                                </span>
+                              </MenubarItem>
+                              <MenubarItem onClick={() => setClipboardMessage(null)}>
+                                Clear Clipboard
+                                <span className="hidden md:inline ml-auto">
+                                  <MenubarShortcut>Esc</MenubarShortcut>
+                                </span>
+                              </MenubarItem>
+                            </>
+                          ) : (
+                            <>
+                              <MenubarItem onClick={() => copyOrCutMessage(threadId, message.id, "copy")}>
+                                Copy
+                                <span className="hidden md:inline ml-auto">
+                                  <MenubarShortcut>⌘ C</MenubarShortcut>
+                                </span>
+                              </MenubarItem>
+                              <MenubarItem onClick={() => copyOrCutMessage(threadId, message.id, "cut")}>
+                                Cut
+                                <span className="hidden md:inline ml-auto">
+                                  <MenubarShortcut>⌘ X</MenubarShortcut>
+                                </span>
+                              </MenubarItem>
+                            </>
+                          )}
+                        </MenubarContent>
+                      </MenubarMenu>
+                    </Menubar>
+                    <Menubar className="p-0 border-none bg-transparent">
+                      <MenubarMenu>
+                        <MenubarTrigger className="h-10 hover:bg-destructive transition-scale-zoom">
+                          <Trash className="h-4 w-4" />
+                          <span className="hidden md:inline ml-2">Delete</span>
+                        </MenubarTrigger>
+                        <MenubarContent className="custom-shadow">
+                          <MenubarItem
+                            onClick={() =>
+                              deleteMessage(threadId, message.id, false)
+                            }
+                          >
+                            Keep Replies
+                            <span className="hidden md:inline ml-auto">
+                              <MenubarShortcut>⌫</MenubarShortcut>
+                            </span>
+                          </MenubarItem>
+                          <MenubarItem
+                            onClick={() =>
+                              deleteMessage(threadId, message.id, true)
+                            }
+                          >
+                            With Replies
+                            <span className="hidden md:inline ml-auto">
+                              <MenubarShortcut>⇧ ⌫</MenubarShortcut>
+                            </span>
+                          </MenubarItem>
+                        </MenubarContent>
+                      </MenubarMenu>
+                    </Menubar>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+        <AnimatePresence>
+          {!message.isCollapsed && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.1 }}
+            >
+              {message.replies.map((reply) => (
+                <div
+                  key={reply.id}
+                  className={`${isSelected ? "border-l-2 border-b-2 rounded-bl-lg border-border ml-4" : "ml-4"}`}
+                >
+                  {renderMessage(reply, threadId, depth + 1, message.id)}
+                </div>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
+    );
+  }
+
+// Render messages for the current thread
+  function renderMessages() {
+    const currentThreadData = threads.find((t) => t.id === currentThread);
+    return currentThread ? (
+      <div
+        className={`flex flex-col relative sm:h-full h-[calc(97vh)] hide-scrollbar`}
+      >
+        <div
+          className="top-bar bg-gradient-to-b from-background/100 to-background/00"
+          style={{
+            mask: "linear-gradient(black, black, transparent)",
+            backdropFilter: "blur(1px)",
+          }}
+        >
+          <h1 className="text-2xl font-serif font-bold pl-2 overflow-hidden">
+            <span className="block truncate text-2xl sm:text-sm md:text-base lg:text-xl xl:text-2xl">
+              {currentThreadData?.title}
+            </span>
+          </h1>
+          {currentThread && (
+            <Button
+              className="bg-background hover:bg-secondary custom-shadow transition-scale-zoom text-primary border border-border select-none"
+              size="default"
+              onClick={(e) => {
+                e.stopPropagation();
+                cancelEditingMessage();
+                addEmptyReply(currentThread, null);
+              }}
+            >
+              <MessageSquarePlus className="h-4 w-4" />
+              <span className="ml-2 hidden md:inline">New Message</span>
+            </Button>
+          )}
+        </div>
+        <ScrollArea className="flex-grow" onClick={() => setSelectedMessage(null)}>
+          <div className="mb-4" onClick={(e) => e.stopPropagation()}>
+            {currentThreadData?.messages.map((message: any) =>
+              renderMessage(message, currentThread)
+            )}
+          </div>
+        </ScrollArea>
+      </div>
+    ) : (
+      <div className="flex items-center justify-center h-full select-none">
+        <div className="hidden sm:block">
+          <p className="text-sm text-muted-foreground whitespace-pre">
+            <span>  ←/→ Arrow keys        ┃ Navigate parent/children</span><br />
+            <span>  ↑/↓ Arrow keys        ┃ Navigate on same level</span><br />
+            <span>  R                     ┃ Reply</span><br />
+            <span>  G                     ┃ Generate AI reply</span><br />
+            <span>  E/Double-click        ┃ Edit message</span><br />
+            <span>  Enter                 ┃ Confirm edit</span><br />
+            <span>  Escape                ┃ Cancel edit</span><br />
+            <span>  Delete                ┃ Delete message</span><br />
+            <span>  Shift+Delete          ┃ Delete with replies</span>
+          </p>
+          <div className="mt-4 text-center text-sm text-muted-foreground font-serif">
+            <span>Select a thread to view messages.</span>
+            <br />
+            <a
+              href="https://github.com/yijia-z/aide"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:underline"
+            >
+              GitHub
+            </a>
+            <span className="mx-2">|</span>
+            <a href="mailto:z@zy-j.com" className="hover:underline">
+              Contact
+            </a>
+          </div>
+        </div>
+        <div className="sm:hidden fixed bottom-20 left-0 right-0 p-4 text-center text-sm text-muted-foreground bg-background font-serif">
+          <span>Select a thread to view messages.</span>
+          <br />
+          <a
+            href="https://github.com/yijia-z/aide"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:underline"
+          >
+            GitHub
+          </a>
+          <span className="mx-2">|</span>
+          <a href="mailto:z@zy-j.com" className="hover:underline">
+            Contact
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  // Render the model configuration
+  function renderModelConfig() {
+    return (
+      <div className="flex flex-col relative h-[calc(97vh)] overflow-clip select-none">
+        <div
+          className="top-bar bg-gradient-to-b from-background/100 to-background/00"
+          style={{
+            mask: "linear-gradient(black, black, transparent)",
+            backdropFilter: "blur(1px)",
+          }}
+        >
+          <Select value={selectedModel ?? models[0]?.id} onValueChange={setSelectedModel}>
+            <SelectTrigger className="custom-shadow transition-scale-zoom">
+              <SelectValue placeholder="Select a model" />
+            </SelectTrigger>
+            <SelectContent className="custom-shadow">
+              {models.map((model) => (
+                <SelectItem key={model.id} value={model.id}>
+                  {model.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            className="bg-transparent hover:bg-secondary custom-shadow transition-scale-zoom text-primary border border-border"
+            size="default"
+            onClick={addNewModel}
+          >
+            <Plus className="h-4 w-4" />
+            <span className="ml-2 hidden md:inline">New Model</span>
+          </Button>
+        </div>
+        <ScrollArea className="flex-grow">
+          <AnimatePresence>
+            <motion.div className="flex-grow overflow-y-visible mt-2">
+              {models.map((model) => (
+                <motion.div
+                  key={model.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.1 }}
+                  whileHover={{
+                    boxShadow: 'inset 0px 0px 10px rgba(128, 128, 128, 0.2)',
+                    borderRadius: '8px',
+                    transition: { duration: 0.2 }
+                  }}
+                  className="p-2 border rounded-md mb-2 custom-shadow"                >
+                  <div onDoubleClick={() => setEditingModel(model)}>
+                    <div className="flex justify-between items-center mb-2">
+                      <h3 className="font-bold">{model.name}</h3>
+                    </div>
+                    {editingModel?.id === model.id ? (
+                      <div className="space-y-2 text-muted-foreground">
+                        <Label>Name</Label>
+                        <Input
+                          className="min-font-size text-foreground"
+                          value={editingModel?.name}
+                          onChange={(e) =>
+                            handleModelChange("name", e.target.value)
+                          }
+                        />
+                        <Label>Base Model</Label>
+                        <SelectBaseModel
+                          value={editingModel.baseModel}
+                          onValueChange={(value, parameters) => {
+                            handleModelChange("baseModel", value);
+                            handleModelChange("parameters", parameters as Partial<ModelParameters>);
+                          }}
+                          fetchAvailableModels={fetchAvailableModels}
+                          fetchModelParameters={fetchModelParameters}
+                          existingParameters={editingModel.parameters}
+                        />
+                        <Label>System Prompt</Label>
+                        <Textarea
+                          className="min-font-size text-foreground"
+                          value={editingModel?.systemPrompt}
+                          onChange={(e) =>
+                            handleModelChange("systemPrompt", e.target.value)
+                          }
+                        />
+                        <div className="flex justify-between items-center mt-2">
+                          <div className="space-x-2 text-foreground">
+                            <Button size="sm" variant="outline" onClick={saveModelChanges}>
+                              <Check className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setEditingModel(null)}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => deleteModel(model.id)}
+                            disabled={models.length === 1}
+                          >
+                            <Trash className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-sm cursor-pointer">
+                        <p><span className="text-muted-foreground">Base Model:</span> {model.baseModel.split('/').pop()}</p>
+                        <p><span className="text-muted-foreground">Temperature:</span> {model.parameters.temperature}</p>
+                        <p><span className="text-muted-foreground">Max Tokens:</span> {model.parameters.max_tokens}</p>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              ))}
+            </motion.div>
+          </AnimatePresence>
+        </ScrollArea>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex flex-col h-screen">
-      <AideTabs 
-        activeTab={activeTab} 
-        setActiveTab={setActiveTab} 
-        renderThreadsList={() => (
-          <ThreadList
-            threads={threads}
-            currentThread={currentThread}
-            onAddThread={addThread}
-            onSelectThread={setCurrentThread}
-            onEditThreadTitle={startEditingThreadTitle}
-            onDeleteThread={(threadId) => {
-              setThreads((prev) => prev.filter((t) => t.id !== threadId));
-              if (currentThread === threadId) {
-                setCurrentThread((prev) => (threads[0]?.id) || null);
+    <div className="h-screen flex flex-col md:flex-row p-2 overflow-hidden ">
+      <div className="sm:hidden bg-transparent">
+        {/* Mobile layout with tabs for threads, messages, and models */}
+        <Tabs
+          value={activeTab}
+          onValueChange={(value) =>
+            setActiveTab(value as "threads" | "messages" | "models")
+          }
+          className="w-full flex flex-col"
+        >
+          <TabsContent
+            value="threads"
+            className="overflow-y-clip fixed top-0 left-2 right-2 pb-20"
+            style={{ paddingTop: "env(safe-area-inset-top)" }}
+          >
+            {renderThreadsList()}
+          </TabsContent>
+          <TabsContent
+            value="messages"
+            className="overflow-y-clip fixed top-0 left-2 right-2 pb-20"
+            style={{ paddingTop: "env(safe-area-inset-top)" }}
+          >
+            {renderMessages()}
+          </TabsContent>
+          <TabsContent
+            value="models"
+            className="overflow-y-clip fixed top-0 left-2 right-2 pb-20"
+            style={{ paddingTop: "env(safe-area-inset-top)" }}
+          >
+            {renderModelConfig()}
+          </TabsContent>
+          <TabsList
+            className="grid 
+              bg-transparent
+              custom-shadow
+              w-full 
+              fixed 
+              bottom-0 
+              left-0 
+              right-0 
+              pb-14 
+              grid-cols-3
+              select-none"
+          >
+            <TabsTrigger
+              value="threads"
+              className="bg-transparent hover:bg-secondary hover:custom-shadow data-[state=active]:bg-muted"
+            >
+              Threads
+            </TabsTrigger>
+            <TabsTrigger
+              value="messages"
+              className="bg-transparent hover:bg-secondary hover:custom-shadow data-[state=active]:bg-muted"
+            >
+              Messages
+            </TabsTrigger>
+            <TabsTrigger
+              value="models"
+              className="bg-transparent hover:bg-secondary hover:custom-shadow data-[state=active]:bg-muted"
+            >
+              Models
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
+      <div
+        className="hidden sm:block w-full h-full"
+        style={{
+          paddingTop: "env(safe-area-inset-top)",
+          paddingBottom: "env(safe-area-inset-bottom)",
+          paddingLeft: "env(safe-area-inset-left)",
+          paddingRight: "env(safe-area-inset-right)",
+        }}
+      >
+        {/* Desktop layout with resizable panels */}
+        <ResizablePanelGroup direction="horizontal" className="h-full">
+          <ResizablePanel defaultSize={31} minSize={26} maxSize={50}>
+            <Tabs
+              value={activeTab}
+              onValueChange={(value) =>
+                setActiveTab(value as "threads" | "models")
               }
-            }}
-            onPinThread={(threadId) => {
-              setThreads((prev) =>
-                prev.map((thread) =>
-                  thread.id === threadId ? { ...thread, isPinned: !thread.isPinned } : thread
-                )
-              );
-            }}
-          />
-        )}
-        renderMessages={() => (
-          currentThread && (
-            <MessageList
-              messages={threads.find((t) => t.id === currentThread)?.messages || []}
-              selectedMessage={selectedMessage}
-              onSelectMessage={setSelectedMessage}
-              onReplyToMessage={(messageId) => addEmptyReply(currentThread!, messageId)}
-              onEditMessage={(id) => {
-                const message = threads
-                  .flatMap(thread => thread.messages)
-                  .find(msg => msg.id === id);
-                if (message) startEditingMessage(message);
-              }}
-              onDeleteMessage={(messageId) => deleteMessage(currentThread!, messageId, false)}
-              onToggleMessageCollapse={(messageId) => toggleCollapse(currentThread!, messageId)}
-              onCopyMessage={(messageId) => copyOrCutMessage(currentThread!, messageId, "copy")}
-              onCutMessage={(messageId) => copyOrCutMessage(currentThread!, messageId, "cut")}
-            />
-          )
-        )}
-        renderModelConfig={() => (
-					<SelectBaseModel
-            value={editingModel?.baseModel || ''}
-						onValueChange={(value, parameters) => {
-							handleModelChange("baseModel", value);
-							handleModelChange("parameters", parameters as Partial<ModelParameters>);
-						}}
-						fetchAvailableModels={fetchAvailableModels}
-						fetchModelParameters={fetchModelParameters}
-						existingParameters={editingModel?.parameters}
-					/>
-        )}
-      />
-			<Tabs>
-				<div className="flex-grow overflow-hidden">
-					<TabsContent value="threads" className="h-full">
-						<ThreadList
-							threads={threads}
-							currentThread={currentThread}
-							onAddThread={addThread}
-							onSelectThread={setCurrentThread}
-							onEditThreadTitle={startEditingThreadTitle}
-							onDeleteThread={(threadId) => {
-								setThreads((prev) => prev.filter((t) => t.id !== threadId));
-								if (currentThread === threadId) {
-									setCurrentThread((prev) => (threads[0]?.id) || null);
-								}
-							}}
-							onPinThread={(threadId) => {
-								setThreads((prev) =>
-									prev.map((thread) =>
-										thread.id === threadId ? { ...thread, isPinned: !thread.isPinned } : thread
-									)
-								);
-							}}
-						/>
-					</TabsContent>
-					<TabsContent value="messages" className="h-full">
-						{currentThread && (
-							<MessageList
-									messages={threads.find((t) => t.id === currentThread)?.messages || []}
-									selectedMessage={selectedMessage}
-									onSelectMessage={setSelectedMessage}
-									onReplyToMessage={(messageId) => addEmptyReply(currentThread!, messageId)}
-									onEditMessage={(id) => {
-										const message = threads
-											.flatMap(thread => thread.messages)
-											.find(msg => msg.id === id);
-										if (message) startEditingMessage(message);
-									}}
-									onDeleteMessage={(messageId) => deleteMessage(currentThread!, messageId, false)}
-									onToggleMessageCollapse={(messageId) => toggleCollapse(currentThread!, messageId)}
-									onCopyMessage={(messageId) => copyOrCutMessage(currentThread!, messageId, "copy")}
-									onCutMessage={(messageId) => copyOrCutMessage(currentThread!, messageId, "cut")}
-							/>
-						)}
-					{editingMessage && (
-							<MessageEditor
-									initialContent={editingContent}
-									onSave={(content) => {
-										if (editingMessage) {
-											addMessage(currentThread!, editingMessage, content, "user");
-											setEditingMessage(null);
-											setEditingContent("");
-										}
-									}}
-									onCancel={cancelEditingMessage}
-							/>
-					)}
-					</TabsContent>
-					<TabsContent value="models" className="h-full">
-						<SelectBaseModel
-							value={editingModel?.baseModel || ''}
-							onValueChange={(value, parameters) => {
-								handleModelChange("baseModel", value);
-								handleModelChange("parameters", parameters as Partial<ModelParameters>);
-							}}
-							fetchAvailableModels={fetchAvailableModels}
-							fetchModelParameters={fetchModelParameters}
-							existingParameters={editingModel?.parameters}
-						/>	
-					</TabsContent>
-				</div>
-			</Tabs>	
+              className="w-full flex flex-col"
+            >
+              <TabsList className="grid w-full grid-cols-2 bg-transparent custom-shadow select-none">
+                <TabsTrigger
+                  className="bg-transparent transition-scale-zoom hover:bg-secondary hover:custom-shadow data-[state=active]:bg-background"
+                  value="threads"
+                >Threads
+                </TabsTrigger>
+                <TabsTrigger
+                  className="bg-transparent transition-scale-zoom hover:bg-secondary hover:custom-shadow data-[state=active]:bg-background"
+                  value="models"
+                >
+                  Models
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent
+                value="threads"
+                className="flex-grow overflow-y-clip"
+              >
+                {renderThreadsList()}
+              </TabsContent>
+              <TabsContent value="models" className="flex-grow overflow-y-clip">
+                {renderModelConfig()}
+              </TabsContent>
+            </Tabs>
+          </ResizablePanel>
+          <ResizableHandle className="mx-2 p-px bg-gradient-to-b from-background via-transparent to-background" />
+          <ResizablePanel defaultSize={69}>
+            <div className="h-full overflow-y-auto">{renderMessages()}</div>
+          </ResizablePanel>
+        </ResizablePanelGroup>
+      </div>
     </div>
   );
 }

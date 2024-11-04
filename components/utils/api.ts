@@ -1,10 +1,12 @@
 import { Thread, Model } from '../types';
 import { findAllParentMessages } from './helpers';
+import { useModels } from '../hooks/use-models';
+ 
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 
 
-async function generateAIResponse(
+  export async function generateAIResponse(
     prompt: string,
     role: string,
     model: Model,
@@ -118,4 +120,4 @@ async function generateAIResponse(
       console.error("Error fetching available models:", error);
       return [];
     }
-  }, []);
+  }
