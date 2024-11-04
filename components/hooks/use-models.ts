@@ -1,6 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Model } from '../types';
-import { fetchAvailableModels } from '../utils/api';
 
 export function useModels() {
     const [modelsLoaded, setModelsLoaded] = useState(false);
