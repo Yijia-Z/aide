@@ -46,9 +46,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { SelectBaseModel } from "@/components/ui/select-model";
+import { SelectBaseModel } from "@/components/model/model-selector";
 import { Label } from "@/components/ui/label";
-
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Menubar,
@@ -74,8 +78,7 @@ import {
   ContextMenuSubTrigger,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
-import { storage } from "./store";
-import AideTabs from "@/components/ui/aide-tabs";
+import { storage } from "@/components/store";
 
 const DEFAULT_MODEL: Model = {
   id: 'default',
@@ -88,6 +91,90 @@ const DEFAULT_MODEL: Model = {
     max_tokens: 1000,
   },
 };
+
+interface Message {
+  id: string;
+  content: string;
+  publisher: "user" | "ai";
+  modelId?: string;
+  modelConfig?: Partial<Model>;
+  replies: Message[];
+  isCollapsed: boolean;
+  userCollapsed: boolean;
+}
+interface Thread {
+  id: string;
+  title: string;
+  messages: Message[];
+  isPinned: boolean;
+}
+
+interface Model {
+  id: string;
+  name: string;
+  baseModel: string;
+  systemPrompt: string;
+  parameters: ModelParameters;
+}
+
+interface ModelParameters {
+  temperature?: number;
+  top_p?: number;
+  top_k?: number;
+  frequency_penalty?: number;
+  presence_penalty?: number;
+  repetition_penalty?: number;
+  min_p?: number;
+  top_a?: number;
+  seed?: number;
+  max_tokens?: number;
+  max_output?: number;
+  context_length?: number;
+  logit_bias?: { [key: string]: number };
+  logprobs?: boolean;
+  top_logprobs?: number;
+  response_format?: { type: string };
+  stop?: string[];
+  tools?: any[];
+  tool_choice?: string | { type: string; function: { name: string } };
+}
+
+// Helper function to find a message and its parents
+function findMessageAndParents(
+  messages: Message[],
+  targetId: string,
+  parents: Message[] = []
+): [Message | null, Message[]] {
+  for (const message of messages) {
+    if (message.id === targetId) {
+      return [message, parents];
+    }
+    const [found, foundParents] = findMessageAndParents(message.replies, targetId, [...parents, message]);
+    if (found) return [found, foundParents];
+  }
+  return [null, []];
+}
+
+function getSiblings(messages: Message[], messageId: string): Message[] {
+  const [_, parents] = findMessageAndParents(messages, messageId);
+  if (parents.length === 0) return messages;
+  return parents[parents.length - 1].replies;
+}
+
+// Recursive function to find all parent messages for a given message
+function findAllParentMessages(
+  threads: Thread[],
+  currentThreadId: string | null,
+  replyingToId: string | null
+): Message[] {
+  if (!currentThreadId || !replyingToId) return [];
+
+  const currentThread = threads.find((thread) => thread.id === currentThreadId);
+  if (!currentThread) return [];
+
+  const [_, parentMessages] = findMessageAndParents(currentThread.messages, replyingToId);
+  return parentMessages;
+}
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 console.log("API Base URL:", apiBaseUrl);
@@ -146,11 +233,16 @@ export default function ThreadedDocument() {
     "threads"
   );
 
-  
+  const [threads, setThreads] = useState<Thread[]>([]);
+  const [currentThread, setCurrentThread] = useState<string | null>(null);
+  const [editingThreadTitle, setEditingThreadTitle] = useState<string | null>(null);
+  const [originalThreadTitle, setOriginalThreadTitle] = useState<string>("");
   const threadTitleInputRef = useRef<HTMLInputElement>(null);
 
+  const [selectedMessage, setSelectedMessage] = useState<string | null>(null);
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
-  
+  const [editingMessage, setEditingMessage] = useState<string | null>(null);
+  const [editingContent, setEditingContent] = useState("");
   const [clipboardMessage, setClipboardMessage] = useState<{
     message: Message;
     operation: "copy" | "cut";
@@ -159,6 +251,12 @@ export default function ThreadedDocument() {
   } | null>(null);
   const [glowingMessageId, setGlowingMessageId] = useState<string | null>(null);
   const replyBoxRef = useRef<HTMLDivElement>(null);
+
+  const [modelsLoaded, setModelsLoaded] = useState(false);
+  const [availableModels, setAvailableModels] = useState<Model[]>([]);
+  const [models, setModels] = useState<Model[]>([]);
+  const [selectedModel, setSelectedModel] = useState<string | null>(null);
+  const [editingModel, setEditingModel] = useState<Model | null>(null);
 
   const [lastAttemptTime, setLastAttemptTime] = useState<number | null>(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -2349,12 +2447,120 @@ export default function ThreadedDocument() {
   }
 
   return (
-    <AideTabs
-      activeTab={activeTab}
-      setActiveTab={setActiveTab}
-      renderThreadsList={renderThreadsList}
-      renderMessages={renderMessages}
-      renderModelConfig={renderModelConfig}
-    />
-  )
+    <div className="h-screen flex flex-col md:flex-row p-2 overflow-hidden ">
+      <div className="sm:hidden bg-transparent">
+        {/* Mobile layout with tabs for threads, messages, and models */}
+        <Tabs
+          value={activeTab}
+          onValueChange={(value) =>
+            setActiveTab(value as "threads" | "messages" | "models")
+          }
+          className="w-full flex flex-col"
+        >
+          <TabsContent
+            value="threads"
+            className="overflow-y-clip fixed top-0 left-2 right-2 pb-20"
+            style={{ paddingTop: "env(safe-area-inset-top)" }}
+          >
+            {renderThreadsList()}
+          </TabsContent>
+          <TabsContent
+            value="messages"
+            className="overflow-y-clip fixed top-0 left-2 right-2 pb-20"
+            style={{ paddingTop: "env(safe-area-inset-top)" }}
+          >
+            {renderMessages()}
+          </TabsContent>
+          <TabsContent
+            value="models"
+            className="overflow-y-clip fixed top-0 left-2 right-2 pb-20"
+            style={{ paddingTop: "env(safe-area-inset-top)" }}
+          >
+            {renderModelConfig()}
+          </TabsContent>
+          <TabsList
+            className="grid 
+              bg-transparent
+              custom-shadow
+              w-full 
+              fixed 
+              bottom-0 
+              left-0 
+              right-0 
+              pb-14 
+              grid-cols-3
+              select-none"
+          >
+            <TabsTrigger
+              value="threads"
+              className="bg-transparent hover:bg-secondary hover:custom-shadow data-[state=active]:bg-muted"
+            >
+              Threads
+            </TabsTrigger>
+            <TabsTrigger
+              value="messages"
+              className="bg-transparent hover:bg-secondary hover:custom-shadow data-[state=active]:bg-muted"
+            >
+              Messages
+            </TabsTrigger>
+            <TabsTrigger
+              value="models"
+              className="bg-transparent hover:bg-secondary hover:custom-shadow data-[state=active]:bg-muted"
+            >
+              Models
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
+      <div
+        className="hidden sm:block w-full h-full"
+        style={{
+          paddingTop: "env(safe-area-inset-top)",
+          paddingBottom: "env(safe-area-inset-bottom)",
+          paddingLeft: "env(safe-area-inset-left)",
+          paddingRight: "env(safe-area-inset-right)",
+        }}
+      >
+        {/* Desktop layout with resizable panels */}
+        <ResizablePanelGroup direction="horizontal" className="h-full">
+          <ResizablePanel defaultSize={31} minSize={26} maxSize={50}>
+            <Tabs
+              value={activeTab}
+              onValueChange={(value) =>
+                setActiveTab(value as "threads" | "models")
+              }
+              className="w-full flex flex-col"
+            >
+              <TabsList className="grid w-full grid-cols-2 bg-transparent custom-shadow select-none">
+                <TabsTrigger
+                  className="bg-transparent transition-scale-zoom hover:bg-secondary hover:custom-shadow data-[state=active]:bg-background"
+                  value="threads"
+                >Threads
+                </TabsTrigger>
+                <TabsTrigger
+                  className="bg-transparent transition-scale-zoom hover:bg-secondary hover:custom-shadow data-[state=active]:bg-background"
+                  value="models"
+                >
+                  Models
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent
+                value="threads"
+                className="flex-grow overflow-y-clip"
+              >
+                {renderThreadsList()}
+              </TabsContent>
+              <TabsContent value="models" className="flex-grow overflow-y-clip">
+                {renderModelConfig()}
+              </TabsContent>
+            </Tabs>
+          </ResizablePanel>
+          <ResizableHandle className="mx-2 p-px bg-gradient-to-b from-background via-transparent to-background" />
+          <ResizablePanel defaultSize={69}>
+            <div className="h-full overflow-y-auto">{renderMessages()}</div>
+          </ResizablePanel>
+        </ResizablePanelGroup>
+      </div>
+    </div>
+  );
 }

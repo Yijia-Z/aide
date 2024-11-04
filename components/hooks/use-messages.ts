@@ -5,6 +5,12 @@ export function useMessages() {
     const [selectedMessage, setSelectedMessage] = useState<string | null>(null);
     const [editingMessage, setEditingMessage] = useState<string | null>(null);
     const [editingContent, setEditingContent] = useState("");
+    const [clipboardMessage, setClipboardMessage] = useState<{
+        message: Message;
+        operation: "copy" | "cut";
+        sourceThreadId: string | null;
+        originalMessageId: string | null;
+    } | null>(null);
 
     return {
         selectedMessage,
@@ -13,5 +19,7 @@ export function useMessages() {
         setEditingMessage,
         editingContent,
         setEditingContent,
+        clipboardMessage,
+        setClipboardMessage
     };
 }
