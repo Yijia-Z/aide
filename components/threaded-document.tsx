@@ -12,7 +12,6 @@ import { storage } from "./store";
 import ThreadList from "@/components/thread/thread-list";
 import MessageList from "@/components/message/message-list";
 import MessageEditor from "@/components/message/message-editor";
-import ModelEditor from "@/components/model/model-editor";
 import AideTabs from "@/components/ui/aide-tabs";
 import { Thread, Message, Model, ModelParameters } from "./types";
 
@@ -269,6 +268,38 @@ export default function ThreadedDocument() {
 		setOriginalThreadTitle(currentTitle);
 	}, []);
 
+	const saveThreadToBackend = useCallback(
+    async (threadId: string, updatedData: Partial<Thread>) => {
+      try {
+        // Cache the thread data to local storage
+        const cachedThreads = JSON.parse(localStorage.getItem('threads') || '[]');
+        const updatedThreads = cachedThreads.map((thread: Thread) =>
+          thread.id === threadId ? { ...thread, ...updatedData } : thread
+        );
+        localStorage.setItem('threads', JSON.stringify(updatedThreads));
+
+        // Only update the backend if apiBaseUrl is available
+        if (apiBaseUrl) {
+          const lastUpdateTime = parseInt(localStorage.getItem('lastThreadUpdateTime') || '0');
+          const currentTime = Date.now();
+          if (currentTime - lastUpdateTime > 60000) { // Update every 60 seconds
+            const response = await fetch(`${apiBaseUrl}/api/save_thread`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ threadId, thread: { ...updatedData } }),
+            });
+            if (!response.ok) {
+              throw new Error(`editthread ${threadId} fail`);
+            }
+            localStorage.setItem('lastThreadUpdateTime', currentTime.toString());
+          }
+        }
+      } catch (error) {
+        console.error(`update ${threadId} datafail:`, error);
+      }
+    },
+    [apiBaseUrl]
+  );
 
 	const confirmEditThreadTitle = useCallback((threadId: string, newTitle: string) => {
 		setThreads((prev: Thread[]) => 
@@ -281,6 +312,11 @@ export default function ThreadedDocument() {
 		saveThreadToBackend(threadId, { title: newTitle });
 	}, [saveThreadToBackend]);
 
+	// Start editing a message
+  const startEditingMessage = useCallback((message: Message) => {
+    setEditingMessage(message.id);
+    setEditingContent(message.content);
+  }, []);
 
 	const cancelEditThreadTitle = useCallback(() => {
 		if (editingThreadTitle) {
@@ -319,13 +355,239 @@ export default function ThreadedDocument() {
       }
     },
     [addMessage, startEditingMessage]
-  );	
+  );
+
+	// Delete a message
+  const deleteMessage = useCallback(
+    (threadId: string, messageId: string, deleteChildren: boolean) => {
+      setThreads((prev: Thread[]) =>
+        prev.map((thread) => {
+          if (thread.id !== threadId) return thread;
+
+          const removeMessage = (messages: Message[]): Message[] => {
+            const [messageToDelete, parentMessages] = findMessageAndParents(messages, messageId);
+            if (!messageToDelete) return messages;
+
+            const filterAndMerge = (msgs: Message[]) =>
+              deleteChildren
+                ? msgs.filter((m) => m.id !== messageId)
+                : [...msgs.filter((m) => m.id !== messageId), ...messageToDelete.replies];
+
+            const updateSelection = (newMsgs: Message[], parentMsg?: Message) => {
+              if (newMsgs.length > 0) {
+                const index = messages.findIndex(m => m.id === messageId);
+                const newSelectedId = index > 0 ? newMsgs[index - 1].id : newMsgs[0].id;
+                setSelectedMessage(newSelectedId);
+              } else if (parentMsg) {
+                setSelectedMessage(parentMsg.id);
+              } else {
+                setSelectedMessage(null);
+              }
+            };
+
+            if (parentMessages.length === 0) {
+              // Message is at the root level
+              const newMessages = filterAndMerge(messages);
+              updateSelection(newMessages);
+              return newMessages;
+            }
+
+            // Message is nested
+            const updateParent = (message: Message): Message => {
+              if (message.id === parentMessages[parentMessages.length - 1].id) {
+                const newReplies = filterAndMerge(message.replies);
+                updateSelection(newReplies, message);
+                return { ...message, replies: newReplies };
+              }
+              return { ...message, replies: message.replies.map(updateParent) };
+            };
+
+            return messages.map(updateParent);
+          };
+
+          return { ...thread, messages: removeMessage(thread.messages) };
+        })
+      );
+    },
+    [setSelectedMessage]
+  );
+	
+
+  // Toggle message collapse state
+  const toggleCollapse = useCallback((threadId: string, messageId: string) => {
+    setThreads((prev: Thread[]) =>
+      prev.map((thread) => {
+        if (thread.id !== threadId) return thread;
+        const toggleMessage = (messages: Message[]): Message[] => {
+          return messages.map((message) => {
+            if (message.id === messageId) {
+              return {
+                ...message,
+                isCollapsed: !message.isCollapsed,
+                userCollapsed: !message.isCollapsed
+              };
+            }
+            return { ...message, replies: toggleMessage(message.replies) };
+          });
+        };
+        return { ...thread, messages: toggleMessage(thread.messages) };
+      })
+    );
+  }, []);
+
+	// Add helper function to deep clone a message and its replies with new IDs
+  const cloneMessageWithNewIds = useCallback((message: Message): Message => {
+    const newId = Date.now().toString() + Math.random().toString(36).slice(2);
+    return {
+      ...message,
+      id: newId,
+      replies: message.replies.map(reply => cloneMessageWithNewIds(reply))
+    };
+  }, []);
+
+	// Add copy/cut function
+  const copyOrCutMessage = useCallback((threadId: string, messageId: string, operation: "copy" | "cut") => {
+    setThreads(prev => {
+      const thread = prev.find(t => t.id === threadId);
+      if (!thread) return prev;
+
+      const [message] = findMessageAndParents(thread.messages, messageId);
+      if (!message) return prev;
+
+      setClipboardMessage({
+        message: cloneMessageWithNewIds(message),
+        operation,
+        sourceThreadId: threadId,
+        originalMessageId: messageId
+      });
+
+      return prev;
+    });
+  }, [cloneMessageWithNewIds]);
+
+	// Cancel editing a message
+  const cancelEditingMessage = useCallback(() => {
+    setThreads((prev: Thread[]) =>
+      prev.map((thread) => {
+        const removeEmptyMessage = (messages: Message[]): Message[] => {
+          return messages.reduce((acc: Message[], message) => {
+            if (message.id === editingMessage) {
+              if (message.content.trim() === "") {
+                // Call deleteMessage if the message is empty
+                deleteMessage(thread.id, message.id, false);
+                return acc;
+              }
+            }
+            return [
+              ...acc,
+              { ...message, replies: removeEmptyMessage(message.replies) },
+            ];
+          }, []);
+        };
+        return { ...thread, messages: removeEmptyMessage(thread.messages) };
+      })
+    );
+    setEditingMessage(null);
+    setEditingContent("");
+  }, [editingMessage, deleteMessage]);
+
+  const fetchAvailableModels = useCallback(async () => {
+    try {
+      // Check if models are already cached in localStorage
+      const cachedModels = localStorage.getItem('availableModels');
+      const lastFetchTime = localStorage.getItem('lastFetchTime');
+      const currentTime = Date.now();
+
+      // If cached models exist and were fetched less than an hour ago, use them
+      if (cachedModels && lastFetchTime && currentTime - parseInt(lastFetchTime) < 3600000) {
+        const modelData = JSON.parse(cachedModels);
+        setAvailableModels(modelData);
+        return modelData;
+      }
+
+      // Fetch from API if no valid cache is found
+      const response = await fetch("https://openrouter.ai/api/v1/models", {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${process.env.NEXT_PUBLIC_OPENROUTER_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Failed to fetch available models from OpenRouter:", errorText);
+        throw new Error("Failed to fetch available models from OpenRouter");
+      }
+
+      const data = await response.json();
+      console.log("Received data from OpenRouter:", data);
+
+      if (!data.data) {
+        console.error('Response data does not contain "data" key.');
+        throw new Error("Invalid response format from OpenRouter");
+      }
+
+      const modelData = data.data.map((model: any) => {
+        const maxOutput = model.top_provider?.max_completion_tokens ?? model.context_length ?? 9999;
+        return {
+          id: model.id,
+          name: model.name,
+          baseModel: model.id,
+          systemPrompt: "",
+          parameters: {
+            top_p: 1,
+            temperature: 0.7,
+            frequency_penalty: 0,
+            presence_penalty: 0,
+            top_k: 0,
+            max_tokens: maxOutput, // Set initial max_tokens to maxOutput
+            max_output: maxOutput, // Include max_output in the parameters
+          },
+        };
+      });
+
+      // Cache the fetched models and update the fetch time
+      localStorage.setItem('availableModels', JSON.stringify(modelData));
+      localStorage.setItem('lastFetchTime', currentTime.toString());
+
+      setAvailableModels(modelData);
+      return modelData;
+    } catch (error) {
+      console.error("Error fetching available models:", error);
+      return [];
+    }
+  }, []);
+
+  const fetchModelParameters = async (modelId: string) => {
+    console.log(`Fetching parameters for model ID: ${modelId}`);
+    try {
+      const response = await fetch(`/api/model-parameters?modelId=${encodeURIComponent(modelId)}`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch model parameters: ${response.status} ${response.statusText}`);
+      }
+      const data = await response.json();
+
+      // Find the corresponding model in availableModels to get the max_output
+      const selectedModel = availableModels.find(model => model.id === modelId);
+      if (selectedModel && selectedModel.parameters?.max_output) {
+        data.max_output = selectedModel.parameters.max_output;
+      }
+
+      return data;
+    } catch (error) {
+      console.error("Error fetching model parameters:", error);
+      throw error;
+    }
+  };
+
 
   return (
     <div className="flex flex-col h-screen">
-      <AideTabs activeTab={activeTab} setActiveTab={setActiveTab} />
-      <div className="flex-grow overflow-hidden">
-        <TabsContent value="threads" className="h-full">
+      <AideTabs 
+        activeTab={activeTab} 
+        setActiveTab={setActiveTab} 
+        renderThreadsList={() => (
           <ThreadList
             threads={threads}
             currentThread={currentThread}
@@ -335,49 +597,122 @@ export default function ThreadedDocument() {
             onDeleteThread={(threadId) => {
               setThreads((prev) => prev.filter((t) => t.id !== threadId));
               if (currentThread === threadId) {
-                setCurrentThread(prev[0]?.id || null);
+                setCurrentThread((prev) => (threads[0]?.id) || null);
               }
             }}
+            onPinThread={(threadId) => {
+              setThreads((prev) =>
+                prev.map((thread) =>
+                  thread.id === threadId ? { ...thread, isPinned: !thread.isPinned } : thread
+                )
+              );
+            }}
           />
-        </TabsContent>
-        <TabsContent value="messages" className="h-full">
-          {currentThread && (
-            <MessageList
-                messages={threads.find((t) => t.id === currentThread)?.messages || []}
-                selectedMessage={selectedMessage}
-                onSelectMessage={setSelectedMessage}
-                onReplyToMessage={(messageId) => addEmptyReply(currentThread!, messageId)}
-                onEditMessage={startEditingMessage}
-                onDeleteMessage={(messageId) => deleteMessage(currentThread!, messageId, false)}
-                onToggleMessageCollapse={(messageId) => toggleCollapse(currentThread!, messageId)}
-                onCopyMessage={(messageId) => copyOrCutMessage(currentThread!, messageId, "copy")}
-                onCutMessage={(messageId) => copyOrCutMessage(currentThread!, messageId, "cut")}
-            />
-          )}
-        {editingMessage && (
-            <MessageEditor
-                initialContent={editingContent}
-                onSave={(content) => editingMessage(currentThread!, editingMessage, content)}
-                onCancel={cancelEditingMessage}
-            />
         )}
-        </TabsContent>
-        <TabsContent value="models" className="h-full">
-          <ModelEditor
-            model={editingModel || DEFAULT_MODEL}
-            onModelChange={handleModelChange}
-            onSave={() => {
-              if (editingModel) {
-                setModels((prev) =>
-                  prev.map((m) => (m.id === editingModel.id ? editingModel : m))
-                );
-                setEditingModel(null);
-              }
-            }}
-            onCancel={() => setEditingModel(null)}
-          />
-        </TabsContent>
-      </div>
+        renderMessages={() => (
+          currentThread && (
+            <MessageList
+              messages={threads.find((t) => t.id === currentThread)?.messages || []}
+              selectedMessage={selectedMessage}
+              onSelectMessage={setSelectedMessage}
+              onReplyToMessage={(messageId) => addEmptyReply(currentThread!, messageId)}
+              onEditMessage={(id) => {
+                const message = threads
+                  .flatMap(thread => thread.messages)
+                  .find(msg => msg.id === id);
+                if (message) startEditingMessage(message);
+              }}
+              onDeleteMessage={(messageId) => deleteMessage(currentThread!, messageId, false)}
+              onToggleMessageCollapse={(messageId) => toggleCollapse(currentThread!, messageId)}
+              onCopyMessage={(messageId) => copyOrCutMessage(currentThread!, messageId, "copy")}
+              onCutMessage={(messageId) => copyOrCutMessage(currentThread!, messageId, "cut")}
+            />
+          )
+        )}
+        renderModelConfig={() => (
+					<SelectBaseModel
+            value={editingModel?.baseModel || ''}
+						onValueChange={(value, parameters) => {
+							handleModelChange("baseModel", value);
+							handleModelChange("parameters", parameters as Partial<ModelParameters>);
+						}}
+						fetchAvailableModels={fetchAvailableModels}
+						fetchModelParameters={fetchModelParameters}
+						existingParameters={editingModel?.parameters}
+					/>
+        )}
+      />
+			<Tabs>
+				<div className="flex-grow overflow-hidden">
+					<TabsContent value="threads" className="h-full">
+						<ThreadList
+							threads={threads}
+							currentThread={currentThread}
+							onAddThread={addThread}
+							onSelectThread={setCurrentThread}
+							onEditThreadTitle={startEditingThreadTitle}
+							onDeleteThread={(threadId) => {
+								setThreads((prev) => prev.filter((t) => t.id !== threadId));
+								if (currentThread === threadId) {
+									setCurrentThread((prev) => (threads[0]?.id) || null);
+								}
+							}}
+							onPinThread={(threadId) => {
+								setThreads((prev) =>
+									prev.map((thread) =>
+										thread.id === threadId ? { ...thread, isPinned: !thread.isPinned } : thread
+									)
+								);
+							}}
+						/>
+					</TabsContent>
+					<TabsContent value="messages" className="h-full">
+						{currentThread && (
+							<MessageList
+									messages={threads.find((t) => t.id === currentThread)?.messages || []}
+									selectedMessage={selectedMessage}
+									onSelectMessage={setSelectedMessage}
+									onReplyToMessage={(messageId) => addEmptyReply(currentThread!, messageId)}
+									onEditMessage={(id) => {
+										const message = threads
+											.flatMap(thread => thread.messages)
+											.find(msg => msg.id === id);
+										if (message) startEditingMessage(message);
+									}}
+									onDeleteMessage={(messageId) => deleteMessage(currentThread!, messageId, false)}
+									onToggleMessageCollapse={(messageId) => toggleCollapse(currentThread!, messageId)}
+									onCopyMessage={(messageId) => copyOrCutMessage(currentThread!, messageId, "copy")}
+									onCutMessage={(messageId) => copyOrCutMessage(currentThread!, messageId, "cut")}
+							/>
+						)}
+					{editingMessage && (
+							<MessageEditor
+									initialContent={editingContent}
+									onSave={(content) => {
+										if (editingMessage) {
+											addMessage(currentThread!, editingMessage, content, "user");
+											setEditingMessage(null);
+											setEditingContent("");
+										}
+									}}
+									onCancel={cancelEditingMessage}
+							/>
+					)}
+					</TabsContent>
+					<TabsContent value="models" className="h-full">
+						<SelectBaseModel
+							value={editingModel?.baseModel || ''}
+							onValueChange={(value, parameters) => {
+								handleModelChange("baseModel", value);
+								handleModelChange("parameters", parameters as Partial<ModelParameters>);
+							}}
+							fetchAvailableModels={fetchAvailableModels}
+							fetchModelParameters={fetchModelParameters}
+							existingParameters={editingModel?.parameters}
+						/>	
+					</TabsContent>
+				</div>
+			</Tabs>	
     </div>
   );
 }
