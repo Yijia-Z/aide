@@ -28,7 +28,6 @@ import ThreadList from "@/components/thread/thread-list";
 import MessageList from "@/components/message/message-list";
 import MessageEditor from "@/components/message/message-editor";
 import { generateAIResponse } from "@/components/utils/api";
-import { fetchAvailableModels } from "./model/model-service";
 import AideTabs from "@/components/ui/aide-tabs";
 import { Thread, Message, Model, ModelParameters } from "./types";
 import { useModels } from "./hooks/use-models";
@@ -203,7 +202,7 @@ export default function ThreadedDocument() {
       console.error("Error fetching available models:", error);
       return [];
     }
-  }, []);
+  }, []); 
 
 
   // useCallback methods
@@ -1150,173 +1149,6 @@ useEffect(() => {
   }, [selectedMessage, currentThread, collapseDeepChildren]);
 
   // Render functions
-
-  // Render the list of threads
-  function renderThreadsList() {
-    // Sort threads with newer threads (higher id) at the top, and pinned threads taking precedence
-    const sortedThreads = threads.sort((a, b) => {
-      if (a.isPinned && !b.isPinned) return -1;
-      if (!a.isPinned && b.isPinned) return 1;
-      return parseInt(b.id) - parseInt(a.id); // Assuming id is a string representation of a number
-    });
-
-    return (
-      <div className="flex flex-col relative h-[calc(97vh)]">
-        <div
-          className="top-bar bg-gradient-to-b from-background/100 to-background/00 select-none"
-          style={{
-            mask: "linear-gradient(black, black, transparent)",
-            backdropFilter: "blur(1px)",
-          }}
-        >
-          <h2 className="text-2xl font-serif font-bold pl-2">Threads</h2>
-          <Button
-            className="bg-background hover:bg-secondary custom-shadow transition-scale-zoom text-primary border border-border"
-            size="default"
-            onClick={() => {
-              addThread();
-              setSelectedMessage(null);
-            }}
-          >
-            <ListPlus className="h-4 w-4" />
-            <span className="ml-2 hidden md:inline">New Thread</span>
-          </Button>
-        </div>
-        <ScrollArea
-          className="flex-auto"
-          onClick={() => {
-            setCurrentThread(null);
-            if (editingThreadTitle) {
-              cancelEditThreadTitle();
-            }
-          }}
-        >
-          <AnimatePresence>
-            <motion.div className="my-2">
-              {sortedThreads.map((thread) => (
-                <motion.div
-                  key={thread.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.1 }}
-                  whileHover={{
-                    borderRadius: '8px',
-                    y: -2,
-                    transition: { duration: 0.2 }
-                  }}
-                  className={`
-                    font-serif
-                    pl-1
-                    cursor-pointer
-                    rounded-md
-                    mb-2
-                    hover:shadow-[inset_0_0_10px_10px_rgba(128,128,128,0.2)]
-                    active:shadow-[inset_0px_0px_10px_rgba(0,0,0,0.7)]
-                    ${currentThread === thread.id
-                      ? "bg-background custom-shadow"
-                      : "bg-transparent text-muted-foreground"
-                    }
-                  `}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setCurrentThread(thread.id);
-                  }}
-                >
-                  <div className="flex-grow">
-                    {editingThreadTitle === thread.id ? (
-                      <div className="flex items-center justify-between">
-                        <Input
-                          ref={threadTitleInputRef}
-                          value={thread.title}
-                          onChange={(e) =>
-                            setThreads((prev: Thread[]) =>
-                              prev.map((t) =>
-                                t.id === thread.id ? { ...t, title: e.target.value } : t
-                              )
-                            )
-                          }
-                          className="min-font-size flex-grow h-8 p-1 my-1"
-                          onClick={(e) => e.stopPropagation()}
-                          maxLength={64}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              e.preventDefault();
-                              confirmEditThreadTitle(thread.id, thread.title);
-                            } else if (e.key === "Escape") {
-                              e.preventDefault();
-                              cancelEditThreadTitle();
-                            }
-                          }}
-                        />
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            confirmEditThreadTitle(thread.id, thread.title);
-                          }}
-                        >
-                          <Check className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            cancelEditThreadTitle();
-                          }}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <div
-                        className="flex items-center justify-between"
-                        onDoubleClick={(e) => {
-                          e.stopPropagation();
-                          startEditingThreadTitle(thread.id, thread.title);
-                        }}
-                      >
-                        <span className="pl-1 flex-grow">{thread.title}</span>
-                        <div className="flex items-center">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleThreadPin(thread.id);
-                            }}
-                          >
-                            {thread.isPinned ? (
-                              <PinOff className="h-4 w-4" />
-                            ) : (
-                              <Pin className="h-4 w-4" />
-                            )}
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deleteThread(thread.id);
-                            }}
-                          >
-                            <Trash className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </motion.div>
-              ))}
-            </motion.div>
-          </AnimatePresence>
-        </ScrollArea>
-      </div>
-    );
-  }
-  
   // Render a single message
   function renderMessage(
     message: Message,
@@ -2152,7 +1984,20 @@ useEffect(() => {
             className="overflow-y-clip fixed top-0 left-2 right-2 pb-20"
             style={{ paddingTop: "env(safe-area-inset-top)" }}
           >
-            {renderThreadsList()}
+           <ThreadList
+              threads={threads}
+              currentThread={currentThread}
+              setCurrentThread={setCurrentThread}
+              startEditingThreadTitle={startEditingThreadTitle}
+              confirmEditThreadTitle={confirmEditThreadTitle}
+              cancelEditThreadTitle={cancelEditThreadTitle}
+              toggleThreadPin={toggleThreadPin}
+              deleteThread={deleteThread}
+              editingThreadTitle={editingThreadTitle}
+              addThread={addThread}
+              setSelectedMessage={setSelectedMessage}
+              setThreads={setThreads}
+            /> 
           </TabsContent>
           <TabsContent
             value="messages"
@@ -2238,7 +2083,20 @@ useEffect(() => {
                 value="threads"
                 className="flex-grow overflow-y-clip"
               >
-                {renderThreadsList()}
+                <ThreadList 
+                  threads={threads} 
+                  currentThread={currentThread} 
+                  setCurrentThread={setCurrentThread} 
+                  startEditingThreadTitle={startEditingThreadTitle} 
+                  confirmEditThreadTitle={confirmEditThreadTitle} 
+                  cancelEditThreadTitle={cancelEditThreadTitle} 
+                  toggleThreadPin={toggleThreadPin} 
+                  deleteThread={deleteThread}
+                  editingThreadTitle={editingThreadTitle}
+                  addThread={addThread}
+                  setSelectedMessage={setSelectedMessage}
+                  setThreads={setThreads}
+                />
               </TabsContent>
               <TabsContent value="models" className="flex-grow overflow-y-clip">
                 {renderModelConfig()}
