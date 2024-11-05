@@ -63,7 +63,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${jetBrainsMono.variable} ${serif.variable}`}>
+    <html lang="en" className={`${jetBrainsMono.variable} ${serif.variable}`} suppressHydrationWarning>
       <head>
         <meta name="mobile-web-app-capable" content="yes" />
       </head>

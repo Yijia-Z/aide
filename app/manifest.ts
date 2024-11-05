@@ -23,7 +23,7 @@ export default function manifest(): MetadataRoute.Manifest {
         "background_color": "#211f1c",
         "id": "aide.zy-j",
         "dir": "ltr",
-        "scope": "aide.zy-j.com",
+        "scope": "/",
         "lang": "en",
         "orientation": "any",
         "categories": [
