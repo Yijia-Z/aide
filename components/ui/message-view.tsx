@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { MessageSquarePlus } from "lucide-react";
@@ -33,7 +33,7 @@ const MessageView: React.FC<MessageViewProps> = ({
   setSelectedMessage,
   cancelEditingMessage,
   addEmptyReply,
-  renderMessage
+  renderMessage,
 }) => {
   const currentThreadData = threads.find((t) => t.id === currentThread);
 
@@ -90,7 +90,9 @@ const MessageView: React.FC<MessageViewProps> = ({
   }
 
   return (
-    <div className={`flex flex-col relative sm:h-full h-[calc(97vh)] hide-scrollbar`}>
+    <div
+      className={`flex flex-col relative sm:h-full h-[calc(97vh)] hide-scrollbar`}
+    >
       <div
         className="top-bar bg-gradient-to-b from-background/100 to-background/00"
         style={{
@@ -116,7 +118,10 @@ const MessageView: React.FC<MessageViewProps> = ({
           <span className="ml-2 hidden md:inline">New Message</span>
         </Button>
       </div>
-      <ScrollArea className="flex-grow" onClick={() => setSelectedMessage(null)}>
+      <ScrollArea
+        className="flex-grow"
+        onClick={() => setSelectedMessage(null)}
+      >
         <div className="mb-4" onClick={(e) => e.stopPropagation()}>
           {currentThreadData?.messages.map((message: Message) =>
             renderMessage(message, currentThread)

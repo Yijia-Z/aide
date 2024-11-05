@@ -3,7 +3,11 @@
 import React, { useState, useCallback, useRef, useEffect } from "react";
 import debounce from "lodash.debounce";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable";
 import { storage } from "./store";
 import ThreadList from "@/components/thread/thread-list";
 import ModelConfig from "./model/model-config";
@@ -15,10 +19,10 @@ import { useThreads } from "./hooks/use-threads";
 import { useMessages } from "./hooks/use-messages";
 
 const DEFAULT_MODEL: Model = {
-  id: 'default',
-  name: 'Default Model',
-  baseModel: 'meta-llama/llama-3.2-3b-instruct:free',
-  systemPrompt: 'You are a helpful assistant.',
+  id: "default",
+  name: "Default Model",
+  baseModel: "meta-llama/llama-3.2-3b-instruct:free",
+  systemPrompt: "You are a helpful assistant.",
   parameters: {
     temperature: 1.3,
     top_p: 1,
@@ -30,7 +34,9 @@ const apiBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 
 export default function ThreadedDocument() {
   // Thread-related states
-  const [activeTab, setActiveTab] = useState<"threads" | "messages" | "models">("threads");
+  const [activeTab, setActiveTab] = useState<"threads" | "messages" | "models">(
+    "threads"
+  );
   const {
     threads,
     setThreads,
@@ -72,22 +78,24 @@ export default function ThreadedDocument() {
     setSelectedModel,
     editingModel,
     setEditingModel,
-  } = useModels(); 
+  } = useModels();
 
   // Connection and generation states
   const [lastAttemptTime, setLastAttemptTime] = useState<number | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [copiedStates, setCopiedStates] = useState<{ [key: string]: boolean }>({});
+  const [copiedStates, setCopiedStates] = useState<{ [key: string]: boolean }>(
+    {}
+  );
 
   // Helper methods
   const getModelDetails = (modelId: string | undefined) => {
     if (!modelId) return null;
-    const model = models.find(m => m.id === modelId);
+    const model = models.find((m) => m.id === modelId);
     if (!model) return null;
     return {
       name: model.name,
-      baseModel: model.baseModel.split('/').pop(),
+      baseModel: model.baseModel.split("/").pop(),
       temperature: model.parameters.temperature,
       maxTokens: model.parameters.max_tokens,
       systemPrompt: model.systemPrompt,
@@ -114,18 +122,22 @@ export default function ThreadedDocument() {
       setEditingMessage(null);
       setEditingContent("");
     },
-    [editingContent]
+    [editingContent, setEditingContent, setEditingMessage, setThreads]
   );
 
   const fetchAvailableModels = useCallback(async () => {
     try {
       // Check if models are already cached in localStorage
-      const cachedModels = localStorage.getItem('availableModels');
-      const lastFetchTime = localStorage.getItem('lastFetchTime');
+      const cachedModels = localStorage.getItem("availableModels");
+      const lastFetchTime = localStorage.getItem("lastFetchTime");
       const currentTime = Date.now();
 
       // If cached models exist and were fetched less than an hour ago, use them
-      if (cachedModels && lastFetchTime && currentTime - parseInt(lastFetchTime) < 3600000) {
+      if (
+        cachedModels &&
+        lastFetchTime &&
+        currentTime - parseInt(lastFetchTime) < 3600000
+      ) {
         const modelData = JSON.parse(cachedModels);
         setAvailableModels(modelData);
         return modelData;
@@ -142,7 +154,10 @@ export default function ThreadedDocument() {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error("Failed to fetch available models from OpenRouter:", errorText);
+        console.error(
+          "Failed to fetch available models from OpenRouter:",
+          errorText
+        );
         throw new Error("Failed to fetch available models from OpenRouter");
       }
 
@@ -155,7 +170,10 @@ export default function ThreadedDocument() {
       }
 
       const modelData = data.data.map((model: any) => {
-        const maxOutput = model.top_provider?.max_completion_tokens ?? model.context_length ?? 9999;
+        const maxOutput =
+          model.top_provider?.max_completion_tokens ??
+          model.context_length ??
+          9999;
         return {
           id: model.id,
           name: model.name,
@@ -174,8 +192,8 @@ export default function ThreadedDocument() {
       });
 
       // Cache the fetched models and update the fetch time
-      localStorage.setItem('availableModels', JSON.stringify(modelData));
-      localStorage.setItem('lastFetchTime', currentTime.toString());
+      localStorage.setItem("availableModels", JSON.stringify(modelData));
+      localStorage.setItem("lastFetchTime", currentTime.toString());
 
       setAvailableModels(modelData);
       return modelData;
@@ -183,15 +201,14 @@ export default function ThreadedDocument() {
       console.error("Error fetching available models:", error);
       return [];
     }
-  }, []); 
-
+  }, [setAvailableModels]);
 
   // useCallback methods
   // Save threads
   const debouncedSaveThreads = useCallback(
     debounce(async (threadsToSave: Thread[]) => {
       try {
-        storage.set('threads', threadsToSave);
+        storage.set("threads", threadsToSave);
         if (apiBaseUrl) {
           const savePromises = threadsToSave.map((thread: Thread) =>
             fetch(`${apiBaseUrl}/api/save_thread`, {
@@ -226,11 +243,22 @@ export default function ThreadedDocument() {
     setCurrentThread(newThread.id);
     setEditingThreadTitle(newThread.id);
     setOriginalThreadTitle("New Thread");
-  }, []);
+  }, [
+    setCurrentThread,
+    setEditingThreadTitle,
+    setOriginalThreadTitle,
+    setThreads,
+  ]);
 
   // Add message
   const addMessage = useCallback(
-    (threadId: string, parentId: string | null, content: string, publisher: "user" | "ai", newMessageId?: string) => {
+    (
+      threadId: string,
+      parentId: string | null,
+      content: string,
+      publisher: "user" | "ai",
+      newMessageId?: string
+    ) => {
       setThreads((prev) =>
         prev.map((thread) => {
           if (thread.id !== threadId) return thread;
@@ -251,92 +279,116 @@ export default function ThreadedDocument() {
             if (message.id === parentId) {
               return { ...message, replies: [...message.replies, newMessage] };
             }
-            return { ...message, replies: message.replies.map(addReplyToMessage) };
+            return {
+              ...message,
+              replies: message.replies.map(addReplyToMessage),
+            };
           };
 
           if (!parentId) {
             return { ...thread, messages: [...thread.messages, newMessage] };
           }
-          return { ...thread, messages: thread.messages.map(addReplyToMessage) };
+          return {
+            ...thread,
+            messages: thread.messages.map(addReplyToMessage),
+          };
         })
       );
     },
-    [models, selectedModel]
+    [models, selectedModel, setSelectedMessage, setThreads]
   );
 
   // Change the model
   const handleModelChange = useCallback(
-		(field: keyof Model, value: string | number | Partial<ModelParameters>) => {
-			if (editingModel) {
-				setEditingModel((prevModel) => {
-					if (!prevModel) return prevModel;
-					if (field === "parameters") {
-						return {
-							...prevModel,
-							parameters: { ...prevModel.parameters, ...(value as Partial<ModelParameters>) }
-						};
-					}
-					return { ...prevModel, [field]: value };
-				});
-			}
-		},
-		[editingModel]
-	);
+    (field: keyof Model, value: string | number | Partial<ModelParameters>) => {
+      if (editingModel) {
+        setEditingModel((prevModel) => {
+          if (!prevModel) return prevModel;
+          if (field === "parameters") {
+            return {
+              ...prevModel,
+              parameters: {
+                ...prevModel.parameters,
+                ...(value as Partial<ModelParameters>),
+              },
+            };
+          }
+          return { ...prevModel, [field]: value };
+        });
+      }
+    },
+    [editingModel, setEditingModel]
+  );
 
   // Find a message and its parents
-	const findMessageAndParents = (
-		messages: Message[],
-		targetId: string,
-		parents: Message[] = []
-	): [Message | null, Message[]] => {
-		for (const message of messages) {
-			if (message.id === targetId) {
-				return [message, parents];
-			}
-			const [found, foundParents] = findMessageAndParents(message.replies, targetId, [...parents, message]);
-			if (found) {
-				return [found, foundParents];
-			}
-		}
-		return [null, []];
-	};
+  const findMessageAndParents = useCallback(
+    (
+      messages: Message[],
+      targetId: string,
+      parents: Message[] = []
+    ): [Message | null, Message[]] => {
+      for (const message of messages) {
+        if (message.id === targetId) {
+          return [message, parents];
+        }
+        const [found, foundParents] = findMessageAndParents(
+          message.replies,
+          targetId,
+          [...parents, message]
+        );
+        if (found) {
+          return [found, foundParents];
+        }
+      }
+      return [null, []];
+    },
+    []
+  );
 
   // Get siblings of a message
-	const getSiblings = (messages: Message[], messageId: string): Message[] => {
-		for (const message of messages) {
-			if (message.id === messageId) {
-				return messages;
-			}
-			const siblings = getSiblings(message.replies, messageId);
-			if (siblings.length > 0) {
-				return siblings;
-			}
-		}
-		return [];
-	};
+  const getSiblings = (messages: Message[], messageId: string): Message[] => {
+    for (const message of messages) {
+      if (message.id === messageId) {
+        return messages;
+      }
+      const siblings = getSiblings(message.replies, messageId);
+      if (siblings.length > 0) {
+        return siblings;
+      }
+    }
+    return [];
+  };
 
   // Start editing a thread title
-	const startEditingThreadTitle = useCallback((threadId: string, currentTitle: string) => {
-		setEditingThreadTitle(threadId);
-		setOriginalThreadTitle(currentTitle);
-	}, []);
+  const startEditingThreadTitle = useCallback(
+    (threadId: string, currentTitle: string) => {
+      setEditingThreadTitle(threadId);
+      setOriginalThreadTitle(currentTitle);
+    },
+    [setEditingThreadTitle, setOriginalThreadTitle]
+  );
 
   // Save thread to backend
-	const saveThreadToBackend = useCallback(
+  const saveThreadToBackend = useCallback(
     async (threadId: string, updatedData: Partial<Thread>) => {
       try {
         // Cache the thread data to local storage
-        const cachedThreads = JSON.parse(localStorage.getItem('threads') || '[]');
+        const cachedThreads = JSON.parse(
+          localStorage.getItem("threads") || "[]"
+        );
         const updatedThreads = cachedThreads.map((thread: Thread) =>
           thread.id === threadId ? { ...thread, ...updatedData } : thread
         );
-        localStorage.setItem('threads', JSON.stringify(updatedThreads));
+        localStorage.setItem("threads", JSON.stringify(updatedThreads));
 
         // Only update the backend if apiBaseUrl is available
         if (apiBaseUrl) {
-          const lastUpdateTime = parseInt(localStorage.getItem('lastThreadUpdateTime') || '0');
+          const lastUpdateTime = parseInt(
+            localStorage.getItem("lastThreadUpdateTime") || "0"
+          );
           const currentTime = Date.now();
-          if (currentTime - lastUpdateTime > 60000) { // Update every 60 seconds
+          if (currentTime - lastUpdateTime > 60000) {
+          // Update every 60 seconds
             const response = await fetch(`${apiBaseUrl}/api/save_thread`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -345,47 +397,68 @@ export default function ThreadedDocument() {
             if (!response.ok) {
               throw new Error(`editthread ${threadId} fail`);
             }
-            localStorage.setItem('lastThreadUpdateTime', currentTime.toString());
+            localStorage.setItem(
+              "lastThreadUpdateTime",
+              currentTime.toString()
+            );
           }
         }
       } catch (error) {
         console.error(`update ${threadId} datafail:`, error);
       }
     },
-    [apiBaseUrl]
+    []
   );
 
   // Confirm editing a thread title
-	const confirmEditThreadTitle = useCallback((threadId: string, newTitle: string) => {
-		setThreads((prev: Thread[]) => 
-			prev.map((thread) => 
-				thread.id === threadId ? { ...thread, title: newTitle } : thread
-			)
-		);
-		setEditingThreadTitle(null);
-		setOriginalThreadTitle(newTitle);
-		saveThreadToBackend(threadId, { title: newTitle });
-	}, [saveThreadToBackend]);
+  const confirmEditThreadTitle = useCallback(
+    (threadId: string, newTitle: string) => {
+      setThreads((prev: Thread[]) =>
+        prev.map((thread) =>
+          thread.id === threadId ? { ...thread, title: newTitle } : thread
+        )
+      );
+      setEditingThreadTitle(null);
+      setOriginalThreadTitle(newTitle);
+      saveThreadToBackend(threadId, { title: newTitle });
+    },
+    [
+      saveThreadToBackend,
+      setEditingThreadTitle,
+      setOriginalThreadTitle,
+      setThreads,
+    ]
+  );
 
-	// Start editing a message
-  const startEditingMessage = useCallback((message: Message) => {
-    setEditingMessage(message.id);
-    setEditingContent(message.content);
-  }, []);
+  // Start editing a message
+  const startEditingMessage = useCallback(
+    (message: Message) => {
+      setEditingMessage(message.id);
+      setEditingContent(message.content);
+    },
+    [setEditingContent, setEditingMessage]
+  );
 
-	const cancelEditThreadTitle = useCallback(() => {
-		if (editingThreadTitle) {
-			setThreads((prev: Thread[]) => 
-				prev.map((thread) => 
-					thread.id === editingThreadTitle ? { ...thread, title: originalThreadTitle } : thread
-				)
-			);
-			setEditingThreadTitle(null);
-		}
-	}, [editingThreadTitle, originalThreadTitle]);
+  const cancelEditThreadTitle = useCallback(() => {
+    if (editingThreadTitle) {
+      setThreads((prev: Thread[]) =>
+        prev.map((thread) =>
+          thread.id === editingThreadTitle
+            ? { ...thread, title: originalThreadTitle }
+            : thread
+        )
+      );
+      setEditingThreadTitle(null);
+    }
+  }, [
+    editingThreadTitle,
+    originalThreadTitle,
+    setEditingThreadTitle,
+    setThreads,
+  ]);
 
   // Add a new message
-	const addEmptyReply = useCallback(
+  const addEmptyReply = useCallback(
     (threadId: string, parentId: string | null) => {
       const newMessageId = Date.now().toString();
       addMessage(threadId, parentId, "", "user", newMessageId);
@@ -412,7 +485,7 @@ export default function ThreadedDocument() {
     [addMessage, startEditingMessage]
   );
 
-	// Delete a message
+  // Delete a message
   const deleteMessage = useCallback(
     (threadId: string, messageId: string, deleteChildren: boolean) => {
       setThreads((prev: Thread[]) =>
@@ -420,18 +493,28 @@ export default function ThreadedDocument() {
           if (thread.id !== threadId) return thread;
 
           const removeMessage = (messages: Message[]): Message[] => {
-            const [messageToDelete, parentMessages] = findMessageAndParents(messages, messageId);
+            const [messageToDelete, parentMessages] = findMessageAndParents(
+              messages,
+              messageId
+            );
             if (!messageToDelete) return messages;
 
             const filterAndMerge = (msgs: Message[]) =>
               deleteChildren
                 ? msgs.filter((m) => m.id !== messageId)
-                : [...msgs.filter((m) => m.id !== messageId), ...messageToDelete.replies];
+                : [
+                  ...msgs.filter((m) => m.id !== messageId),
+                  ...messageToDelete.replies,
+                ];
 
-            const updateSelection = (newMsgs: Message[], parentMsg?: Message) => {
+            const updateSelection = (
+              newMsgs: Message[],
+              parentMsg?: Message
+            ) => {
               if (newMsgs.length > 0) {
-                const index = messages.findIndex(m => m.id === messageId);
-                const newSelectedId = index > 0 ? newMsgs[index - 1].id : newMsgs[0].id;
+                const index = messages.findIndex((m) => m.id === messageId);
+                const newSelectedId =
+                  index > 0 ? newMsgs[index - 1].id : newMsgs[0].id;
                 setSelectedMessage(newSelectedId);
               } else if (parentMsg) {
                 setSelectedMessage(parentMsg.id);
@@ -464,62 +547,73 @@ export default function ThreadedDocument() {
         })
       );
     },
-    [setSelectedMessage]
+    [setSelectedMessage, findMessageAndParents, setThreads]
   );
-	
-  // Toggle message collapse state
-  const toggleCollapse = useCallback((threadId: string, messageId: string) => {
-    setThreads((prev: Thread[]) =>
-      prev.map((thread) => {
-        if (thread.id !== threadId) return thread;
-        const toggleMessage = (messages: Message[]): Message[] => {
-          return messages.map((message) => {
-            if (message.id === messageId) {
-              return {
-                ...message,
-                isCollapsed: !message.isCollapsed,
-                userCollapsed: !message.isCollapsed
-              };
-            }
-            return { ...message, replies: toggleMessage(message.replies) };
-          });
-        };
-        return { ...thread, messages: toggleMessage(thread.messages) };
-      })
-    );
-  }, []);
 
-	// Add helper function to deep clone a message and its replies with new IDs
+  // Toggle message collapse state
+  const toggleCollapse = useCallback(
+    (threadId: string, messageId: string) => {
+      setThreads((prev: Thread[]) =>
+        prev.map((thread) => {
+          if (thread.id !== threadId) return thread;
+          const toggleMessage = (messages: Message[]): Message[] => {
+            return messages.map((message) => {
+              if (message.id === messageId) {
+                return {
+                  ...message,
+                  isCollapsed: !message.isCollapsed,
+                  userCollapsed: !message.isCollapsed,
+                };
+              }
+              return { ...message, replies: toggleMessage(message.replies) };
+            });
+          };
+          return { ...thread, messages: toggleMessage(thread.messages) };
+        })
+      );
+    },
+    [setThreads]
+  );
+
+  // Add helper function to deep clone a message and its replies with new IDs
   const cloneMessageWithNewIds = useCallback((message: Message): Message => {
     const newId = Date.now().toString() + Math.random().toString(36).slice(2);
     return {
       ...message,
       id: newId,
-      replies: message.replies.map(reply => cloneMessageWithNewIds(reply))
+      replies: message.replies.map((reply) => cloneMessageWithNewIds(reply)),
     };
   }, []);
 
-	// Add copy/cut function
-  const copyOrCutMessage = useCallback((threadId: string, messageId: string, operation: "copy" | "cut") => {
-    setThreads(prev => {
-      const thread = prev.find(t => t.id === threadId);
-      if (!thread) return prev;
+  // Add copy/cut function
+  const copyOrCutMessage = useCallback(
+    (threadId: string, messageId: string, operation: "copy" | "cut") => {
+      setThreads((prev) => {
+        const thread = prev.find((t) => t.id === threadId);
+        if (!thread) return prev;
 
-      const [message] = findMessageAndParents(thread.messages, messageId);
-      if (!message) return prev;
+        const [message] = findMessageAndParents(thread.messages, messageId);
+        if (!message) return prev;
 
-      setClipboardMessage({
-        message: cloneMessageWithNewIds(message),
-        operation,
-        sourceThreadId: threadId,
-        originalMessageId: messageId
+        setClipboardMessage({
+          message: cloneMessageWithNewIds(message),
+          operation,
+          sourceThreadId: threadId,
+          originalMessageId: messageId,
+        });
+
+        return prev;
       });
+    },
+    [
+      cloneMessageWithNewIds,
+      findMessageAndParents,
+      setClipboardMessage,
+      setThreads,
+    ]
+  );
 
-      return prev;
-    });
-  }, [cloneMessageWithNewIds]);
-
-	// Cancel editing a message
+  // Cancel editing a message
   const cancelEditingMessage = useCallback(() => {
     setThreads((prev: Thread[]) =>
       prev.map((thread) => {
@@ -543,19 +637,31 @@ export default function ThreadedDocument() {
     );
     setEditingMessage(null);
     setEditingContent("");
-  }, [editingMessage, deleteMessage]);
+  }, [
+    editingMessage,
+    deleteMessage,
+    setEditingContent,
+    setEditingMessage,
+    setThreads,
+  ]);
 
   const fetchModelParameters = async (modelId: string) => {
     console.log(`Fetching parameters for model ID: ${modelId}`);
     try {
-      const response = await fetch(`/api/model-parameters?modelId=${encodeURIComponent(modelId)}`);
+      const response = await fetch(
+        `/api/model-parameters?modelId=${encodeURIComponent(modelId)}`
+      );
       if (!response.ok) {
-        throw new Error(`Failed to fetch model parameters: ${response.status} ${response.statusText}`);
+        throw new Error(
+          `Failed to fetch model parameters: ${response.status} ${response.statusText}`
+        );
       }
       const data = await response.json();
 
       // Find the corresponding model in availableModels to get the max_output
-      const selectedModel = availableModels.find(model => model.id === modelId);
+      const selectedModel = availableModels.find(
+        (model) => model.id === modelId
+      );
       if (selectedModel && selectedModel.parameters?.max_output) {
         data.max_output = selectedModel.parameters.max_output;
       }
@@ -579,7 +685,7 @@ export default function ThreadedDocument() {
       );
       setEditingModel(null);
     }
-  }, [editingModel]);
+  }, [editingModel, setEditingModel, setModels]);
 
   const deleteModel = useCallback(
     (id: string) => {
@@ -591,7 +697,7 @@ export default function ThreadedDocument() {
         setSelectedModel(models[0].id);
       }
     },
-    [models, selectedModel]
+    [models, selectedModel, setModels, setSelectedModel]
   );
 
   const addNewModel = useCallback(() => {
@@ -608,27 +714,34 @@ export default function ThreadedDocument() {
     };
     setModels((prev: any) => [...prev, newModel]);
     setEditingModel(newModel);
-  }, []);
+  }, [setEditingModel, setModels]);
 
-  const toggleThreadPin = useCallback((threadId: string) => {
-    setThreads((prev: Thread[]) =>
-      prev.map((thread) =>
-        thread.id === threadId
-          ? { ...thread, isPinned: !thread.isPinned }
-          : thread
-      )
-    );
-  }, []);
+  const toggleThreadPin = useCallback(
+    (threadId: string) => {
+      setThreads((prev: Thread[]) =>
+        prev.map((thread) =>
+          thread.id === threadId
+            ? { ...thread, isPinned: !thread.isPinned }
+            : thread
+        )
+      );
+    },
+    [setThreads]
+  );
 
   const deleteThread = useCallback(
     (threadId: string) => {
       setThreads((prev: Thread[]) => {
         const updatedThreads = prev.filter((thread) => thread.id !== threadId);
         if (currentThread === threadId) {
-          const currentIndex = prev.findIndex((thread) => thread.id === threadId);
+          const currentIndex = prev.findIndex(
+            (thread) => thread.id === threadId
+          );
           const newIndex = currentIndex > 0 ? currentIndex - 1 : 0;
           setCurrentThread(
-            updatedThreads.length > 0 ? updatedThreads[newIndex]?.id || null : null
+            updatedThreads.length > 0
+              ? updatedThreads[newIndex]?.id || null
+              : null
           );
         }
         return updatedThreads;
@@ -639,10 +752,13 @@ export default function ThreadedDocument() {
           return;
         }
         try {
-          const response = await fetch(`${apiBaseUrl}/api/delete_thread/${threadId}`, {
-            method: "DELETE",
-            headers: { "Content-Type": "application/json" },
-          });
+          const response = await fetch(
+            `${apiBaseUrl}/api/delete_thread/${threadId}`,
+            {
+              method: "DELETE",
+              headers: { "Content-Type": "application/json" },
+            }
+          );
           if (!response.ok) {
             throw new Error(`Failed to delete thread ${threadId}`);
           }
@@ -654,7 +770,7 @@ export default function ThreadedDocument() {
 
       deleteThreadFromBackend();
     },
-    [currentThread]
+    [currentThread, setThreads, setCurrentThread]
   );
 
   // Update message content
@@ -675,84 +791,91 @@ export default function ThreadedDocument() {
         })
       );
     },
-    []
+    [setThreads]
   );
-  
-  
-  const pasteMessage = useCallback((threadId: string, parentId: string | null) => {
-    if (!clipboardMessage) return;
 
-    // Don't allow pasting on the original message
-    if (parentId === clipboardMessage.originalMessageId) return;
+  const pasteMessage = useCallback(
+    (threadId: string, parentId: string | null) => {
+      if (!clipboardMessage) return;
 
-    setThreads(prev => {
-      let updatedThreads = [...prev];
+      // Prevent pasting on the original message
+      if (parentId === clipboardMessage.originalMessageId) return;
 
-      // First handle deletion of original message if this was a cut operation
-      if (clipboardMessage.operation === "cut" && clipboardMessage.sourceThreadId) {
-        updatedThreads = updatedThreads.map(thread => {
-          if (thread.id !== clipboardMessage.sourceThreadId) return thread;
+      setThreads((prev) => {
+        let updatedThreads = [...prev];
 
-          const deleteMessageFromThread = (messages: Message[]): Message[] => {
-            return messages.filter(msg => {
-              if (msg.id === clipboardMessage.originalMessageId) {
-                return false;
+        // First handle deletion of original message if this was a cut operation
+        if (
+          clipboardMessage.operation === "cut" &&
+          clipboardMessage.sourceThreadId
+        ) {
+          updatedThreads = updatedThreads.map((thread) => {
+            if (thread.id !== clipboardMessage.sourceThreadId) return thread;
+
+            const deleteMessageFromThread = (
+              messages: Message[]
+            ): Message[] => {
+              return messages.filter((msg) => {
+                if (msg.id === clipboardMessage.originalMessageId) {
+                  return false;
+                }
+                msg.replies = deleteMessageFromThread(msg.replies);
+                return true;
+              });
+            };
+
+            return {
+              ...thread,
+              messages: deleteMessageFromThread(thread.messages),
+            };
+          });
+        }
+
+        // Then handle the paste operation
+        return updatedThreads.map((thread) => {
+          if (thread.id !== threadId) return thread;
+
+          // If thread has no messages array, initialize it
+          if (!thread.messages) {
+            thread.messages = [];
+          }
+
+          // If no parentId is provided or thread is empty, paste at the root level
+          if (!parentId || thread.messages.length === 0) {
+            return {
+              ...thread,
+              messages: [...thread.messages, clipboardMessage.message],
+            };
+          }
+
+          // Otherwise, paste as a reply to the specified parent
+          const addMessageToParent = (messages: Message[]): Message[] => {
+            return messages.map((message) => {
+              if (message.id === parentId) {
+                return {
+                  ...message,
+                  replies: [...message.replies, clipboardMessage.message],
+                };
               }
-              msg.replies = deleteMessageFromThread(msg.replies);
-              return true;
+              return {
+                ...message,
+                replies: addMessageToParent(message.replies),
+              };
             });
           };
 
           return {
             ...thread,
-            messages: deleteMessageFromThread(thread.messages)
+            messages: addMessageToParent(thread.messages),
           };
         });
-      }
-
-      // Then handle the paste operation
-      return updatedThreads.map(thread => {
-        if (thread.id !== threadId) return thread;
-
-        // If thread has no messages array, initialize it
-        if (!thread.messages) {
-          thread.messages = [];
-        }
-
-        // If no parentId is provided or thread is empty, paste at the root level
-        if (!parentId || thread.messages.length === 0) {
-          return {
-            ...thread,
-            messages: [...thread.messages, clipboardMessage.message]
-          };
-        }
-
-        // Otherwise, paste as a reply to the specified parent
-        const addMessageToParent = (messages: Message[]): Message[] => {
-          return messages.map(message => {
-            if (message.id === parentId) {
-              return {
-                ...message,
-                replies: [...message.replies, clipboardMessage.message]
-              };
-            }
-            return {
-              ...message,
-              replies: addMessageToParent(message.replies)
-            };
-          });
-        };
-
-        return {
-          ...thread,
-          messages: addMessageToParent(thread.messages)
-        };
       });
-    });
 
-    setSelectedMessage(clipboardMessage.message.id);
-    setClipboardMessage(null);
-  }, [clipboardMessage]);
+      setSelectedMessage(clipboardMessage.message.id);
+      setClipboardMessage(null);
+    },
+    [clipboardMessage, setClipboardMessage, setSelectedMessage, setThreads]
+  );
 
   // Find message by ID
   const findMessageById = useCallback(
@@ -768,21 +891,41 @@ export default function ThreadedDocument() {
   );
 
   // Collapse deep children
-  const collapseDeepChildren = useCallback((msg: Message, selectedDepth: number, currentDepth: number, isSelectedBranch: boolean): Message => {
-    const maxDepth = window.innerWidth >= 1024 ? 8 :
-      window.innerWidth >= 768 ? 7 :
-        window.innerWidth >= 480 ? 6 : 5;
+  const collapseDeepChildren = useCallback(
+    (
+      msg: Message,
+      selectedDepth: number,
+      currentDepth: number,
+      isSelectedBranch: boolean
+    ): Message => {
+      const maxDepth =
+        window.innerWidth >= 1024
+          ? 8
+          : window.innerWidth >= 768
+            ? 7
+            : window.innerWidth >= 480
+              ? 6
+              : 5;
 
-    const shouldAutoCollapse = isSelectedBranch
-      ? currentDepth - selectedDepth >= maxDepth
-      : currentDepth >= maxDepth;
+      const shouldAutoCollapse = isSelectedBranch
+        ? currentDepth - selectedDepth >= maxDepth
+        : currentDepth >= maxDepth;
 
-    return {
-      ...msg,
-      isCollapsed: msg.userCollapsed || shouldAutoCollapse,
-      replies: msg.replies.map(reply => collapseDeepChildren(reply, selectedDepth, currentDepth + 1, isSelectedBranch))
-    };
-  }, []);
+      return {
+        ...msg,
+        isCollapsed: msg.userCollapsed || shouldAutoCollapse,
+        replies: msg.replies.map((reply) =>
+          collapseDeepChildren(
+            reply,
+            selectedDepth,
+            currentDepth + 1,
+            isSelectedBranch
+          )
+        ),
+      };
+    },
+    []
+  );
 
   // Generate AI reply
   const generateAIReply = useCallback(
@@ -846,16 +989,12 @@ export default function ThreadedDocument() {
     ]
   );
 
-
-
-
-
   // useEffect hooks
   // Load threads
   useEffect(() => {
     const loadThreads = async () => {
       try {
-        const cachedThreads = storage.get('threads');
+        const cachedThreads = storage.get("threads");
         if (cachedThreads) {
           setThreads(cachedThreads);
           setCurrentThread(cachedThreads[0]?.id || null);
@@ -867,27 +1006,32 @@ export default function ThreadedDocument() {
             id: Date.now().toString(),
             title: "Welcome Thread",
             isPinned: false,
-            messages: [{
-              id: Date.now().toString(),
-              content: "Welcome to your new chat thread! You can start a conversation here or create a new thread.",
-              publisher: "ai" as const,
-              replies: [],
-              isCollapsed: false,
-              userCollapsed: false,
-            }]
+            messages: [
+              {
+                id: Date.now().toString(),
+                content:
+                  "Welcome to your new chat thread! You can start a conversation here or create a new thread.",
+                publisher: "ai" as const,
+                replies: [],
+                isCollapsed: false,
+                userCollapsed: false,
+              },
+            ],
           };
           setThreads([defaultThread]);
           setCurrentThread(defaultThread.id);
-          storage.set('threads', [defaultThread]);
+          storage.set("threads", [defaultThread]);
           return;
         }
 
-        const response = await fetch(`${apiBaseUrl}/api/load_threads`, { method: "GET" });
+        const response = await fetch(`${apiBaseUrl}/api/load_threads`, {
+          method: "GET",
+        });
         if (response.ok) {
           const data = await response.json();
           setThreads(data.threads || []);
           setCurrentThread(data.threads[0]?.id || null);
-          storage.set('threads', data.threads || []);
+          storage.set("threads", data.threads || []);
         } else {
           throw new Error("Failed to load threads from backend");
         }
@@ -897,106 +1041,108 @@ export default function ThreadedDocument() {
           id: Date.now().toString(),
           title: "Welcome Thread",
           isPinned: false,
-          messages: [{
-            id: Date.now().toString(),
-            content: "Welcome to your new chat thread! You can start a conversation here or create a new thread.",
-            publisher: "ai" as const,
-            replies: [],
-            isCollapsed: false,
-            userCollapsed: false,
-          }]
+          messages: [
+            {
+              id: Date.now().toString(),
+              content:
+                "Welcome to your new chat thread! You can start a conversation here or create a new thread.",
+              publisher: "ai" as const,
+              replies: [],
+              isCollapsed: false,
+              userCollapsed: false,
+            },
+          ],
         };
         setThreads([defaultThread]);
         setCurrentThread(defaultThread.id);
-        storage.set('threads', [defaultThread]);
+        storage.set("threads", [defaultThread]);
       }
     };
 
     loadThreads();
-  }, []);
+  }, [setCurrentThread, setThreads]);
 
-// Focus on thread title input when editing
-useEffect(() => {
-  if (editingThreadTitle && threadTitleInputRef.current) {
-    threadTitleInputRef.current.focus();
-  }
-}, [editingThreadTitle]);
-
-
-// Scroll to selected message
-useEffect(() => {
-  if (selectedMessage) {
-    const messageElement = document.getElementById(
-      `message-${selectedMessage}`
-    );
-    if (messageElement) {
-      messageElement.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
+  // Focus on thread title input when editing
+  useEffect(() => {
+    if (editingThreadTitle && threadTitleInputRef.current) {
+      threadTitleInputRef.current.focus();
     }
-  }
-}, [selectedMessage]);
+  }, [editingThreadTitle]);
 
-// Scroll to reply box when replying
-useEffect(() => {
-  if (replyBoxRef.current) {
-    replyBoxRef.current.scrollIntoView({
-      behavior: "smooth",
-      block: "end",
-    });
-  }
-}, [replyingTo]);
-
-// Connect to backend on component mount
-useEffect(() => {
-  const connectToBackend = async () => {
-    if (!apiBaseUrl) return;
-
-    try {
-      const response = await fetch(`${apiBaseUrl}/api/connect`, {
-        method: "GET",
-      });
-      if (response.ok) {
-        console.log("Connected to backend!");
-        setIsConnected(true);
-      } else {
-        console.error("Failed to connect to backend.");
+  // Scroll to selected message
+  useEffect(() => {
+    if (selectedMessage) {
+      const messageElement = document.getElementById(
+        `message-${selectedMessage}`
+      );
+      if (messageElement) {
+        messageElement.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
       }
-    } catch (error) {
-      console.error("Error connecting to backend:", error);
-    } finally {
-      setLastAttemptTime(Date.now());
     }
-  };
+  }, [selectedMessage]);
 
-  if (
-    !isConnected &&
-    (!lastAttemptTime || Date.now() - lastAttemptTime >= 5000)
-  ) {
-    connectToBackend();
-  }
+  // Scroll to reply box when replying
+  useEffect(() => {
+    if (replyBoxRef.current) {
+      replyBoxRef.current.scrollIntoView({
+        behavior: "smooth",
+        block: "end",
+      });
+    }
+  }, [replyingTo]);
 
-  const intervalId = setInterval(() => {
-    if (!isConnected) {
+  // Connect to backend on component mount
+  useEffect(() => {
+    const connectToBackend = async () => {
+      if (!apiBaseUrl) return;
+
+      try {
+        const response = await fetch(`${apiBaseUrl}/api/connect`, {
+          method: "GET",
+        });
+        if (response.ok) {
+          console.log("Connected to backend!");
+          setIsConnected(true);
+        } else {
+          console.error("Failed to connect to backend.");
+        }
+      } catch (error) {
+        console.error("Error connecting to backend:", error);
+      } finally {
+        setLastAttemptTime(Date.now());
+      }
+    };
+
+    if (
+      !isConnected &&
+      (!lastAttemptTime || Date.now() - lastAttemptTime >= 5000)
+    ) {
       connectToBackend();
     }
-  }, 5000);
 
-  return () => clearInterval(intervalId);
-}, [isConnected, lastAttemptTime, apiBaseUrl]);
+    const intervalId = setInterval(() => {
+      if (!isConnected) {
+        connectToBackend();
+      }
+    }, 5000);
 
-// Save threads
-useEffect(() => {
-  debouncedSaveThreads(threads);
-  return debouncedSaveThreads.cancel;
-}, [threads, debouncedSaveThreads]);
+    return () => clearInterval(intervalId);
+  }, [isConnected, lastAttemptTime]);
 
-// Add new thread
-useEffect(() => {
+  // Save threads
+  useEffect(() => {
+    debouncedSaveThreads(threads);
+    return debouncedSaveThreads.cancel;
+  }, [threads, debouncedSaveThreads]);
+
+  // Add new thread
+  useEffect(() => {
     const loadModels = async () => {
       // First, try to load models from cache
-      const cachedModels = storage.get('models');
+      const cachedModels = storage.get("models");
       if (cachedModels) {
         setModels(cachedModels);
         setSelectedModel(cachedModels[0]?.id || null);
@@ -1032,7 +1178,7 @@ useEffect(() => {
           setModelsLoaded(true);
 
           // Update cache with the newly fetched models
-          storage.set('models', loadedModels);
+          storage.set("models", loadedModels);
         } else {
           console.error("Failed to load models from backend.");
           // Ensure default model is set if loading fails and no cache exists
@@ -1054,15 +1200,14 @@ useEffect(() => {
     };
 
     loadModels();
-  }, []);
-
+  }, [setModels, setModelsLoaded, setSelectedModel]);
 
   // fetch available models
   useEffect(() => {
     const saveModels = async () => {
       if (!apiBaseUrl) {
         // Cache models to browser storage if apiBaseUrl is not present
-        storage.set('models', models);
+        storage.set("models", models);
         return;
       }
 
@@ -1088,31 +1233,231 @@ useEffect(() => {
 
   useEffect(() => {
     if (selectedMessage && currentThread) {
-      setThreads(prevThreads => prevThreads.map(thread => {
-        if (thread.id === currentThread) {
-          const findSelectedMessageBranch = (messages: Message[], depth: number = 0): [number, Message[]] => {
-            for (const msg of messages) {
-              if (msg.id === selectedMessage) return [depth, [msg]];
-              const [foundDepth, branch] = findSelectedMessageBranch(msg.replies, depth + 1);
-              if (foundDepth !== -1) return [foundDepth, [msg, ...branch]];
-            }
-            return [-1, []];
-          };
+      setThreads((prevThreads) =>
+        prevThreads.map((thread) => {
+          if (thread.id === currentThread) {
+            const findSelectedMessageBranch = (
+              messages: Message[],
+              depth: number = 0
+            ): [number, Message[]] => {
+              for (const msg of messages) {
+                if (msg.id === selectedMessage) return [depth, [msg]];
+                const [foundDepth, branch] = findSelectedMessageBranch(
+                  msg.replies,
+                  depth + 1
+                );
+                if (foundDepth !== -1) return [foundDepth, [msg, ...branch]];
+              }
+              return [-1, []];
+            };
 
-          const [selectedDepth, selectedBranch] = findSelectedMessageBranch(thread.messages);
+            const [selectedDepth, selectedBranch] = findSelectedMessageBranch(
+              thread.messages
+            );
 
-          return {
-            ...thread,
-            messages: thread.messages.map(msg => {
-              const isSelectedBranch = selectedBranch.includes(msg);
-              return collapseDeepChildren(msg, selectedDepth, 0, isSelectedBranch);
-            })
-          };
-        }
-        return thread;
-      }));
+            return {
+              ...thread,
+              messages: thread.messages.map((msg) => {
+                const isSelectedBranch = selectedBranch.includes(msg);
+                return collapseDeepChildren(
+                  msg,
+                  selectedDepth,
+                  0,
+                  isSelectedBranch
+                );
+              }),
+            };
+          }
+          return thread;
+        })
+      );
     }
-  }, [selectedMessage, currentThread, collapseDeepChildren]);
+  }, [selectedMessage, currentThread, setThreads, collapseDeepChildren]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Check if any input element is focused
+      const activeElement = document.activeElement;
+      const isInputFocused = activeElement instanceof HTMLInputElement ||
+        activeElement instanceof HTMLTextAreaElement;
+
+      // Special cases for thread title editing
+      if (editingThreadTitle && isInputFocused) {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          setEditingThreadTitle(null);
+        }
+        else if (event.key === 'Escape') {
+          event.preventDefault();
+          cancelEditThreadTitle();
+        }
+        return
+      }
+
+      // Special cases for message editing
+      if (editingMessage && isInputFocused) {
+        if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+          event.preventDefault();
+          if (currentThread) {
+            confirmEditingMessage(currentThread, editingMessage);
+          }
+        } else if (event.key === 'Escape') {
+          event.preventDefault();
+          cancelEditingMessage();
+        }
+        return;
+      }
+
+      // Special cases for model editing
+      if (editingModel && isInputFocused) {
+        if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+          event.preventDefault();
+          saveModelChanges();
+        } else if (event.key === 'Escape') {
+          event.preventDefault();
+          setEditingModel(null);
+        }
+        return;
+      }
+
+      // If any other input is focused, don't handle hotkeys
+      if (isInputFocused) {
+        return;
+      }
+
+      // Only handle navigation and action hotkeys if no input is focused
+      if (!isInputFocused) {
+        // Handle copy/paste operations that only require thread selection
+        if (currentThread) {
+          switch (event.key) {
+            case 'c':
+              if ((event.metaKey || event.ctrlKey) && selectedMessage) {
+                event.preventDefault();
+                copyOrCutMessage(currentThread, selectedMessage, "copy");
+              }
+              break;
+            case 'x':
+              if ((event.metaKey || event.ctrlKey) && selectedMessage) {
+                event.preventDefault();
+                copyOrCutMessage(currentThread, selectedMessage, "cut");
+              }
+              break;
+            case 'v':
+              if (event.metaKey || event.ctrlKey) {
+                event.preventDefault();
+                if (clipboardMessage) {
+                  // If no message is selected, paste at thread root level
+                  pasteMessage(currentThread, selectedMessage || null);
+                }
+              }
+              break;
+            case 'Escape':
+              if (clipboardMessage) {
+                setClipboardMessage(null);
+              }
+              break;
+          }
+        }
+
+        // Handle operations that require both thread and message selection
+        if (!selectedMessage || !currentThread) return;
+
+        const currentThreadData = threads.find((t) => t.id === currentThread);
+        if (!currentThreadData) return;
+
+        const [currentMessage, parentMessages] = findMessageAndParents(currentThreadData.messages, selectedMessage);
+        const parentMessage = parentMessages.length > 0 ? parentMessages[parentMessages.length - 1] : null;
+        if (!currentMessage) return;
+
+        const siblings = getSiblings(currentThreadData.messages, selectedMessage);
+        const currentIndex = siblings.findIndex((m) => m.id === currentMessage.id);
+
+        switch (event.key) {
+          case "ArrowLeft":
+            if (parentMessage) {
+              setSelectedMessage(parentMessage.id);
+            }
+            break;
+          case "ArrowRight":
+            if (currentMessage.replies.length > 0) {
+              setSelectedMessage(currentMessage.replies[0].id);
+            }
+            break;
+          case "ArrowUp":
+            if (currentIndex > 0) {
+              setSelectedMessage(siblings[currentIndex - 1].id);
+            }
+            break;
+          case "ArrowDown":
+            if (currentIndex < siblings.length - 1) {
+              setSelectedMessage(siblings[currentIndex + 1].id);
+            }
+            break;
+          case "r":
+            // R for replying to a message
+            event.preventDefault();
+            if (currentThread) {
+              addEmptyReply(currentThread, selectedMessage);
+            }
+            break;
+          case "g":
+            // G for generating AI reply
+            event.preventDefault();
+            if (currentThread) {
+              generateAIReply(currentThread, selectedMessage);
+            }
+            break;
+          case "e":
+            // E for editing a message
+            if (!editingMessage) {
+              event.preventDefault();
+              const message = findMessageById(
+                currentThreadData.messages,
+                selectedMessage
+              );
+              if (message) {
+                startEditingMessage(message);
+              }
+            }
+            break;
+          case "Delete":
+          case "Backspace":
+            // Delete or Backspace for deleting a message
+            if (event.shiftKey) {
+              // Shift+Delete/Backspace to delete the message and its children
+              deleteMessage(currentThread, selectedMessage, true);
+            } else {
+              // Regular Delete/Backspace to delete only the message
+              deleteMessage(currentThread, selectedMessage, false);
+            }
+            break;
+          default:
+            break;
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [
+    selectedMessage,
+    editingMessage,
+    currentThread,
+    editingThreadTitle,
+    cancelEditThreadTitle,
+    threads,
+    editingModel,
+    generateAIReply,
+    addEmptyReply,
+    startEditingMessage,
+    deleteMessage,
+    findMessageById,
+    confirmEditingMessage,
+    cancelEditingMessage,
+    saveModelChanges,
+  ]);
 
   return (
     <div className="h-screen flex flex-col md:flex-row p-2 overflow-hidden ">
@@ -1130,7 +1475,7 @@ useEffect(() => {
             className="overflow-y-clip fixed top-0 left-2 right-2 pb-20"
             style={{ paddingTop: "env(safe-area-inset-top)" }}
           >
-           <ThreadList
+            <ThreadList
               threads={threads}
               currentThread={currentThread}
               setCurrentThread={setCurrentThread}
@@ -1143,7 +1488,7 @@ useEffect(() => {
               addThread={addThread}
               setSelectedMessage={setSelectedMessage}
               setThreads={setThreads}
-            /> 
+            />
           </TabsContent>
           <TabsContent
             value="messages"
@@ -1179,7 +1524,7 @@ useEffect(() => {
               setCopiedStates={setCopiedStates}
               setThreads={setThreads}
               setClipboardMessage={setClipboardMessage}
-            /> 
+            />
           </TabsContent>
           <TabsContent
             value="models"
@@ -1257,7 +1602,8 @@ useEffect(() => {
                 <TabsTrigger
                   className="bg-transparent transition-scale-zoom hover:bg-secondary hover:custom-shadow data-[state=active]:bg-background"
                   value="threads"
-                >Threads
+                >
+                  Threads
                 </TabsTrigger>
                 <TabsTrigger
                   className="bg-transparent transition-scale-zoom hover:bg-secondary hover:custom-shadow data-[state=active]:bg-background"
@@ -1270,14 +1616,14 @@ useEffect(() => {
                 value="threads"
                 className="flex-grow overflow-y-clip"
               >
-                <ThreadList 
-                  threads={threads} 
-                  currentThread={currentThread} 
-                  setCurrentThread={setCurrentThread} 
-                  startEditingThreadTitle={startEditingThreadTitle} 
-                  confirmEditThreadTitle={confirmEditThreadTitle} 
-                  cancelEditThreadTitle={cancelEditThreadTitle} 
-                  toggleThreadPin={toggleThreadPin} 
+                <ThreadList
+                  threads={threads}
+                  currentThread={currentThread}
+                  setCurrentThread={setCurrentThread}
+                  startEditingThreadTitle={startEditingThreadTitle}
+                  confirmEditThreadTitle={confirmEditThreadTitle}
+                  cancelEditThreadTitle={cancelEditThreadTitle}
+                  toggleThreadPin={toggleThreadPin}
                   deleteThread={deleteThread}
                   editingThreadTitle={editingThreadTitle}
                   addThread={addThread}
@@ -1298,7 +1644,7 @@ useEffect(() => {
                   editingModel={editingModel}
                   setEditingModel={setEditingModel}
                   handleModelChange={handleModelChange}
-                /> 
+                />
               </TabsContent>
             </Tabs>
           </ResizablePanel>

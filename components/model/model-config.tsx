@@ -1,14 +1,20 @@
-import React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Check, X, Trash } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
-import { SelectBaseModel } from '@/components/model/model-selector';
-import { Model, ModelParameters } from '@/components/types';
+import React from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Plus, Check, X, Trash } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { SelectBaseModel } from "@/components/model/model-selector";
+import { Model, ModelParameters } from "@/components/types";
 
 interface ModelConfigProps {
   models: Model[];
@@ -17,7 +23,10 @@ interface ModelConfigProps {
   setSelectedModel: (modelId: string) => void;
   setEditingModel: (model: Model | null) => void;
   addNewModel: () => void;
-  handleModelChange: (field: keyof Model, value: string | number | Partial<ModelParameters>) => void;
+  handleModelChange: (
+    field: keyof Model,
+    value: string | number | Partial<ModelParameters>
+  ) => void;
   saveModelChanges: () => void;
   deleteModel: (modelId: string) => void;
   fetchAvailableModels: () => Promise<any>;
@@ -46,7 +55,10 @@ const ModelConfig: React.FC<ModelConfigProps> = ({
           backdropFilter: "blur(1px)",
         }}
       >
-        <Select value={selectedModel ?? models[0]?.id} onValueChange={setSelectedModel}>
+        <Select
+          value={selectedModel ?? models[0]?.id}
+          onValueChange={setSelectedModel}
+        >
           <SelectTrigger className="custom-shadow transition-scale-zoom">
             <SelectValue placeholder="Select a model" />
           </SelectTrigger>
@@ -78,9 +90,9 @@ const ModelConfig: React.FC<ModelConfigProps> = ({
                 exit={{ opacity: 0, y: -20 }}
                 transition={{ duration: 0.1 }}
                 whileHover={{
-                  boxShadow: 'inset 0px 0px 10px rgba(128, 128, 128, 0.2)',
-                  borderRadius: '8px',
-                  transition: { duration: 0.2 }
+                  boxShadow: "inset 0px 0px 10px rgba(128, 128, 128, 0.2)",
+                  borderRadius: "8px",
+                  transition: { duration: 0.2 },
                 }}
                 className="p-2 border rounded-md mb-2 custom-shadow"
               >
@@ -103,7 +115,10 @@ const ModelConfig: React.FC<ModelConfigProps> = ({
                         value={editingModel.baseModel}
                         onValueChange={(value, parameters) => {
                           handleModelChange("baseModel", value);
-                          handleModelChange("parameters", parameters as Partial<ModelParameters>);
+                          handleModelChange(
+                            "parameters",
+                            parameters as Partial<ModelParameters>
+                          );
                         }}
                         fetchAvailableModels={fetchAvailableModels}
                         fetchModelParameters={fetchModelParameters}
@@ -119,7 +134,11 @@ const ModelConfig: React.FC<ModelConfigProps> = ({
                       />
                       <div className="flex justify-between items-center mt-2">
                         <div className="space-x-2 text-foreground">
-                          <Button size="sm" variant="outline" onClick={saveModelChanges}>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={saveModelChanges}
+                          >
                             <Check className="h-4 w-4" />
                           </Button>
                           <Button
@@ -142,9 +161,24 @@ const ModelConfig: React.FC<ModelConfigProps> = ({
                     </div>
                   ) : (
                     <div className="text-sm cursor-pointer">
-                      <p><span className="text-muted-foreground">Base Model:</span> {model.baseModel.split('/').pop()}</p>
-                      <p><span className="text-muted-foreground">Temperature:</span> {model.parameters.temperature}</p>
-                      <p><span className="text-muted-foreground">Max Tokens:</span> {model.parameters.max_tokens}</p>
+                        <p>
+                          <span className="text-muted-foreground">
+                            Base Model:
+                          </span>{" "}
+                          {model.baseModel.split("/").pop()}
+                        </p>
+                        <p>
+                          <span className="text-muted-foreground">
+                            Temperature:
+                          </span>{" "}
+                          {model.parameters.temperature}
+                        </p>
+                        <p>
+                          <span className="text-muted-foreground">
+                            Max Tokens:
+                          </span>{" "}
+                          {model.parameters.max_tokens}
+                        </p>
                     </div>
                   )}
                 </div>

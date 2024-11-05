@@ -1,10 +1,10 @@
-import React, { useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { ListPlus, Check, X, Pin, PinOff, Trash } from 'lucide-react';
-import { Thread } from '@/components/types';
+import React, { useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { ListPlus, Check, X, Pin, PinOff, Trash } from "lucide-react";
+import { Thread } from "@/components/types";
 
 interface ThreadListProps {
   threads: Thread[];
@@ -85,9 +85,9 @@ const ThreadList: React.FC<ThreadListProps> = ({
                 exit={{ opacity: 0, y: -20 }}
                 transition={{ duration: 0.1 }}
                 whileHover={{
-                  borderRadius: '8px',
+                  borderRadius: "8px",
                   y: -2,
-                  transition: { duration: 0.2 }
+                  transition: { duration: 0.2 },
                 }}
                 className={`
                   font-serif
@@ -97,7 +97,8 @@ const ThreadList: React.FC<ThreadListProps> = ({
                   mb-2
                   hover:shadow-[inset_0_0_10px_10px_rgba(128,128,128,0.2)]
                   active:shadow-[inset_0px_0px_10px_rgba(0,0,0,0.7)]
-                  ${currentThread === thread.id
+                  ${
+                  currentThread === thread.id
                     ? "bg-background custom-shadow"
                     : "bg-transparent text-muted-foreground"
                   }
@@ -116,7 +117,9 @@ const ThreadList: React.FC<ThreadListProps> = ({
                         onChange={(e) =>
                           setThreads((prev) =>
                             prev.map((t) =>
-                              t.id === thread.id ? { ...t, title: e.target.value } : t
+                              t.id === thread.id
+                                ? { ...t, title: e.target.value }
+                                : t
                             )
                           )
                         }
