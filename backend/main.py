@@ -36,7 +36,7 @@ load_dotenv(dotenv_path=dotenv_path)
 
 
 mongo_url =os.getenv("MONGODB_URI", "")
-client = MongoClient(mongo_url, server_api=ServerApi('1'))
+clientdb = MongoClient(mongo_url, server_api=ServerApi('1'))
 
 
 data_folder = parent_dir / "data"
@@ -50,7 +50,7 @@ allowed_origins = [origin.strip() for origin in origins.split(",") if origin.str
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -206,7 +206,7 @@ def load_tools_from_db():
     """
     global tools_list
     try:
-        db = client["threaddata"]
+        db = clientdb["threaddata"]
         collection = db["tools"]
         tools_from_db = list(collection.find({}, {"_id": 0}))
         
@@ -230,7 +230,7 @@ def save_tools_to_db(tools: List[Dict]):
     - tools: 工具列表，每个工具为字典格式。
     """
     try:
-        db = client["threaddata"]
+        db = clientdb["threaddata"]
         collection = db["tools"]
         collection.delete_many({})  # 清空现有工具
         collection.insert_many(tools)  # 插入新工具
@@ -496,7 +496,7 @@ async def load_tools():
     - 一个包含工具列表的 JSON 响应。
     """
     try:
-        db = client["threaddata"]
+        db = clientdb["threaddata"]
         collection = db["tools"]
         tools_from_db = list(collection.find({}, {"_id": 0}))
         
@@ -525,7 +525,7 @@ async def save_thread(thread_data: ThreadData):
         thread = thread_data.thread
         
         
-        db = client["threaddata"] 
+        db = clientdb["threaddata"] 
         collection_name = f"thread_{thread_id}" 
         collection = db[collection_name]
         
@@ -545,7 +545,7 @@ async def save_thread(thread_data: ThreadData):
 @app.get("/api/load_threads")
 async def load_threads():
     try:
-        db = client["threaddata"]
+        db = clientdb["threaddata"]
         collections = db.list_collection_names() 
         
         threads = []
@@ -564,7 +564,7 @@ async def load_threads():
 @app.delete("/api/delete_thread/{thread_id}")
 async def delete_thread(thread_id: str):
     try:
-        db = client["threaddata"] 
+        db = clientdb["threaddata"] 
         collection_name = f"thread_{thread_id}"
         
        
@@ -592,7 +592,7 @@ async def save_models(request: Request):
             raise HTTPException(status_code=400, detail="No model data provided")
         
         # 连接 MongoDB 的 collection，用于保存模型数据
-        db = client["threaddata"]  
+        db = clientdb["threaddata"]  
         collection = db["models"]  
         
   
@@ -611,7 +611,7 @@ async def save_models(request: Request):
 @app.get("/api/load_models")
 async def load_models():
     try:
-        db = client["threaddata"]  # 连接到 MongoDB 数据库
+        db = clientdb["threaddata"]  # 连接到 MongoDB 数据库
         collection = db["models"]  # 使用 "models" 集合
         
         # 从 MongoDB 中获取所有模型
@@ -630,6 +630,78 @@ async def load_models():
     except Exception as e:
         logger.error(f"Failed to load models: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to load models from database or file")
+    
+
+@app.get("/api/check_model_tools_support/{model_id}")
+async def check_model_tools_support(model_id: str):
+    try:
+        logger.info(f"收到检查模型工具支持的请求，model_id: {model_id}")
+        dbm = clientdb["threaddata"]  # 连接到 MongoDB 数据库
+        dbms = dbm["models"]  # 使用 "models" 集合
+        dbls = dbm["tools"]  # 使用 "models" 集合
+        # 从数据库中查找模型
+        model = dbms.find_one({"id": model_id})  # 假设模型有一个唯一的 'id' 字段
+        if not model:
+            logger.error(f"未找到模型: {model_id}")
+            raise HTTPException(status_code=404, detail="模型未找到")
+        
+        # 获取 OpenRouter 的实际模型 ID
+        basemodel = model.get("baseModel")
+        if not basemodel:
+            logger.error(f"模型 {model_id} 没有配置 'basemodel' 字段")
+            raise HTTPException(status_code=400, detail="模型未配置 'basemodel' 字段")
+        
+        logger.info(f"模型 {model_id} 的 basemodel: {basemodel}")
+
+        # 获取 OpenRouter API 密钥
+        openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
+        if not openrouter_api_key:
+            logger.error("缺少 OPENROUTER_API_KEY 环境变量。")
+            raise RuntimeError("Missing OPENROUTER_API_KEY.")
+        
+        headers = {
+            'Authorization': f'Bearer {openrouter_api_key}',
+            'Content-Type': 'application/json',
+        }
+
+        # 构建请求 URL
+        openrouter_url = f'https://openrouter.ai/api/v1/parameters/{basemodel}'
+        logger.info(f"发送请求到 OpenRouter Parameters API: {openrouter_url}，Headers: {headers}")
+
+        async with httpx.AsyncClient() as client:
+            response = await client.get(openrouter_url, headers=headers)
+
+        logger.info(f"从 OpenRouter Parameters API 接收到响应，状态码: {response.status_code}")
+
+        if response.status_code != 200:
+            logger.error(f"OpenRouter Parameters API 错误: {response.status_code} - {response.text}")
+            # 如果模型未找到或发生错误，假设不支持工具
+            return {"supportsTools": False}
+        
+        data = response.json()
+        logger.debug(f"OpenRouter Parameters API 响应体: {data}")
+
+        supported_parameters = data.get('data', {}).get('supported_parameters', [])
+        supports_tools = 'tools' in supported_parameters
+
+        logger.info(f"模型 {model_id} 是否支持工具: {supports_tools}")
+
+        if supports_tools:
+            # 从数据库中加载工具
+            tools = list(dbls.find({}))
+            serialized_tools = [serialize_tool(tool) for tool in tools]
+            logger.info(f"加载到 {len(serialized_tools)} 个工具。")
+            return {"supportsTools": True, "tools": serialized_tools}
+        else:
+            logger.info(f"模型 {model_id} 不支持工具。")
+            return {"supportsTools": False}
+
+    except Exception as e:
+        logger.error(f"检查模型工具支持时出错: {str(e)}")
+        # 发生错误时，假设不支持工具
+        return {"supportsTools": False}
+
+    
     
 @app.post("/api/chat")
 async def chat(request: ChatRequest):

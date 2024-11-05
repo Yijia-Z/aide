@@ -194,7 +194,7 @@ async function generateAIResponse(
   threads: Thread[],
   currentThread: string | null,
   replyingTo: string | null,
-  tools,
+  tools: any[], 
   onData: (chunk: string) => void
 ) {
   const requestPayload = {
@@ -243,9 +243,13 @@ async function generateAIResponse(
   }
 }
 export default function ThreadedDocument() {
-  const [activeTab, setActiveTab] = useState<"threads" | "messages" | "models">(
+  const [activeTab, setActiveTab] = useState<"threads" | "messages" | "models"| "tools">(
     "threads"
   );
+  const [tools, setTools] = useState<any[]>([]);
+  const [modelSupportsTools, setModelSupportsTools] = useState<boolean | null>(null);
+  const [toolsLoading, setToolsLoading] = useState<boolean>(false);
+  const [toolsError, setToolsError] = useState<string>("");
 
   const [threads, setThreads] = useState<Thread[]>([]);
   const [currentThread, setCurrentThread] = useState<string | null>(null);
@@ -276,73 +280,56 @@ export default function ThreadedDocument() {
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [copiedStates, setCopiedStates] = useState<{ [key: string]: boolean }>({});
-  const [isToolModalOpen, setIsToolModalOpen] = useState(false);
-const [tools, setTools] = useState([
-  {
-    name: 'Get Current Weather',
-    description: 'Provides the current weather for a specified location.',
-    enabled: false,
-    type: 'function',
-    function: {
-      name: 'get_current_weather',
-      description: 'Get the current weather in a given location',
-      parameters: {
-        type: 'object',
-        properties: {
-          location: {
-            type: 'string',
-            description: 'The city and state, e.g. San Francisco, CA',
-          },
-          unit: {
-            type: 'string',
-            enum: ['celsius', 'fahrenheit'],
-          },
-        },
-        required: ['location'],
-      },
-    },
-  },
+  const checkModelSupportsTools = async (modelId: string) => {
+    try {
+      console.log(`检查模型工具支持，modelId: ${modelId}`);
+      const response = await fetch(
+        apiBaseUrl ? `${apiBaseUrl}/api/check_model_tools_support/${encodeURIComponent(modelId)}` : "/api/check_model_tools_support/${encodeURIComponent(modelId)}",
+      );
+      console.log(`收到来自后端的响应状态: ${response.status}`);
+      const data = await response.json();
+      console.log(`后端返回的数据:`, data);
+      setModelSupportsTools(data.supportsTools);
+    } catch (error) {
+      console.error("检查模型能力时出错:", error);
+      setModelSupportsTools(false);
+    }
+  };
   
-]);
-const [newTool, setNewTool] = useState({
-  name: '',
-  description: '',
-  parameters: '',
-});
-const openToolModal = () => {
-  setIsToolModalOpen(true);
-};
 
-const closeToolModal = () => {
-  setIsToolModalOpen(false);
-};
+  useEffect(() => {
+    if (selectedModel) {
+      checkModelSupportsTools(selectedModel);
+    } else {
+      // 如果未选择模型，重置工具状态
+      setModelSupportsTools(null);
+      setTools([]);
+    }
+  }, [selectedModel]);
 
-const handleToolInputChange = (e) => {
-  const { name, value } = e.target;
-  setNewTool((prev) => ({ ...prev, [name]: value }));
-};
-
-const addCustomTool = () => {
-  try {
-    const parameters = JSON.parse(newTool.parameters);
-    const customTool = {
-      name: newTool.name,
-      description: newTool.description,
-      enabled: false,
-      type: 'function',
-      function: {
-        name: newTool.name.toLowerCase().replace(/\s+/g, '_'),
-        description: newTool.description,
-        parameters,
-      },
-    };
-    setTools((prev) => [...prev, customTool]);
-    setNewTool({ name: '', description: '', parameters: '' });
-  } catch (error) {
-    alert('参数中的 JSON 无效');
-  }
-};
-
+  const loadTools = async () => {
+    setToolsLoading(true);
+    try {
+      const response = await fetch("/api/load_tools");
+      const data = await response.json();
+      console.log("加载到的工具:", data);
+      setTools(data.tools || []);
+    } catch (error) {
+      console.error("加载工具时出错:", error);
+      setToolsError("加载工具失败。");
+    } finally {
+      setToolsLoading(false);
+    }
+  };
+  useEffect(() => {
+    if (modelSupportsTools) {
+      loadTools();
+    } else {
+      // 如果模型不支持工具，清空工具列表
+      setTools([]);
+    }
+  }, [modelSupportsTools]);
+  
   // Focus on thread title input when editing
   useEffect(() => {
     if (editingThreadTitle && threadTitleInputRef.current) {
@@ -1273,6 +1260,7 @@ const addCustomTool = () => {
       tools,
     ]
   );
+
   
         
 
@@ -2470,7 +2458,42 @@ const addCustomTool = () => {
       </div>
     );
   }
-
+  const renderTools = () => {
+    if (modelSupportsTools === null) {
+      return <div>请选择一个模型以查看工具选项。</div>;
+    }
+  
+    if (!modelSupportsTools) {
+      return <div>该模型不支持工具选项。</div>;
+    }
+  
+    if (toolsLoading) {
+      return <div>正在加载工具...</div>;
+    }
+  
+    if (toolsError) {
+      return <div>错误: {toolsError}</div>;
+    }
+  
+    if (tools.length === 0) {
+      return <div>没有可用的工具。</div>;
+    }
+  
+    return (
+      <div>
+        <h3>可用的工具:</h3>
+        <ul>
+          {tools.map((tool) => (
+            <li key={tool.name}>
+              <strong>{tool.name}</strong>: {tool.description}
+              {/* 您可以在这里添加更多的工具细节或交互选项 */}
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  };
+  
   function renderModelConfig() {
     return (
       <div className="flex flex-col relative h-[calc(97vh)] overflow-clip select-none">
@@ -2672,11 +2695,11 @@ const addCustomTool = () => {
             <Tabs
               value={activeTab}
               onValueChange={(value) =>
-                setActiveTab(value as "threads" | "models")
+                setActiveTab(value as "threads" | "models"| "tools")
               }
               className="w-full flex flex-col"
             >
-              <TabsList className="grid w-full grid-cols-2 bg-transparent custom-shadow select-none">
+              <TabsList className="grid w-full grid-cols-3 bg-transparent custom-shadow select-none">
                 <TabsTrigger
                   className="bg-transparent transition-scale-zoom hover:bg-secondary hover:custom-shadow data-[state=active]:bg-background"
                   value="threads"
@@ -2688,6 +2711,12 @@ const addCustomTool = () => {
                 >
                   Models
                 </TabsTrigger>
+                <TabsTrigger
+                    className="bg-transparent transition-scale-zoom hover:bg-secondary hover:custom-shadow data-[state=active]:bg-background"
+                    value="tools"
+                  >
+                    Tools
+                  </TabsTrigger>
               </TabsList>
               <TabsContent
                 value="threads"
@@ -2698,6 +2727,12 @@ const addCustomTool = () => {
               <TabsContent value="models" className="flex-grow overflow-y-clip">
                 {renderModelConfig()}
               </TabsContent>
+              <TabsContent
+                  value="tools"
+                  className="..."
+                >
+                  {renderTools()}
+                </TabsContent>
             </Tabs>
           </ResizablePanel>
           <ResizableHandle className="mx-2 p-px bg-gradient-to-b from-background via-transparent to-background" />
@@ -2705,95 +2740,6 @@ const addCustomTool = () => {
             <div className="h-full overflow-y-auto">{renderMessages()}</div>
           </ResizablePanel>
         </ResizablePanelGroup>
-      </div>
-      <Draggable>
-        <div
-          className="fixed bottom-4 right-4 bg-white dark:bg-gray-800 p-3 rounded-full shadow-lg cursor-pointer z-50"
-          onClick={openToolModal}
-        >
-          <Plus className="h-6 w-6 text-gray-600 dark:text-gray-300" />
-        </div>
-      </Draggable>
-      <AnimatePresence>
-        {isToolModalOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-40"
-          >
-            <motion.div
-              initial={{ scale: 0.8 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.8 }}
-              className="bg-white dark:bg-gray-800 p-6 rounded-md shadow-lg w-11/12 max-w-md overflow-y-auto"
-            >
-              <h2 className="text-xl font-bold mb-4">管理工具</h2>
-              <div className="space-y-4">
-                {tools.map((tool, index) => (
-                  <div key={index} className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-semibold">{tool.name}</h3>
-                      <p className="text-sm text-muted-foreground">{tool.description}</p>
-                    </div>
-                    <Switch
-                      checked={tool.enabled}
-                      onCheckedChange={(value) => {
-                        const updatedTools = [...tools];
-                        updatedTools[index].enabled = value;
-                        setTools(updatedTools);
-                      }}
-                    />
-                  </div>
-                ))}
-              </div>
-              <div className="flex justify-end mt-4 space-x-2">
-                <Button variant="outline" onClick={closeToolModal}>
-                  关闭
-                </Button>
-                <Button onClick={addCustomTool}>添加工具</Button>
-              </div>
-              {/* 添加自定义工具表单 */}
-              <div className="mt-6">
-                <h3 className="text-lg font-semibold mb-2">添加自定义工具</h3>
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="tool-name">工具名称</Label>
-                    <Input
-                      id="tool-name"
-                      name="name"
-                      value={newTool.name}
-                      onChange={handleToolInputChange}
-                      placeholder="工具名称"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="tool-description">描述</Label>
-                    <Textarea
-                      id="tool-description"
-                      name="description"
-                      value={newTool.description}
-                      onChange={handleToolInputChange}
-                      placeholder="工具描述"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="tool-parameters">参数（JSON）</Label>
-                    <Textarea
-                      id="tool-parameters"
-                      name="parameters"
-                      value={newTool.parameters}
-                      onChange={handleToolInputChange}
-                      placeholder='{"type": "object", "properties": {...}}'
-                    />
-                  </div>
-                  <Button onClick={addCustomTool}>添加工具</Button>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-      </div>
-  );
-}
+      </div></div>
+    );
+  }
