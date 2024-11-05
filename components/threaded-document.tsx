@@ -34,7 +34,7 @@ const apiBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 
 export default function ThreadedDocument() {
   // Thread-related states
-  const [activeTab, setActiveTab] = useState<"threads" | "messages" | "models">(
+  const [activeTab, setActiveTab] = useState<"threads" | "messages" | "models" |"tools">(
     "threads"
   );
   const {
@@ -88,6 +88,59 @@ export default function ThreadedDocument() {
     {}
   );
 
+  const [tools, setTools] = useState<any[]>([]);
+  const [modelSupportsTools, setModelSupportsTools] = useState<boolean | null>(null);
+  const [toolsLoading, setToolsLoading] = useState<boolean>(false);
+  const [toolsError, setToolsError] = useState<string>("");
+  const checkModelSupportsTools = async (modelId: string) => {
+    try {
+      console.log(`检查模型工具支持，modelId: ${modelId}`);
+      const response = await fetch(
+        apiBaseUrl ? `${apiBaseUrl}/api/check_model_tools_support/${encodeURIComponent(modelId)}` : "/api/check_model_tools_support/${encodeURIComponent(modelId)}",
+      );
+      console.log(`收到来自后端的响应状态: ${response.status}`);
+      const data = await response.json();
+      console.log(`后端返回的数据:`, data);
+      setModelSupportsTools(data.supportsTools);
+    } catch (error) {
+      console.error("检查模型能力时出错:", error);
+      setModelSupportsTools(false);
+    }
+  };
+  
+
+  useEffect(() => {
+    if (selectedModel) {
+      checkModelSupportsTools(selectedModel);
+    } else {
+      // 如果未选择模型，重置工具状态
+      setModelSupportsTools(null);
+      setTools([]);
+    }
+  }, [selectedModel]);
+
+  const loadTools = async () => {
+    setToolsLoading(true);
+    try {
+      const response = await fetch("/api/load_tools");
+      const data = await response.json();
+      console.log("加载到的工具:", data);
+      setTools(data.tools || []);
+    } catch (error) {
+      console.error("加载工具时出错:", error);
+      setToolsError("加载工具失败。");
+    } finally {
+      setToolsLoading(false);
+    }
+  };
+  useEffect(() => {
+    if (modelSupportsTools) {
+      loadTools();
+    } else {
+      // 如果模型不支持工具，清空工具列表
+      setTools([]);
+    }
+  }, [modelSupportsTools]);
   // Helper methods
   const getModelDetails = (modelId: string | undefined) => {
     if (!modelId) return null;
@@ -940,37 +993,52 @@ export default function ThreadedDocument() {
       try {
         const model =
           models.find((m: { id: any }) => m.id === selectedModel) || models[0];
+  
+        const enabledTools = tools
+          .filter((tool) => tool.enabled)
+          .map((tool) => ({
+            type: tool.type,
+            function: tool.function,
+          }));
+  
         for (let i = 0; i < count; i++) {
-          const reader = await generateAIResponse(
+          const newMessageId = Date.now().toString();
+          addMessage(threadId, messageId, "", "ai", newMessageId);
+          setSelectedMessage(newMessageId);
+  
+          let fullResponse = "";
+          await generateAIResponse(
             message.content,
             message.publisher,
             model,
             threads,
             threadId,
-            messageId
-          );
-
-          const newMessageId = Date.now().toString();
-          addMessage(threadId, messageId, "", "ai", newMessageId);
-          setSelectedMessage(newMessageId);
-
-          let fullResponse = "";
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            const chunk = new TextDecoder().decode(value);
-            // console.log(chunk);
-            const lines = chunk.split("data: ");
-            for (const line of lines) {
-              const data = line.replace(/\n\n$/, "");
-              if (data === "[DONE]") {
-                break;
+            messageId,
+            enabledTools,
+            (chunk) => {
+              // 处理每个数据块
+              const lines = chunk.split("\n");
+              for (const line of lines) {
+                if (line.startsWith("data:")) {
+                  const dataStr = line.replace("data:", "").trim();
+                  if (dataStr === "[DONE]") {
+                    // 结束符，停止处理
+                    return;
+                  }
+                  try {
+                    const data = JSON.parse(dataStr);
+                    const delta = data.choices[0].delta || {};
+                    if (delta.content) {
+                      fullResponse += delta.content;
+                      updateMessageContent(threadId, newMessageId, fullResponse);
+                    }
+                  } catch (error) {
+                    console.error("Error parsing chunk:", error);
+                  }
+                }
               }
-              fullResponse += data;
-              updateMessageContent(threadId, newMessageId, fullResponse);
             }
-          }
+          );
         }
       } catch (error) {
         console.error("Failed to generate AI response:", error);
@@ -986,8 +1054,10 @@ export default function ThreadedDocument() {
       setSelectedMessage,
       findMessageById,
       updateMessageContent,
+      tools,
     ]
   );
+
 
   // useEffect hooks
   // Load threads
@@ -1466,7 +1536,7 @@ export default function ThreadedDocument() {
         <Tabs
           value={activeTab}
           onValueChange={(value) =>
-            setActiveTab(value as "threads" | "messages" | "models")
+            setActiveTab(value as "threads" | "messages" | "models" )
           }
           className="w-full flex flex-col"
         >
@@ -1594,11 +1664,11 @@ export default function ThreadedDocument() {
             <Tabs
               value={activeTab}
               onValueChange={(value) =>
-                setActiveTab(value as "threads" | "models")
+                setActiveTab(value as "threads" | "models"| "tools")
               }
               className="w-full flex flex-col"
             >
-              <TabsList className="grid w-full grid-cols-2 bg-transparent custom-shadow select-none">
+              <TabsList className="grid w-full grid-cols-3 bg-transparent custom-shadow select-none">
                 <TabsTrigger
                   className="bg-transparent transition-scale-zoom hover:bg-secondary hover:custom-shadow data-[state=active]:bg-background"
                   value="threads"
@@ -1611,6 +1681,12 @@ export default function ThreadedDocument() {
                 >
                   Models
                 </TabsTrigger>
+                <TabsTrigger
+                    className="bg-transparent transition-scale-zoom hover:bg-secondary hover:custom-shadow data-[state=active]:bg-background"
+                    value="tools"
+                  >
+                    Tools
+                  </TabsTrigger>
               </TabsList>
               <TabsContent
                 value="threads"

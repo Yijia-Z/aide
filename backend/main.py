@@ -18,6 +18,7 @@ import requests
 import asyncio
 import httpx
 import openai
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -30,14 +31,10 @@ if not dotenv_path.exists():
     logger.error(f"Missing .env.local file: {dotenv_path}")
     raise FileNotFoundError(f".env.local not found at this path: {dotenv_path}")
 
-
-
 load_dotenv(dotenv_path=dotenv_path)
 
-
-mongo_url =os.getenv("MONGODB_URI", "")
+mongo_url = os.getenv("MONGODB_URI", "")
 clientdb = MongoClient(mongo_url, server_api=ServerApi('1'))
-
 
 data_folder = parent_dir / "data"
 if not data_folder.exists():
@@ -56,13 +53,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
 if not openrouter_api_key:
     logger.error("Please set OPENROUTER_API_KEY in .env.local.")
     raise RuntimeError("Missing OPENROUTER_API_KEY.")
-
-
 
 class Message(BaseModel):
     role: str
@@ -97,10 +91,8 @@ class ThreadData(BaseModel):
     threadId: str
     thread: Dict
 
-
 class ChatResponse(BaseModel):
     response: str
-
 
 class Model(BaseModel):
     id: str
@@ -197,12 +189,11 @@ def multi_turn_question(
             s += sgl.assistant(msg.content)
     s += sgl.assistant(sgl.gen("response"))
 
-
-# ------------------------- 工具加载和保存函数 -------------------------
+# ------------------------- Tool Loading and Saving Functions -------------------------
 
 def load_tools_from_db():
     """
-    从 MongoDB 加载工具。如果数据库中没有工具，则初始化为默认工具。
+    Load tools from MongoDB. If no tools are found in the database, initialize with default tools.
     """
     global tools_list
     try:
@@ -211,39 +202,39 @@ def load_tools_from_db():
         tools_from_db = list(collection.find({}, {"_id": 0}))
         
         if not tools_from_db:
-            logger.warning("数据库中未找到工具。初始化为默认工具。")
+            logger.warning("No tools found in the database. Initializing with default tools.")
             tools_list = get_default_tools()
-            save_tools_to_db(tools_list)  # 保存默认工具到数据库
+            save_tools_to_db(tools_list)  # Save default tools to the database
         else:
-            logger.info(f"成功从 MongoDB 加载了 {len(tools_from_db)} 个工具。")
+            logger.info(f"Successfully loaded {len(tools_from_db)} tools from MongoDB.")
             tools_list = tools_from_db
     except Exception as e:
-        logger.error(f"加载工具失败: {str(e)}")
+        logger.error(f"Failed to load tools: {str(e)}")
         tools_list = get_default_tools()
-        save_tools_to_db(tools_list)  # 保存默认工具到数据库
+        save_tools_to_db(tools_list)  # Save default tools to the database
 
 def save_tools_to_db(tools: List[Dict]):
     """
-    将工具列表保存到 MongoDB。
+    Save the list of tools to MongoDB.
     
-    参数:
-    - tools: 工具列表，每个工具为字典格式。
+    Parameters:
+    - tools: List of tools, each tool as a dictionary.
     """
     try:
         db = clientdb["threaddata"]
         collection = db["tools"]
-        collection.delete_many({})  # 清空现有工具
-        collection.insert_many(tools)  # 插入新工具
-        logger.info("工具已成功保存到 MongoDB。")
+        collection.delete_many({})  # Clear existing tools
+        collection.insert_many(tools)  # Insert new tools
+        logger.info("Tools successfully saved to MongoDB.")
     except Exception as e:
-        logger.error(f"保存工具到 MongoDB 失败: {str(e)}")
+        logger.error(f"Failed to save tools to MongoDB: {str(e)}")
 
 def get_default_tools() -> List[Dict]:
     """
-    返回默认工具的列表，包括 'Get Current Weather' 和 'calculate'。
+    Return a list of default tools, including 'Get Current Weather' and 'calculate'.
     
-    返回:
-    - 包含默认工具配置的列表。
+    Returns:
+    - List of default tool configurations.
     """
     return [
         {
@@ -300,16 +291,18 @@ def get_default_tools() -> List[Dict]:
             },
         },
     ]
+
 tools_list: List[Dict] = []
 
 def startup_event():
     """
-    应用启动时加载工具。
+    Load tools on application startup.
     """
     load_tools_from_db()
 
-# 添加启动事件
+# Add startup event handler
 app.add_event_handler("startup", startup_event)
+
 def calculate(**kwargs):
     num1 = kwargs.get('operand1')
     num2 = kwargs.get('operand2')
@@ -336,7 +329,6 @@ def calculate(**kwargs):
 
     return {"result": result}
 
-        
 def get_coordinates(location):
     api_key = os.getenv('GOOGLE_GEOCODING_API_KEY')
     if not api_key:
@@ -375,13 +367,13 @@ def get_current_weather(location, unit='celsius'):
     }
 
 async def stream_assistant_response(content):
-    # 模拟流式响应，将内容分块发送
-    chunk_size = 100  # 根据需要调整块大小
+    # Simulate streaming response by sending content in chunks
+    chunk_size = 100  # Adjust chunk size as needed
     for i in range(0, len(content), chunk_size):
         chunk = content[i:i+chunk_size]
         data = json.dumps({"choices": [{"delta": {"content": chunk}}]})
         yield f"data: {data}\n\n"
-        await asyncio.sleep(0)  # 让出控制权
+        await asyncio.sleep(0)  # Yield control
     yield "data: [DONE]\n\n"
 
 async def stream_openai_response(response):
@@ -397,19 +389,18 @@ async def stream_openai_response(response):
                 
                 if 'error' in data:
                     logger.error(f"Error from OpenRouter: {data['error']}")
-                    break  # 停止处理
+                    break  # Stop processing
                             
-                # 直接将整个数据块发送给前端
+                # Directly send the entire data chunk to the frontend
                 yield f"data: {json.dumps(data)}\n\n"
             except json.JSONDecodeError as e:
                 logger.error(f"JSON decode error: {e}")
                 continue
 
-
 def load_models_from_file():
     global models_list
     try:
-        # 检查 models_file 是否存在
+        # Check if models_file exists
         if models_file.exists():
             with models_file.open("r", encoding="utf-8") as f:
                 try:
@@ -421,7 +412,7 @@ def load_models_from_file():
                     logger.warning("models.json is invalid. Initializing with default models.")
                     models_list = get_default_models()
         else:
-            # 如果文件不存在，则初始化默认模型
+            # If the file does not exist, initialize with default models
             models_list = get_default_models()
             logger.info("Initialized with default models.")
     except Exception as e:
@@ -429,7 +420,6 @@ def load_models_from_file():
         models_list = get_default_models()
 
 def get_default_models():
-    
     return [
         {
             "id": "default-model-id",
@@ -437,7 +427,6 @@ def get_default_models():
             "baseModel": "openai/gpt-4o-2024-08-06",
             "systemPrompt":  """
 You are a helpful assistant.
-
 
 Use the tools when it's helpful, but if you can answer the user's question without it, feel free to do so.
 
@@ -451,49 +440,49 @@ Do not mention tools to the user unless necessary. Provide clear and direct answ
         }
     ]
 
-# ------------------------- 工具 API 端点 -------------------------
+# ------------------------- Tool API Endpoints -------------------------
 
 @app.post("/api/save_tools")
 async def save_tools(request: Request):
     """
-    将工具保存到 MongoDB。
+    Save tools to MongoDB.
     
-    参数:
-    - request: 包含工具数据的 HTTP 请求。
+    Parameters:
+    - request: HTTP request containing tool data.
     
-    返回:
-    - 一个 JSON 响应，表示保存成功或失败。
+    Returns:
+    - JSON response indicating success or failure.
     """
     try:
         data = await request.json()
         tools = data.get("tools")
         if tools is None:
-            raise HTTPException(status_code=400, detail="未提供工具数据")
+            raise HTTPException(status_code=400, detail="No tool data provided")
         
-        # 验证工具数据
+        # Validate tool data
         for tool in tools:
             try:
                 Tool(**tool)
             except Exception as e:
-                logger.error(f"工具数据验证失败: {str(e)}")
-                raise HTTPException(status_code=400, detail=f"工具数据验证失败: {str(e)}")
+                logger.error(f"Tool data validation failed: {str(e)}")
+                raise HTTPException(status_code=400, detail=f"Tool data validation failed: {str(e)}")
         
-        # 保存工具到数据库
+        # Save tools to the database
         save_tools_to_db(tools)
         return {"status": "success"}
     except HTTPException as he:
         raise he
     except Exception as e:
-        logger.error(f"保存工具失败: {str(e)}")
-        raise HTTPException(status_code=500, detail="保存工具失败")
+        logger.error(f"Failed to save tools: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to save tools")
 
 @app.get("/api/load_tools")
-async def load_tools():
+async def load_tools_endpoint():
     """
-    从 MongoDB 加载工具。
+    Load tools from MongoDB.
     
-    返回:
-    - 一个包含工具列表的 JSON 响应。
+    Returns:
+    - JSON response containing the list of tools.
     """
     try:
         db = clientdb["threaddata"]
@@ -501,39 +490,37 @@ async def load_tools():
         tools_from_db = list(collection.find({}, {"_id": 0}))
         
         if not tools_from_db:
-            logger.warning("数据库中未找到工具。初始化为默认工具。")
+            logger.warning("No tools found in the database. Initializing with default tools.")
             tools_list = get_default_tools()
             save_tools_to_db(tools_list)
         else:
-            logger.info(f"成功从 MongoDB 加载了 {len(tools_from_db)} 个工具。")
+            logger.info(f"Successfully loaded {len(tools_from_db)} tools from MongoDB.")
             tools_list = tools_from_db
         
         return {"tools": tools_list}
     except Exception as e:
-        logger.error(f"加载工具失败: {str(e)}")
-        raise HTTPException(status_code=500, detail="加载工具失败")
-
+        logger.error(f"Failed to load tools: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to load tools")
 
 @app.get("/api/connect")
-async def connect():
+async def connect_endpoint():
     logger.info("Connected to backend.")
     return JSONResponse(content={"message": "successful"}, status_code=200)
+
 @app.post("/api/save_thread")
 async def save_thread(thread_data: ThreadData):
     try:
         thread_id = thread_data.threadId
         thread = thread_data.thread
         
-        
         db = clientdb["threaddata"] 
         collection_name = f"thread_{thread_id}" 
         collection = db[collection_name]
         
-       
         result = collection.update_one(
             {"threadId": thread_id},
             {"$set": thread},
-            upsert=True  
+            upsert=True  # Insert if not exists
         )
         
         logger.info(f"Successfully saved thread {thread_id} to collection {collection_name}.")
@@ -543,7 +530,7 @@ async def save_thread(thread_data: ThreadData):
         raise HTTPException(status_code=500, detail="Failed to save thread")
 
 @app.get("/api/load_threads")
-async def load_threads():
+async def load_threads_endpoint():
     try:
         db = clientdb["threaddata"]
         collections = db.list_collection_names() 
@@ -562,12 +549,11 @@ async def load_threads():
         raise HTTPException(status_code=500, detail="Failed to load threads")
 
 @app.delete("/api/delete_thread/{thread_id}")
-async def delete_thread(thread_id: str):
+async def delete_thread_endpoint(thread_id: str):
     try:
         db = clientdb["threaddata"] 
         collection_name = f"thread_{thread_id}"
         
-       
         if collection_name in db.list_collection_names():
             db.drop_collection(collection_name)
             logger.info(f"Successfully deleted thread {thread_id} (collection {collection_name}).")
@@ -582,23 +568,21 @@ async def delete_thread(thread_id: str):
         logger.error(f"Failed to delete thread {thread_id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to delete thread")
 
-
 @app.post("/api/save_models")
-async def save_models(request: Request):
+async def save_models_endpoint(request: Request):
     try:
         data = await request.json()
         models = data.get("models")
         if models is None:
             raise HTTPException(status_code=400, detail="No model data provided")
         
-        # 连接 MongoDB 的 collection，用于保存模型数据
+        # Connect to MongoDB collection for saving model data
         db = clientdb["threaddata"]  
         collection = db["models"]  
         
-  
-         # 清空现有模型数据并插入新模型数据
-        collection.delete_many({})  # 清空当前模型集合
-        collection.insert_many(models)  # 插入新的模型数据
+        # Clear existing model data and insert new model data
+        collection.delete_many({})  # Clear current model collection
+        collection.insert_many(models)  # Insert new model data
           
         logger.info("Models successfully saved to MongoDB.")
         return {"status": "success"}
@@ -606,57 +590,55 @@ async def save_models(request: Request):
         logger.error(f"Failed to save models to MongoDB: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to save models")
 
-
-
 @app.get("/api/load_models")
-async def load_models():
+async def load_models_endpoint():
     try:
-        db = clientdb["threaddata"]  # 连接到 MongoDB 数据库
-        collection = db["models"]  # 使用 "models" 集合
+        db = clientdb["threaddata"]  # Connect to MongoDB database
+        collection = db["models"]  # Use the "models" collection
         
-        # 从 MongoDB 中获取所有模型
-        models_from_db = list(collection.find({}, {"_id": 0}))  # 获取模型时排除 _id 字段
+        # Retrieve all models from MongoDB
+        models_from_db = list(collection.find({}, {"_id": 0}))  # Exclude _id field when fetching models
         
         if not models_from_db:
             logger.warning("No models found in the database. Attempting to load from file.")
-            load_models_from_file()  # 如果数据库中没有模型，则尝试从文件加载
+            load_models_from_file()  # If no models in database, try loading from file
             if not models_list:
                 logger.warning("No models found in file either. Initializing with default models.")
-                models_list = get_default_models()  # 如果文件中也没有模型，则返回默认模型
+                models_list = get_default_models()  # If no models in file, return default models
         else:
             logger.info(f"Successfully loaded {len(models_from_db)} models from MongoDB.")
-            models_list = models_from_db  # 从数据库加载的模型
+            models_list = models_from_db  # Models loaded from database
         return {"models": models_list}
     except Exception as e:
         logger.error(f"Failed to load models: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to load models from database or file")
-    
 
 @app.get("/api/check_model_tools_support/{model_id}")
 async def check_model_tools_support(model_id: str):
     try:
-        logger.info(f"收到检查模型工具支持的请求，model_id: {model_id}")
-        dbm = clientdb["threaddata"]  # 连接到 MongoDB 数据库
-        dbms = dbm["models"]  # 使用 "models" 集合
-        dbls = dbm["tools"]  # 使用 "models" 集合
-        # 从数据库中查找模型
-        model = dbms.find_one({"id": model_id})  # 假设模型有一个唯一的 'id' 字段
+        logger.info(f"Received request to check model tool support, model_id: {model_id}")
+        dbm = clientdb["threaddata"]  # Connect to MongoDB database
+        dbms = dbm["models"]  # Use "models" collection
+        dbls = dbm["tools"]  # Use "tools" collection
+
+        # Find the model in the database
+        model = dbms.find_one({"id": model_id})  # Assume the model has a unique 'id' field
         if not model:
-            logger.error(f"未找到模型: {model_id}")
-            raise HTTPException(status_code=404, detail="模型未找到")
+            logger.error(f"Model not found: {model_id}")
+            raise HTTPException(status_code=404, detail="Model not found")
         
-        # 获取 OpenRouter 的实际模型 ID
+        # Get the actual model ID from OpenRouter
         basemodel = model.get("baseModel")
         if not basemodel:
-            logger.error(f"模型 {model_id} 没有配置 'basemodel' 字段")
-            raise HTTPException(status_code=400, detail="模型未配置 'basemodel' 字段")
+            logger.error(f"Model {model_id} does not have a 'basemodel' field configured")
+            raise HTTPException(status_code=400, detail="Model does not have 'basemodel' field configured")
         
-        logger.info(f"模型 {model_id} 的 basemodel: {basemodel}")
+        logger.info(f"Model {model_id} basemodel: {basemodel}")
 
-        # 获取 OpenRouter API 密钥
+        # Get the OpenRouter API key
         openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
         if not openrouter_api_key:
-            logger.error("缺少 OPENROUTER_API_KEY 环境变量。")
+            logger.error("Missing OPENROUTER_API_KEY environment variable.")
             raise RuntimeError("Missing OPENROUTER_API_KEY.")
         
         headers = {
@@ -664,75 +646,73 @@ async def check_model_tools_support(model_id: str):
             'Content-Type': 'application/json',
         }
 
-        # 构建请求 URL
+        # Construct request URL
         openrouter_url = f'https://openrouter.ai/api/v1/parameters/{basemodel}'
-        logger.info(f"发送请求到 OpenRouter Parameters API: {openrouter_url}，Headers: {headers}")
+        logger.info(f"Sending request to OpenRouter Parameters API: {openrouter_url}, Headers: {headers}")
 
         async with httpx.AsyncClient() as client:
             response = await client.get(openrouter_url, headers=headers)
 
-        logger.info(f"从 OpenRouter Parameters API 接收到响应，状态码: {response.status_code}")
+        logger.info(f"Received response from OpenRouter Parameters API, Status Code: {response.status_code}")
 
         if response.status_code != 200:
-            logger.error(f"OpenRouter Parameters API 错误: {response.status_code} - {response.text}")
-            # 如果模型未找到或发生错误，假设不支持工具
+            logger.error(f"OpenRouter Parameters API error: {response.status_code} - {response.text}")
+            # If model not found or error occurs, assume tools are not supported
             return {"supportsTools": False}
         
         data = response.json()
-        logger.debug(f"OpenRouter Parameters API 响应体: {data}")
+        logger.debug(f"OpenRouter Parameters API response body: {data}")
 
         supported_parameters = data.get('data', {}).get('supported_parameters', [])
         supports_tools = 'tools' in supported_parameters
 
-        logger.info(f"模型 {model_id} 是否支持工具: {supports_tools}")
+        logger.info(f"Does model {model_id} support tools: {supports_tools}")
 
         if supports_tools:
-            # 从数据库中加载工具
+            # Load tools from the database
             tools = list(dbls.find({}))
             serialized_tools = [serialize_tool(tool) for tool in tools]
-            logger.info(f"加载到 {len(serialized_tools)} 个工具。")
+            logger.info(f"Loaded {len(serialized_tools)} tools.")
             return {"supportsTools": True, "tools": serialized_tools}
         else:
-            logger.info(f"模型 {model_id} 不支持工具。")
+            logger.info(f"Model {model_id} does not support tools.")
             return {"supportsTools": False}
 
     except Exception as e:
-        logger.error(f"检查模型工具支持时出错: {str(e)}")
-        # 发生错误时，假设不支持工具
+        logger.error(f"Error checking model tool support: {str(e)}")
+        # On error, assume tools are not supported
         return {"supportsTools": False}
 
-    
-    
 @app.post("/api/chat")
 async def chat(request: ChatRequest):
     try:
-        logger.info(f"收到聊天请求: {request}")
+        logger.info(f"Received chat request: {request}")
         
-        # ------------------------- 验证请求 -------------------------
+        # ------------------------- Validate Request -------------------------
         if not request.messages or not request.configuration:
-            logger.error("请求中缺少必填字段。")
-            raise HTTPException(status_code=400, detail="缺少必填字段")
+            logger.error("Missing required fields in the request.")
+            raise HTTPException(status_code=400, detail="Missing required fields")
 
         if not request.configuration.model:
-            logger.error("配置中缺少 model 字段。")
-            raise HTTPException(status_code=400, detail="配置中缺少 model 字段")
+            logger.error("Missing 'model' field in configuration.")
+            raise HTTPException(status_code=400, detail="Missing 'model' field in configuration")
 
-        # ------------------------- 准备消息和配置 -------------------------
-        # 将消息列表转换为字典格式，符合 OpenRouter 的要求
+        # ------------------------- Prepare Messages and Configuration -------------------------
+        # Convert the list of messages to a dictionary format compatible with OpenRouter
         messages = [{'role': msg.role, 'content': msg.content} for msg in request.messages]
-        logger.info(f"为 OpenRouter 准备的消息: {messages}")
+        logger.info(f"Prepared messages for OpenRouter: {messages}")
 
-        # ------------------------- 筛选启用的工具 -------------------------
+        # ------------------------- Filter Enabled Tools -------------------------
         active_tools = [tool for tool in tools_list if tool.get("enabled", False)]
         for tool in active_tools:
             if '_id' in tool:
                 tool['_id'] = str(tool['_id'])
 
-        # ------------------------- 准备 OpenRouter API 参数 -------------------------
+        # ------------------------- Prepare OpenRouter API Parameters -------------------------
         params = {
             'model': request.configuration.model,
             'messages': messages,
-            'tools': active_tools,  # 使用从数据库加载的 active_tools 列表
+            'tools': active_tools,  # Use the active_tools list loaded from the database
             'tool_choice': request.configuration.tool_choice or 'auto',
             'temperature': request.configuration.temperature,
             'max_tokens': request.configuration.max_tokens,
@@ -750,47 +730,47 @@ async def chat(request: ChatRequest):
             'top_logprobs': request.configuration.top_logprobs,
             'response_format': request.configuration.response_format,
             'stop': request.configuration.stop,
-            'stream': False,  # 初始请求不启用流式
+            'stream': False,  # Initial request does not enable streaming
         }
-        logger.info(f"为 OpenRouter API 准备的参数: {params}")
+        logger.info(f"Prepared parameters for OpenRouter API: {params}")
 
-        # ------------------------- 设置请求头部 -------------------------
+        # ------------------------- Set Request Headers -------------------------
         headers = {
             'Content-Type': 'application/json',
             'Authorization': f'Bearer {openrouter_api_key}',
             'HTTP-Referer': os.getenv('NEXT_PUBLIC_APP_URL', 'http://aide.zy-j.com'),
             'X-Title': 'Aide',
         }
-        logger.info(f"为 OpenRouter API 准备的头部: {headers}")
+        logger.info(f"Prepared headers for OpenRouter API: {headers}")
 
-        # ------------------------- 发送初始请求 -------------------------
+        # ------------------------- Send Initial Request -------------------------
         async with httpx.AsyncClient() as client:
-            # 初始请求不启用流式
+            # Initial request does not enable streaming
             params['stream'] = False
             response = await client.post(
                 'https://openrouter.ai/api/v1/chat/completions',
                 headers=headers,
                 json=params
             )
-            logger.info(f"初始响应状态码: {response.status_code}")
+            logger.info(f"Initial response status code: {response.status_code}")
             if response.status_code != 200:
-                logger.error(f"OpenRouter API 错误: {response.text}")
-                raise HTTPException(status_code=response.status_code, detail=f"OpenRouter API 错误: {response.text}")
+                logger.error(f"OpenRouter API error: {response.text}")
+                raise HTTPException(status_code=response.status_code, detail=f"OpenRouter API error: {response.text}")
 
-            # 解析初始响应数据
+            # Parse initial response data
             initial_data = response.json()
-            logger.info(f"从 OpenRouter 收到的初始数据: {initial_data}")
+            logger.info(f"Received initial data from OpenRouter: {initial_data}")
             if 'choices' in initial_data and initial_data['choices']:
                 assistant_message = initial_data['choices'][0]['message']
             else:
-                logger.error(f"初始响应中出错: {initial_data.get('error')}")
-                raise HTTPException(status_code=400, detail=f"初始响应中出错: {initial_data.get('error', {}).get('message', '未知错误')}")
+                logger.error(f"Error in initial response: {initial_data.get('error')}")
+                raise HTTPException(status_code=400, detail=f"Error in initial response: {initial_data.get('error', {}).get('message', 'Unknown error')}")
 
-            # ------------------------- 检查并处理工具调用 -------------------------
+            # ------------------------- Check and Handle Tool Calls -------------------------
             tool_calls = assistant_message.get('tool_calls') if assistant_message else None
             if tool_calls:
-                logger.info(f"检测到工具调用: {tool_calls}")
-                # 将助手的消息添加到消息列表中
+                logger.info(f"Detected tool calls: {tool_calls}")
+                # Add assistant's message to the message list
                 messages.append(assistant_message)
                 for tool_call in tool_calls:
                     function = tool_call.get('function', {})
@@ -800,20 +780,20 @@ async def chat(request: ChatRequest):
                         try:
                             tool_args = json.loads(arguments_str)
                         except json.JSONDecodeError:
-                            logger.error(f"工具参数中的 JSON 无效: {arguments_str}")
+                            logger.error(f"Invalid JSON in tool arguments: {arguments_str}")
                             continue
                     else:
                         tool_args = {}
                     
-                    logger.info(f"处理工具调用: {tool_name}，参数: {tool_args}")
+                    logger.info(f"Processing tool call: {tool_name}, arguments: {tool_args}")
                     
-                    # 根据工具名称执行相应的函数
+                    # Execute the corresponding function based on tool name
                     if tool_name == 'get_current_weather':
                         location = tool_args.get('location')
                         unit = tool_args.get('unit', 'celsius')
                         try:
                             tool_result = get_current_weather(location, unit)
-                            logger.info(f"工具结果: {tool_result}")
+                            logger.info(f"Tool result: {tool_result}")
                             messages.append({
                                 'role': 'tool',
                                 'name': tool_name,
@@ -821,7 +801,7 @@ async def chat(request: ChatRequest):
                                 'content': json.dumps(tool_result),
                             })
                         except Exception as e:
-                            logger.error(f"执行工具 '{tool_name}' 时出错: {str(e)}")
+                            logger.error(f"Error executing tool '{tool_name}': {str(e)}")
                             messages.append({
                                 'role': 'tool',
                                 'name': tool_name,
@@ -832,7 +812,7 @@ async def chat(request: ChatRequest):
                     elif tool_name == 'calculate':
                         try:
                             tool_result = calculate(**tool_args)
-                            logger.info(f"工具结果: {tool_result}")
+                            logger.info(f"Tool result: {tool_result}")
                             messages.append({
                                 'role': 'tool',
                                 'name': tool_name,
@@ -840,52 +820,51 @@ async def chat(request: ChatRequest):
                                 'content': json.dumps(tool_result),
                             })
                         except Exception as e:
-                            logger.error(f"执行工具 '{tool_name}' 时出错: {str(e)}")
+                            logger.error(f"Error executing tool '{tool_name}': {str(e)}")
                             messages.append({
                                 'role': 'tool',
                                 'name': tool_name,
                                 'tool_call_id': tool_call['id'],
                                 'content': json.dumps({"error": str(e)}),
                             })
-    
-            # ------------------------- 发送最终请求并流式响应 -------------------------
-            # 无论是否有工具调用，始终使用 stream_openai_response 进行流式响应
+
+                # ------------------------- Send Final Request and Stream Response -------------------------
+                # Regardless of whether there are tool calls, always use stream_openai_response for streaming
                 params['messages'] = messages
-                params['stream'] = True  # 启用流式
+                params['stream'] = True  # Enable streaming
 
                 final_response = await client.post(
                     'https://openrouter.ai/api/v1/chat/completions',
                     headers=headers,
                     json=params
                 )
-                logger.info(f"最终响应状态码: {final_response.status_code}")
-                # 无论是否有工具调用，始终使用 stream_openai_response 进行流式响应
+                logger.info(f"Final response status code: {final_response.status_code}")
+                # Always use stream_openai_response for streaming
                 return StreamingResponse(stream_openai_response(final_response), media_type="text/event-stream")
             else:
-                # 如果没有工具调用，仍然使用 stream_openai_response 进行流式响应
-                logger.info("未检测到工具调用。通过流式方式返回助手的响应。")
-                # 为了符合您的需求，这里将创建一个虚拟的 final_response
-                # 由于初始请求已设置 stream=False，我们需要重新发送一个请求来获取流式响应
+                # If no tool calls are detected, still use stream_openai_response for streaming
+                logger.info("No tool calls detected. Returning assistant's response via streaming.")
+                # To meet your requirement, create a virtual final_response here
+                # Since the initial request has stream=False, we need to resend a request to get streaming response
                 params['messages'] = messages
-                params['stream'] = True  # 启用流式
+                params['stream'] = True  # Enable streaming
 
                 final_response = await client.post(
                     'https://openrouter.ai/api/v1/chat/completions',
                     headers=headers,
                     json=params
                 )
-                logger.info(f"最终响应状态码: {final_response.status_code}")
+                logger.info(f"Final response status code: {final_response.status_code}")
                 return StreamingResponse(stream_openai_response(final_response), media_type="text/event-stream")
 
     except Exception as e:
-        logger.error(f"/api/chat 中的错误: {str(e)}")
+        logger.error(f"Error in /api/chat: {str(e)}")
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail="后台错误")
+        raise HTTPException(status_code=500, detail="Backend error")
 
-    
 if __name__ == "__main__":
     import uvicorn
- 
+
     uvicorn.run(app, host="0.0.0.0", port=8000)
     
     logger.info("API key loaded.")

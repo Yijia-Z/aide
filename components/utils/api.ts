@@ -9,7 +9,10 @@ export async function generateAIResponse(
   model: Model,
   threads: Thread[],
   currentThread: string | null,
-  replyingTo: string | null
+  replyingTo: string | null,
+  tools: any[], 
+  onData: (chunk: string) => void
+
 ) {
   const requestPayload = {
     messages: [
@@ -25,6 +28,7 @@ export async function generateAIResponse(
     configuration: {
       model: model.baseModel,
       ...model.parameters,
+      tools,
     },
   };
 
@@ -32,7 +36,8 @@ export async function generateAIResponse(
 
   const response = await fetch(
     // apiBaseUrl ? `${apiBaseUrl}/api/chat` : "/api/chat",
-    "/api/chat",
+    apiBaseUrl ? `${apiBaseUrl}/api/chat` : "/api/chat",
+
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -44,9 +49,16 @@ export async function generateAIResponse(
     throw new Error("Failed to generate AI response");
   }
 
-  const reader = response.body?.getReader();
-  if (!reader) {
-    throw new Error("Failed to get response reader");
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder("utf-8");
+  let doneReading = false;
+  while (!doneReading) {
+    const { value, done } = await reader.read();
+    doneReading = done;
+    if (value) {
+      const chunkValue = decoder.decode(value, { stream: true });
+      onData(chunkValue); // 使用回调处理每个数据块
+    }
   }
 
   return reader;
