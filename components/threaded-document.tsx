@@ -29,6 +29,7 @@ const DEFAULT_MODEL: Model = {
 const apiBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 
 export default function ThreadedDocument() {
+  // Thread-related states
   const [activeTab, setActiveTab] = useState<"threads" | "messages" | "models">("threads");
   const {
     threads,
@@ -42,7 +43,7 @@ export default function ThreadedDocument() {
   } = useThreads();
   const threadTitleInputRef = useRef<HTMLInputElement>(null);
 
-  // Message-related state
+  // Message-related states
   const {
     selectedMessage,
     setSelectedMessage,
@@ -59,7 +60,7 @@ export default function ThreadedDocument() {
   } = useMessages();
   const replyBoxRef = useRef<HTMLDivElement>(null);
 
-  // Model-related state
+  // Model-related states
   const {
     modelsLoaded,
     setModelsLoaded,
@@ -73,7 +74,7 @@ export default function ThreadedDocument() {
     setEditingModel,
   } = useModels(); 
 
-  // Connection and generation state
+  // Connection and generation states
   const [lastAttemptTime, setLastAttemptTime] = useState<number | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -312,21 +313,6 @@ export default function ThreadedDocument() {
 			}
 		}
 		return [];
-	};
-
-  // Find all parent messages of a message
-	const findAllParentMessages = (
-		threads: Thread[],
-		currentThreadId: string | null,
-		replyingToId: string | null
-	): Message[] => {
-		if (!currentThreadId || !replyingToId) return [];
-
-		const currentThread = threads.find(t => t.id === currentThreadId);
-		if (!currentThread) return [];
-
-		const [targetMessage, parents] = findMessageAndParents(currentThread.messages, replyingToId);
-		return parents.concat(targetMessage ? [targetMessage] : []);
 	};
 
   // Start editing a thread title
