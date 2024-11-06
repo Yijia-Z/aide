@@ -85,7 +85,6 @@ const ThreadList: React.FC<ThreadListProps> = ({
                 exit={{ opacity: 0, y: -20 }}
                 transition={{ duration: 0.1 }}
                 whileHover={{
-                  borderRadius: "8px",
                   y: -2,
                   transition: { duration: 0.2 },
                 }}
@@ -136,8 +135,9 @@ const ThreadList: React.FC<ThreadListProps> = ({
                           }
                         }}
                       />
+                      <div className="flex items-center">
                       <Button
-                        size="sm"
+                          size="icon"
                         variant="ghost"
                         onClick={(e) => {
                           e.stopPropagation();
@@ -147,7 +147,7 @@ const ThreadList: React.FC<ThreadListProps> = ({
                         <Check className="h-4 w-4" />
                       </Button>
                       <Button
-                        size="sm"
+                          size="icon"
                         variant="ghost"
                         onClick={(e) => {
                           e.stopPropagation();
@@ -156,6 +156,7 @@ const ThreadList: React.FC<ThreadListProps> = ({
                       >
                         <X className="h-4 w-4" />
                       </Button>
+                      </div>
                     </div>
                   ) : (
                     <div
@@ -166,7 +167,7 @@ const ThreadList: React.FC<ThreadListProps> = ({
                       }}
                     >
                       <span className="pl-1 flex-grow">{thread.title}</span>
-                      <div className="flex items-center">
+                        <div className="flex items-center">
                         <Button
                           variant="ghost"
                           size="icon"

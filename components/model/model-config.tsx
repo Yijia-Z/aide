@@ -91,7 +91,6 @@ const ModelConfig: React.FC<ModelConfigProps> = ({
                 transition={{ duration: 0.1 }}
                 whileHover={{
                   boxShadow: "inset 0px 0px 10px rgba(128, 128, 128, 0.2)",
-                  borderRadius: "8px",
                   transition: { duration: 0.2 },
                 }}
                 className="p-2 border rounded-md mb-2 custom-shadow"

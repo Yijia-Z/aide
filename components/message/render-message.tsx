@@ -150,7 +150,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
     isSelected || isParentOfSelected || parentId === message.id;
 
   // Indentation
-  const indent = depth === 0 ? 0 : isSelectedOrParent ? 0 : 16;
+  const indent = depth === 0 ? 0 : isSelectedOrParent ? -16 : 0;
 
   // Helper functions
   const getTotalReplies = (msg: Message): number => {
@@ -247,7 +247,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
           items-start 
           space-x-1 
           p-1 
-          rounded-md
+          rounded-lg
           ${isSelectedOrParent ? "custom-shadow" : "text-muted-foreground"}
           ${glowingMessageId === message.id ? "glow-effect" : ""}
       `}
@@ -476,7 +476,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                                 }-${codeString.slice(0, 32)}`;
                               return !inline && match ? (
                                 <div className="relative">
-                                  <div className="absolute -top-4 w-full text-muted-foreground flex justify-between items-center p-1 pb-0 pl-3 rounded-sm text-xs bg-[#1D2021]">
+                                  <div className="absolute -top-4 w-full text-muted-foreground flex justify-between items-center p-1 pb-0 pl-3 rounded-md text-xs bg-[#1D2021]">
                                     <span>{match[1]}</span>
                                     <Button
                                       className="w-6 h-6 p-0"
@@ -798,45 +798,57 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
         </div>
       </div>
       <AnimatePresence>
-        {!message.isCollapsed &&
-          message.replies.map((reply) => (
-            <RenderMessage
-              key={reply.id}
-              message={reply}
-              threadId={threadId}
-              depth={depth + 1}
-              parentId={message.id}
-              threads={threads}
-              currentThread={currentThread}
-              selectedMessage={selectedMessage}
-              editingMessage={editingMessage}
-              editingContent={editingContent}
-              glowingMessageId={glowingMessageId}
-              copiedStates={copiedStates}
-              clipboardMessage={clipboardMessage}
-              isGenerating={isGenerating}
-              setSelectedMessage={setSelectedMessage}
-              toggleCollapse={toggleCollapse}
-              setGlowingMessageId={setGlowingMessageId}
-              setEditingContent={setEditingContent}
-              confirmEditingMessage={confirmEditingMessage}
-              cancelEditingMessage={cancelEditingMessage}
-              startEditingMessage={startEditingMessage}
-              addEmptyReply={addEmptyReply}
-              generateAIReply={generateAIReply}
-              copyOrCutMessage={copyOrCutMessage}
-              pasteMessage={pasteMessage}
-              deleteMessage={deleteMessage}
-              findMessageById={findMessageById}
-              findMessageAndParents={findMessageAndParents}
-              getSiblings={getSiblings}
-              getModelDetails={getModelDetails}
-              setCopiedStates={setCopiedStates}
-              setThreads={setThreads}
-              setClipboardMessage={setClipboardMessage}
-            />
-          ))}
-        ;
+        {!message.isCollapsed && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.1 }}
+          >
+            {message.replies.map((reply) => (
+              <div
+                key={reply.id}
+                className={`${selectedMessage === message.id ? "border-l-2 border-b-2 rounded-bl-lg border-border ml-4" : "ml-4"}`}
+              >
+                <RenderMessage
+                  key={reply.id}
+                  message={reply}
+                  threadId={threadId}
+                  depth={depth + 1}
+                  parentId={message.id}
+                  threads={threads}
+                  currentThread={currentThread}
+                  selectedMessage={selectedMessage}
+                  editingMessage={editingMessage}
+                  editingContent={editingContent}
+                  glowingMessageId={glowingMessageId}
+                  copiedStates={copiedStates}
+                  clipboardMessage={clipboardMessage}
+                  isGenerating={isGenerating}
+                  setSelectedMessage={setSelectedMessage}
+                  toggleCollapse={toggleCollapse}
+                  setGlowingMessageId={setGlowingMessageId}
+                  setEditingContent={setEditingContent}
+                  confirmEditingMessage={confirmEditingMessage}
+                  cancelEditingMessage={cancelEditingMessage}
+                  startEditingMessage={startEditingMessage}
+                  addEmptyReply={addEmptyReply}
+                  generateAIReply={generateAIReply}
+                  copyOrCutMessage={copyOrCutMessage}
+                  pasteMessage={pasteMessage}
+                  deleteMessage={deleteMessage}
+                  findMessageById={findMessageById}
+                  findMessageAndParents={findMessageAndParents}
+                  getSiblings={getSiblings}
+                  getModelDetails={getModelDetails}
+                  setCopiedStates={setCopiedStates}
+                  setThreads={setThreads}
+                  setClipboardMessage={setClipboardMessage}
+                />
+              </div>
+            ))}
+          </motion.div>
+        )}
       </AnimatePresence>
     </motion.div>
   );

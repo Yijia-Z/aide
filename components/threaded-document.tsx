@@ -1545,7 +1545,7 @@ export default function ThreadedDocument() {
         <Tabs
           value={activeTab}
           onValueChange={(value) =>
-            setActiveTab(value as "threads" | "messages" | "models" )
+            setActiveTab(value as "threads" | "messages" | "models" | "tools")
           }
           className="w-full flex flex-col"
         >
@@ -1634,7 +1634,7 @@ export default function ThreadedDocument() {
               left-0 
               right-0 
               pb-14 
-              grid-cols-3
+              grid-cols-4
               select-none"
           >
             <TabsTrigger
@@ -1655,6 +1655,12 @@ export default function ThreadedDocument() {
             >
               Models
             </TabsTrigger>
+            <TabsTrigger
+              className="bg-transparent hover:bg-secondary hover:custom-shadow data-[state=active]:bg-muted"
+              value="tools"
+            >
+              Tools
+            </TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
@@ -1673,7 +1679,7 @@ export default function ThreadedDocument() {
             <Tabs
               value={activeTab}
               onValueChange={(value) =>
-                setActiveTab(value as "threads" | "models"| "tools")
+                setActiveTab(value as "threads" | "models" | "tools")
               }
               className="w-full flex flex-col"
             >
