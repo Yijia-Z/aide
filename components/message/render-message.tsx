@@ -800,10 +800,8 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
       <AnimatePresence>
         {!message.isCollapsed && (
           <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
             transition={{ duration: 0.1 }}
+            layout={"preserve-aspect"}
           >
             {message.replies.map((reply) => (
               <div
