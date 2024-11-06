@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 // Function to handle tool calls
-async function handleToolCall(toolCall) {
+async function handleToolCall(toolCall: { function: { name: any; arguments: any; }; }) {
   try {
     console.log("Entered handleToolCall function");
     const toolName = toolCall.function.name;
@@ -25,7 +25,7 @@ async function handleToolCall(toolCall) {
 }
 
 // Function to get coordinates using Google Geocoding API
-async function getCoordinates(location) {
+async function getCoordinates(location: string | number | boolean) {
   try {
     console.log("Entered getCoordinates function with location:", location);
 
@@ -63,15 +63,18 @@ async function getCoordinates(location) {
 
     console.log("Extracted coordinates:", { lat, lon: lng });
     return { lat, lon: lng };
-
-  } catch (error) {
-    console.error("Error in getCoordinates:", error.message);
+  } catch (error: unknown) {
+      if (error instanceof Error) {
+          console.error("Error in getCoordinates:", error.message);
+    } else {
+        console.error("Error in getCoordinates:", error);
+    }
     throw error; // 重新抛出错误以在 getCurrentWeather 中捕获
   }
 }
 
 // Function to get current weather using OpenWeatherMap's Current Weather API
-async function getCurrentWeather({ location, unit = "celsius" }) {
+async function getCurrentWeather({ location, unit = "celsius" }: { location: string, unit?: "celsius" | "fahrenheit" }) {
   try {
     console.log("Entered getCurrentWeather function with arguments:", { location, unit });
     const { lat, lon } = await getCoordinates(location);
@@ -114,7 +117,7 @@ async function getCurrentWeather({ location, unit = "celsius" }) {
 }
 
 // Function to fetch chat completion from OpenRouter API
-async function fetchChatCompletion(params) {
+async function fetchChatCompletion(params: { messages: any; model: any; temperature: any; max_tokens: any; top_p: any; frequency_penalty: any; presence_penalty: any; repetition_penalty: any; min_p: any; top_a: any; seed: any; context_length: any; top_k: any; logit_bias: any; logprobs: any; top_logprobs: any; response_format: any; stop: any; tools: any; tool_choice: any; stream: boolean; }) {
   try {
     const response = await fetch(`${process.env.NEXT_PUBLIC_OPENROUTER_API_URL}/chat/completions`, {
       method: "POST",
@@ -228,7 +231,8 @@ export async function POST(req: NextRequest) {
 
     const stream = new ReadableStream({
       async start(controller) {
-        const reader = finalResponse.body.getReader();
+            // We already checked finalResponse.body exists above
+            const reader = finalResponse.body!.getReader();
 
         const decoder = new TextDecoder();
         const encoder = new TextEncoder();

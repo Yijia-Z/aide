@@ -1524,9 +1524,18 @@ export default function ThreadedDocument() {
     startEditingMessage,
     deleteMessage,
     findMessageById,
-    confirmEditingMessage,
+    confirmEditingMessage, 
     cancelEditingMessage,
     saveModelChanges,
+    clipboardMessage,
+    copyOrCutMessage,
+    findMessageAndParents,
+    getSiblings,
+    pasteMessage,
+    setClipboardMessage,
+    setEditingModel,
+    setEditingThreadTitle,
+    setSelectedMessage
   ]);
 
   return (
