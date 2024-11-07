@@ -399,18 +399,21 @@ export default function ThreadedDocument() {
   );
 
   // Get siblings of a message
-  const getSiblings = (messages: Message[], messageId: string): Message[] => {
-    for (const message of messages) {
-      if (message.id === messageId) {
-        return messages;
+  const getSiblings = useCallback(
+    (messages: Message[], messageId: string): Message[] => {
+      for (const message of messages) {
+        if (message.id === messageId) {
+          return messages;
+        }
+        const siblings = getSiblings(message.replies, messageId);
+        if (siblings.length > 0) {
+          return siblings;
+        }
       }
-      const siblings = getSiblings(message.replies, messageId);
-      if (siblings.length > 0) {
-        return siblings;
-      }
-    }
-    return [];
-  };
+      return [];
+    },
+    []
+  );
 
   // Start editing a thread title
   const startEditingThreadTitle = useCallback(

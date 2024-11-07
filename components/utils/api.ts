@@ -49,7 +49,10 @@ export async function generateAIResponse(
     throw new Error("Failed to generate AI response");
   }
 
-  const reader = response.body.getReader();
+  const reader = response.body?.getReader();
+  if (!reader) {
+    throw new Error("Failed to get response reader");
+  }
   const decoder = new TextDecoder("utf-8");
   let doneReading = false;
   while (!doneReading) {
