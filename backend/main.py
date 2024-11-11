@@ -111,12 +111,23 @@ class Function(BaseModel):
     description: str
     parameters: FunctionParameters
 
+class ToolParameter(BaseModel):
+    type: str
+    description: Optional[str] = None
+    enum: Optional[List[str]] = None
+
+class ToolFunction(BaseModel):
+    name: str
+    description: str
+    parameters: Dict[str, Dict[str, Union[str, Dict, List]]]
+
 class Tool(BaseModel):
+    id: str
     name: str
     description: str
     enabled: bool
     type: str
-    function: Function
+    function: ToolFunction
 
 @sgl.function
 def multi_turn_question(
@@ -238,6 +249,7 @@ def get_default_tools() -> List[Dict]:
     """
     return [
         {
+            "id": "weather",
             "name": "Get Current Weather",
             "description": "Provides the current weather for a specified location.",
             "enabled": True,
@@ -262,13 +274,14 @@ def get_default_tools() -> List[Dict]:
             },
         },
         {
+            "id": "calculator",
             "name": "Calculate",
             "description": "Performs basic arithmetic calculations.",
             "enabled": True,
             "type": "function",
             "function": {
                 "name": "calculate",
-                "description": "Performs basic arithmetic operations like addition, subtraction, multiplication, and division.",
+                "description": "Performs basic arithmetic operations",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -289,7 +302,7 @@ def get_default_tools() -> List[Dict]:
                     "required": ["operation", "operand1", "operand2"],
                 },
             },
-        },
+        }
     ]
 
 tools_list: List[Dict] = []
@@ -444,60 +457,48 @@ Do not mention tools to the user unless necessary. Provide clear and direct answ
 
 @app.post("/api/save_tools")
 async def save_tools(request: Request):
-    """
-    Save tools to MongoDB.
-    
-    Parameters:
-    - request: HTTP request containing tool data.
-    
-    Returns:
-    - JSON response indicating success or failure.
-    """
+    """Save tools to database."""
     try:
         data = await request.json()
-        tools = data.get("tools")
-        if tools is None:
-            raise HTTPException(status_code=400, detail="No tool data provided")
+        tools = data.get("tools", [])
         
-        # Validate tool data
-        for tool in tools:
-            try:
-                Tool(**tool)
-            except Exception as e:
-                logger.error(f"Tool data validation failed: {str(e)}")
-                raise HTTPException(status_code=400, detail=f"Tool data validation failed: {str(e)}")
+        db = clientdb["threaddata"]
+        collection = db["tools"]
         
-        # Save tools to the database
-        save_tools_to_db(tools)
-        return {"status": "success"}
-    except HTTPException as he:
-        raise he
+        # Clear existing tools
+        collection.delete_many({})
+        
+        # Insert new tools if any exist
+        if tools:
+            collection.insert_many(tools)
+            logger.info(f"Saved {len(tools)} tools to database")
+        
+        return {"status": "success", "message": "Tools saved successfully"}
     except Exception as e:
         logger.error(f"Failed to save tools: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to save tools")
 
 @app.get("/api/load_tools")
-async def load_tools_endpoint():
-    """
-    Load tools from MongoDB.
-    
-    Returns:
-    - JSON response containing the list of tools.
-    """
+async def load_tools():
+    """Load tools from database or initialize with defaults if none exist."""
     try:
         db = clientdb["threaddata"]
         collection = db["tools"]
-        tools_from_db = list(collection.find({}, {"_id": 0}))
         
-        if not tools_from_db:
-            logger.warning("No tools found in the database. Initializing with default tools.")
-            tools_list = get_default_tools()
-            save_tools_to_db(tools_list)
-        else:
-            logger.info(f"Successfully loaded {len(tools_from_db)} tools from MongoDB.")
-            tools_list = tools_from_db
+        # Find all tools in the collection
+        tools = list(collection.find({}, {"_id": 0}))
         
-        return {"tools": tools_list}
+        # If no tools exist in the database, initialize with defaults
+        if not tools:
+            logger.info("No tools found in database. Initializing with defaults...")
+            tools = get_default_tools()
+            # Insert default tools into database
+            if tools:
+                collection.insert_many(tools)
+                logger.info(f"Inserted {len(tools)} default tools into database")
+        
+        logger.info(f"Loaded {len(tools)} tools")
+        return {"tools": tools}
     except Exception as e:
         logger.error(f"Failed to load tools: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to load tools")
@@ -670,17 +671,25 @@ async def check_model_tools_support(model_id: str):
 
         if supports_tools:
             # Load tools from the database
-            tools = list(dbls.find({}))
-            serialized_tools = [serialize_tool(tool) for tool in tools]
-            logger.info(f"Loaded {len(serialized_tools)} tools.")
-            return {"supportsTools": True, "tools": serialized_tools}
+            db = clientdb["threaddata"]
+            collection = db["tools"]
+            available_tools = list(collection.find({"enabled": True}, {"_id": 0}))
+            
+            # If no tools in database, get defaults
+            if not available_tools:
+                available_tools = get_default_tools()
+                if available_tools:
+                    collection.insert_many(available_tools)
+            
+            logger.info(f"Returning {len(available_tools)} available tools for model {model_id}")
+            return {
+                "supportsTools": True,
+                "available_tools": available_tools
+            }
         else:
-            logger.info(f"Model {model_id} does not support tools.")
             return {"supportsTools": False}
-
     except Exception as e:
         logger.error(f"Error checking model tool support: {str(e)}")
-        # On error, assume tools are not supported
         return {"supportsTools": False}
 
 @app.post("/api/chat")

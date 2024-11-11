@@ -4,6 +4,7 @@ import * as React from "react";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { ToolSelector } from "./tool-selector";
 import {
   Command,
   CommandEmpty,
@@ -258,7 +259,7 @@ export function SelectBaseModel({
           <TooltipTrigger asChild>
             <span className="cursor-help">{title}</span>
           </TooltipTrigger>
-          <TooltipContent className="font-serif max-w-[200px] sm:max-w-[250px] md:max-w-[350px] lg:max-w-[400px]">
+          <TooltipContent className="font-serif w-60 mx-4 custom-shadow">
             <p>{content}</p>
           </TooltipContent>
         </Tooltip>
@@ -343,8 +344,6 @@ export function SelectBaseModel({
       case "logit_bias":
       case "response_format":
       case "stop":
-      case "tools":
-      case "tool_choice":
         return (
           <div key={param} className="flex flex-col space-y-2">
             <Label>{renderTooltip(param, tooltip)}</Label>
@@ -397,6 +396,33 @@ export function SelectBaseModel({
             />
           </div>
         );
+      case "tools":
+      case "tool_choice":
+        if (param === "tools" && parameters?.supported_parameters?.includes("tools")) {
+          return (
+            <div key={param} className="flex flex-col space-y-2">
+              <Label>{renderTooltip(param, tooltip)}</Label>
+              <ToolSelector
+                tools={parameters.available_tools || []}
+                selectedTools={Array.isArray(value) ? value.map((t: any) => t.function.name) : []}
+                toolChoice={parameters.tool_choice || "auto"}
+                onToolsChange={(selectedTools) => {
+                  const toolObjects = selectedTools.map(toolName => {
+                    const tool = parameters.available_tools.find(
+                      (t: any) => t.function.name === toolName
+                    );
+                    return tool;
+                  });
+                  handleParameterChange("tools", toolObjects);
+                }}
+                onToolChoiceChange={(choice) => {
+                  handleParameterChange("tool_choice", choice);
+                }}
+              />
+            </div>
+          );
+        }
+        return null;
       default:
         return null;
     }
@@ -410,7 +436,7 @@ export function SelectBaseModel({
             variant="outline"
             role="combobox"
             aria-expanded={open}
-            className="w-full justify-between"
+            className="w-full justify-between text-primary"
           >
             {value ? (
               <span className="truncate">
@@ -424,9 +450,9 @@ export function SelectBaseModel({
           </Button>
         </PopoverTrigger>
         <PopoverContent className="p-0 w-screen sm:w-auto">
-          <Command className="w-full">
+          <Command className="w-full custom-shadow">
             <CommandInput placeholder="Search model..." className="w-full" />
-            <CommandList className="w-full">
+            <CommandList className="w-full bg-transparent">
               <CommandEmpty>No model found.</CommandEmpty>
               <CommandGroup className="w-full">
                 {availableModels.map((model) => (

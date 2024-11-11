@@ -12,8 +12,9 @@ import { storage } from "./store";
 import ThreadList from "@/components/thread/thread-list";
 import ModelConfig from "./model/model-config";
 import RenderMessages from "@/components/message/render-all-messages";
+import { ToolManager } from "./tool/tool-manager";
 import { generateAIResponse } from "@/components/utils/api";
-import { Thread, Message, Model, ModelParameters } from "./types";
+import { Thread, Message, Model, ModelParameters, Tool } from "./types";
 import { useModels } from "./hooks/use-models";
 import { useThreads } from "./hooks/use-threads";
 import { useMessages } from "./hooks/use-messages";
@@ -88,10 +89,10 @@ export default function ThreadedDocument() {
     {}
   );
 
-  const [tools, setTools] = useState<any[]>([]);
+  const [tools, setTools] = useState<Tool[]>([]);
+  const [toolsLoading, setToolsLoading] = useState(false);
+  const [toolsError, setToolsError] = useState("");
   const [modelSupportsTools, setModelSupportsTools] = useState<boolean | null>(null);
-  const [toolsLoading, setToolsLoading] = useState<boolean>(false);
-  const [toolsError, setToolsError] = useState<string>("");
   const checkModelSupportsTools = async (modelId: string) => {
     try {
       console.log(`检查模型工具支持，modelId: ${modelId}`);
@@ -120,17 +121,19 @@ export default function ThreadedDocument() {
   }, [selectedModel]);
 
   const loadTools = async () => {
-    setToolsLoading(true);
-    try {
-      const response = await fetch("/api/load_tools");
-      const data = await response.json();
-      console.log("加载到的工具:", data);
-      setTools(data.tools || []);
-    } catch (error) {
-      console.error("加载工具时出错:", error);
-      setToolsError("加载工具失败。");
-    } finally {
-      setToolsLoading(false);
+    if (apiBaseUrl) {
+      setToolsLoading(true);
+      try {
+        const response = await fetch(`${apiBaseUrl}/api/load_tools`);
+        const data = await response.json();
+        console.log("加载到的工具:", data);
+        setTools(data.tools || []);
+      } catch (error) {
+        console.error("加载工具时出错:", error);
+        setToolsError("加载工具失败。");
+      } finally {
+        setToolsLoading(false);
+      }
     }
   };
   useEffect(() => {
@@ -784,6 +787,27 @@ export default function ThreadedDocument() {
     },
     [setThreads]
   );
+
+  const saveTools = async (updatedTools: Tool[]) => {
+    try {
+      const response = await fetch("/api/save_tools", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ tools: updatedTools }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to save tools");
+      }
+
+      setTools(updatedTools);
+    } catch (error) {
+      console.error("Error saving tools:", error);
+      setToolsError("Failed to save tools");
+    }
+  };
 
   const deleteThread = useCallback(
     (threadId: string) => {
@@ -1448,21 +1472,25 @@ export default function ThreadedDocument() {
         switch (event.key) {
           case "ArrowLeft":
             if (parentMessage) {
+              event.preventDefault();
               setSelectedMessage(parentMessage.id);
             }
             break;
           case "ArrowRight":
             if (currentMessage.replies.length > 0) {
+              event.preventDefault();
               setSelectedMessage(currentMessage.replies[0].id);
             }
             break;
           case "ArrowUp":
             if (currentIndex > 0) {
+              event.preventDefault();
               setSelectedMessage(siblings[currentIndex - 1].id);
             }
             break;
           case "ArrowDown":
             if (currentIndex < siblings.length - 1) {
+              event.preventDefault();
               setSelectedMessage(siblings[currentIndex + 1].id);
             }
             break;
@@ -1627,6 +1655,14 @@ export default function ThreadedDocument() {
               handleModelChange={handleModelChange}
             />
           </TabsContent>
+          <TabsContent value="tools" className="overflow-y-clip fixed top-0 left-2 right-2 pb-20">
+            <ToolManager
+              tools={tools}
+              setTools={(tools: Tool[]) => void saveTools(tools)}
+              isLoading={toolsLoading}
+              error={toolsError}
+            />
+          </TabsContent>
           <TabsList
             className="grid 
               bg-transparent
@@ -1738,6 +1774,14 @@ export default function ThreadedDocument() {
                   editingModel={editingModel}
                   setEditingModel={setEditingModel}
                   handleModelChange={handleModelChange}
+                />
+              </TabsContent>
+              <TabsContent value="tools" className="flex-grow overflow-y-clip">
+                <ToolManager
+                  tools={tools}
+                  setTools={(tools: Tool[]) => void saveTools(tools)}
+                  isLoading={toolsLoading}
+                  error={toolsError}
                 />
               </TabsContent>
             </Tabs>
