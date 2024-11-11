@@ -213,10 +213,10 @@ function ToolForm({ initialTool, onSave, onCancel }: {
                 />
             </div>
             <div className="flex justify-end gap-2">
-                <Button className="sm" variant="outline" onClick={onCancel}>
+                <Button className="sm" variant="outline" onClick={() => onSave(tool)}>
                     <Check className="h-4 w-4" />
                 </Button>
-                <Button className="sm" variant="outline" onClick={() => onSave(tool)}>
+                <Button className="sm" variant="outline" onClick={onCancel}>
                     <X className="h-4 w-4" />
                 </Button>
             </div>
