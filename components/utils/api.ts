@@ -1,7 +1,7 @@
 import { Thread, Model } from "../types";
 import { findAllParentMessages } from "./helpers";
 
-const apiBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+
 
 export async function generateAIResponse(
   prompt: string,
@@ -33,11 +33,11 @@ export async function generateAIResponse(
   };
 
   console.log("Request payload:", JSON.stringify(requestPayload, null, 2));
+  const apiUrl = "http://localhost:3000/api/chat";
+  console.log(`Fetching API at: ${apiUrl}`);
 
   const response = await fetch(
-    // apiBaseUrl ? `${apiBaseUrl}/api/chat` : "/api/chat",
-     "/api/chat",
-
+    apiUrl,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
