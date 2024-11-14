@@ -37,7 +37,7 @@ export async function generateAIResponse(
   console.log(`Fetching API at: ${apiUrl}`);
 
   const response = await fetch(
-    apiUrl,
+    "/api/chat",
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
