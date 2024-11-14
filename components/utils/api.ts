@@ -36,7 +36,7 @@ export async function generateAIResponse(
 
   const response = await fetch(
     // apiBaseUrl ? `${apiBaseUrl}/api/chat` : "/api/chat",
-    apiBaseUrl ? `${apiBaseUrl}/api/chat` : "/api/chat",
+     "/api/chat",
 
     {
       method: "POST",

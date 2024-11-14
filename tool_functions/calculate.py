@@ -1,8 +1,8 @@
 # tool_functions/calculate.py
 
 def execute(**kwargs):
-    num1 = kwargs.get('num1')
-    num2 = kwargs.get('num2')
+    num1 = kwargs.get('operand1')
+    num2 = kwargs.get('operand2')
     operation = kwargs.get('operation')
 
     try:

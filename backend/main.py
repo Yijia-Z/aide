@@ -3,6 +3,8 @@ import logging
 import os
 import traceback
 import uvicorn
+import sys
+
 from pathlib import Path
 from typing import Dict, List, Union, Optional
 from pymongo import MongoClient
@@ -18,6 +20,8 @@ import requests
 import asyncio
 import httpx
 import openai
+from bson import ObjectId
+import importlib
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -28,18 +32,22 @@ parent_dir = current_dir.parent
 dotenv_path = parent_dir / ".env.local"
 
 if not dotenv_path.exists():
-    logger.error(f"Missing .env.local file: {dotenv_path}")
-    raise FileNotFoundError(f".env.local not found at this path: {dotenv_path}")
+    logger.error(f"Missing .env.local file {dotenv_path}")
+    raise FileNotFoundError(f".env.local not found at this path {dotenv_path}")
 
 load_dotenv(dotenv_path=dotenv_path)
 
-mongo_url = os.getenv("MONGODB_URI", "")
+mongo_url = os.getenv("MONGODB_URI")
+if not mongo_url:
+    logger.error("MONGODB_URI is not set in environment variables.")
+    raise RuntimeError("Missing MONGODB_URI.")
+
 clientdb = MongoClient(mongo_url, server_api=ServerApi('1'))
 
 data_folder = parent_dir / "data"
 if not data_folder.exists():
     data_folder.mkdir()
-    logger.info(f"Created data folder: {data_folder}")
+    logger.info(f"Created data folder {data_folder}")
 
 app = FastAPI()
 origins = os.getenv("ALLOWED_ORIGINS", "")
@@ -47,7 +55,7 @@ allowed_origins = [origin.strip() for origin in origins.split(",") if origin.str
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -58,9 +66,11 @@ if not openrouter_api_key:
     logger.error("Please set OPENROUTER_API_KEY in .env.local.")
     raise RuntimeError("Missing OPENROUTER_API_KEY.")
 
+# ------------------------- Pydantic Models -------------------------
+
 class Message(BaseModel):
     role: str
-    content: str
+    content: Optional[str] = None
 
 class Configuration(BaseModel):
     model: str
@@ -111,28 +121,28 @@ class Function(BaseModel):
     description: str
     parameters: FunctionParameters
 
-class ToolParameter(BaseModel):
-    type: str
-    description: Optional[str] = None
-    enum: Optional[List[str]] = None
-
-class ToolFunction(BaseModel):
-    name: str
-    description: str
-    parameters: Dict[str, Dict[str, Union[str, Dict, List]]]
-
 class Tool(BaseModel):
-    id: str
     name: str
     description: str
     enabled: bool
     type: str
-    function: ToolFunction
+    function: Function
+
+class ToolUseResponse(BaseModel):
+    role: str
+    name: str
+    tool_call_id: str
+    content: str
+
+class ToolUseRequest(BaseModel):
+    tool_name: str
+    tool_args: dict
+    tool_call_id: str
+
+# ------------------------- SGLang Function -------------------------
 
 @sgl.function
-def multi_turn_question(
-    s, messages: List[Message], config: Configuration
-):
+def multi_turn_question(s, messages: List[Message], config: Configuration):
     # Set the model configuration
     s.model = config.model
   
@@ -190,6 +200,7 @@ def multi_turn_question(
 
     if config.tool_choice is not None:
         s.tool_choice = config.tool_choice
+
     # Process messages
     for msg in messages:
         if msg.role == "system":
@@ -227,7 +238,7 @@ def load_tools_from_db():
 def save_tools_to_db(tools: List[Dict]):
     """
     Save the list of tools to MongoDB.
-    
+
     Parameters:
     - tools: List of tools, each tool as a dictionary.
     """
@@ -243,13 +254,12 @@ def save_tools_to_db(tools: List[Dict]):
 def get_default_tools() -> List[Dict]:
     """
     Return a list of default tools, including 'Get Current Weather' and 'calculate'.
-    
+
     Returns:
     - List of default tool configurations.
     """
     return [
         {
-            "id": "weather",
             "name": "Get Current Weather",
             "description": "Provides the current weather for a specified location.",
             "enabled": True,
@@ -266,28 +276,37 @@ def get_default_tools() -> List[Dict]:
                         },
                         "unit": {
                             "type": "string",
-                            "enum": ["celsius", "fahrenheit"],
+                            "enum": [
+                                "celsius",
+                                "fahrenheit"
+                            ],
                         },
                     },
-                    "required": ["location"],
+                    "required": [
+                        "location",
+                    ],
                 },
             },
         },
         {
-            "id": "calculator",
             "name": "Calculate",
             "description": "Performs basic arithmetic calculations.",
             "enabled": True,
             "type": "function",
             "function": {
                 "name": "calculate",
-                "description": "Performs basic arithmetic operations",
+                "description": "Performs basic arithmetic operations like addition, subtraction, multiplication, and division.",
                 "parameters": {
                     "type": "object",
                     "properties": {
                         "operation": {
                             "type": "string",
-                            "enum": ["add", "subtract", "multiply", "divide"],
+                            "enum": [
+                                "add",
+                                "subtract",
+                                "multiply",
+                                "divide"
+                            ],
                             "description": "The arithmetic operation to perform.",
                         },
                         "operand1": {
@@ -299,10 +318,14 @@ def get_default_tools() -> List[Dict]:
                             "description": "The second operand.",
                         },
                     },
-                    "required": ["operation", "operand1", "operand2"],
+                    "required": [
+                        "operation",
+                        "operand1",
+                        "operand2",
+                    ],
                 },
             },
-        }
+        },
     ]
 
 tools_list: List[Dict] = []
@@ -316,7 +339,18 @@ def startup_event():
 # Add startup event handler
 app.add_event_handler("startup", startup_event)
 
-def calculate(**kwargs):
+# ------------------------- Tool Functions -------------------------
+
+def calculate(kwargs: Dict) -> Dict:
+    """
+    Perform basic arithmetic operations.
+
+    Parameters:
+    - kwargs: Dictionary containing 'operation', 'operand1', 'operand2'.
+
+    Returns:
+    - Dictionary with the result.
+    """
     num1 = kwargs.get('operand1')
     num2 = kwargs.get('operand2')
     operation = kwargs.get('operation')
@@ -342,7 +376,16 @@ def calculate(**kwargs):
 
     return {"result": result}
 
-def get_coordinates(location):
+def get_coordinates(location: str) -> (float, float):
+    """
+    Get latitude and longitude for a given location using Google Geocoding API.
+
+    Parameters:
+    - location: The location string.
+
+    Returns:
+    - Tuple of (latitude, longitude).
+    """
     api_key = os.getenv('GOOGLE_GEOCODING_API_KEY')
     if not api_key:
         raise ValueError("GOOGLE_GEOCODING_API_KEY is not set")
@@ -359,8 +402,17 @@ def get_coordinates(location):
     lon = result['geometry']['location']['lng']
     return lat, lon
 
-# Function to get current weather using OpenWeatherMap API
-def get_current_weather(location, unit='celsius'):
+def get_current_weather(location: str, unit: str = 'celsius') -> Dict:
+    """
+    Get current weather using OpenWeatherMap API.
+
+    Parameters:
+    - location: The location string.
+    - unit: Temperature unit ('celsius' or 'fahrenheit').
+
+    Returns:
+    - Dictionary containing weather information.
+    """
     lat, lon = get_coordinates(location)
     api_key = os.getenv('OPENWEATHER_API_KEY')
     if not api_key:
@@ -373,45 +425,39 @@ def get_current_weather(location, unit='celsius'):
         raise ValueError(f"Error fetching weather data: {response.status_code} {response.text}")
     data = response.json()
     return {
-        'location': data['name'],
-        'temperature': data['main']['temp'],
-        'unit': unit,
-        'description': data['weather'][0]['description'],
+        "location": data['name'],
+        "temperature": data['main']['temp'],
+        "unit": unit,
+        "description": data['weather'][0]['description'],
     }
 
-async def stream_assistant_response(content):
-    # Simulate streaming response by sending content in chunks
-    chunk_size = 100  # Adjust chunk size as needed
-    for i in range(0, len(content), chunk_size):
-        chunk = content[i:i+chunk_size]
-        data = json.dumps({"choices": [{"delta": {"content": chunk}}]})
-        yield f"data: {data}\n\n"
-        await asyncio.sleep(0)  # Yield control
-    yield "data: [DONE]\n\n"
+# ------------------------- Utility Functions -------------------------
 
-async def stream_openai_response(response):
-    async for line in response.aiter_lines():
-        if line.startswith("data:"):
-            data_str = line[5:].strip()
-            if data_str == "[DONE]":
-                yield "data: [DONE]\n\n"
-                break
-            try:
-                data = json.loads(data_str)
-                logger.info(f"Received data chunk: {data}")
-                
-                if 'error' in data:
-                    logger.error(f"Error from OpenRouter: {data['error']}")
-                    break  # Stop processing
-                            
-                # Directly send the entire data chunk to the frontend
-                yield f"data: {json.dumps(data)}\n\n"
-            except json.JSONDecodeError as e:
-                logger.error(f"JSON decode error: {e}")
-                continue
+def serialize_tool(tool: Dict) -> Dict:
+    """
+    Serialize tool data, handling non-serializable fields like ObjectId.
+
+    Parameters:
+    - tool: Tool dictionary.
+
+    Returns:
+    - Serialized tool dictionary.
+    """
+    serialized = {}
+    for key, value in tool.items():
+        if isinstance(value, ObjectId):
+            serialized[key] = str(value)
+        elif isinstance(value, dict):
+            serialized[key] = serialize_tool(value)  # Recursive handling
+        elif isinstance(value, list):
+            serialized[key] = [serialize_tool(item) if isinstance(item, dict) else item for item in value]
+        else:
+            serialized[key] = value
+    return serialized
 
 def load_models_from_file():
     global models_list
+    models_file = parent_dir / "models.json"
     try:
         # Check if models_file exists
         if models_file.exists():
@@ -432,84 +478,108 @@ def load_models_from_file():
         logger.error(f"Failed to load model file: {str(e)}")
         models_list = get_default_models()
 
-def get_default_models():
+def get_default_models() -> List[Dict]:
     return [
         {
             "id": "default-model-id",
             "name": "Default Model",
-            "baseModel": "openai/gpt-4o-2024-08-06",
-            "systemPrompt":  """
+            "baseModel": "openai-gpt-4o-2024-08-06",
+            "systemPrompt": """
 You are a helpful assistant.
 
 Use the tools when it's helpful, but if you can answer the user's question without it, feel free to do so.
 
 Do not mention tools to the user unless necessary. Provide clear and direct answers to the user's queries.
 """,
-            "parameters": ({
+            "parameters": {
                 "temperature": 0.7,
                 "max_tokens": 512,
-               
-            })
+                # Add other default parameters as needed
+            }
         }
     ]
 
-# ------------------------- Tool API Endpoints -------------------------
+# ------------------------- API Endpoints -------------------------
 
 @app.post("/api/save_tools")
-async def save_tools(request: Request):
-    """Save tools to database."""
+async def save_tools_endpoint(request: Request):
+    """
+    Save tools to MongoDB.
+
+    Parameters:
+    - request: HTTP request containing tool data.
+
+    Returns:
+    - JSON response indicating success or failure.
+    """
     try:
         data = await request.json()
-        tools = data.get("tools", [])
+        tools = data.get("tools")
+        if tools is None:
+            raise HTTPException(status_code=400, detail="No tool data provided.")
         
-        db = clientdb["threaddata"]
-        collection = db["tools"]
+        # Validate tool data
+        for tool in tools:
+            try:
+                Tool(**tool)
+            except Exception as e:
+                logger.error(f"Tool data validation failed: {str(e)}")
+                raise HTTPException(status_code=400, detail=f"Tool data validation failed: {str(e)}")
         
-        # Clear existing tools
-        collection.delete_many({})
-        
-        # Insert new tools if any exist
-        if tools:
-            collection.insert_many(tools)
-            logger.info(f"Saved {len(tools)} tools to database")
-        
-        return {"status": "success", "message": "Tools saved successfully"}
+        # Save tools to the database
+        save_tools_to_db(tools)
+        return {"status": "success"}
+    except HTTPException as he:
+        raise he
     except Exception as e:
         logger.error(f"Failed to save tools: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to save tools")
+        raise HTTPException(status_code=500, detail="Failed to save tools.")
 
 @app.get("/api/load_tools")
-async def load_tools():
-    """Load tools from database or initialize with defaults if none exist."""
+async def load_tools_endpoint():
+    """
+    Load tools from MongoDB.
+
+    Returns:
+    - JSON response containing the list of tools.
+    """
     try:
         db = clientdb["threaddata"]
         collection = db["tools"]
+        tools_from_db = list(collection.find({}, {"_id": 0}))
         
-        # Find all tools in the collection
-        tools = list(collection.find({}, {"_id": 0}))
+        if not tools_from_db:
+            logger.warning("No tools found in the database. Initializing with default tools.")
+            tools_list = get_default_tools()
+            save_tools_to_db(tools_list)
+        else:
+            logger.info(f"Successfully loaded {len(tools_from_db)} tools from MongoDB.")
+            tools_list = tools_from_db
         
-        # If no tools exist in the database, initialize with defaults
-        if not tools:
-            logger.info("No tools found in database. Initializing with defaults...")
-            tools = get_default_tools()
-            # Insert default tools into database
-            if tools:
-                collection.insert_many(tools)
-                logger.info(f"Inserted {len(tools)} default tools into database")
-        
-        logger.info(f"Loaded {len(tools)} tools")
-        return {"tools": tools}
+        return {"tools": tools_list}
     except Exception as e:
         logger.error(f"Failed to load tools: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to load tools")
+        raise HTTPException(status_code=500, detail="Failed to load tools.")
 
 @app.get("/api/connect")
 async def connect_endpoint():
+    """
+    Check connection to backend.
+    """
     logger.info("Connected to backend.")
     return JSONResponse(content={"message": "successful"}, status_code=200)
 
 @app.post("/api/save_thread")
-async def save_thread(thread_data: ThreadData):
+async def save_thread_endpoint(thread_data: ThreadData):
+    """
+    Save thread data to MongoDB.
+
+    Parameters:
+    - thread_data: ThreadData object containing thread ID and thread data.
+
+    Returns:
+    - JSON response indicating success or failure.
+    """
     try:
         thread_id = thread_data.threadId
         thread = thread_data.thread
@@ -528,10 +598,16 @@ async def save_thread(thread_data: ThreadData):
         return {"status": "success"}
     except Exception as e:
         logger.error(f"Failed to save thread to MongoDB: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to save thread")
+        raise HTTPException(status_code=500, detail="Failed to save thread.")
 
 @app.get("/api/load_threads")
 async def load_threads_endpoint():
+    """
+    Load all threads from MongoDB.
+
+    Returns:
+    - JSON response containing the list of threads.
+    """
     try:
         db = clientdb["threaddata"]
         collections = db.list_collection_names() 
@@ -547,10 +623,19 @@ async def load_threads_endpoint():
         return {"threads": threads}
     except Exception as e:
         logger.error(f"Failed to load threads from MongoDB: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to load threads")
+        raise HTTPException(status_code=500, detail="Failed to load threads.")
 
 @app.delete("/api/delete_thread/{thread_id}")
 async def delete_thread_endpoint(thread_id: str):
+    """
+    Delete a specific thread from MongoDB.
+
+    Parameters:
+    - thread_id: The ID of the thread to delete.
+
+    Returns:
+    - JSON response indicating success or failure.
+    """
     try:
         db = clientdb["threaddata"] 
         collection_name = f"thread_{thread_id}"
@@ -560,22 +645,31 @@ async def delete_thread_endpoint(thread_id: str):
             logger.info(f"Successfully deleted thread {thread_id} (collection {collection_name}).")
             return {
                 "status": "success",
-                "message": f"Thread {thread_id} (collection {collection_name}) has been deleted",
+                "message": f"Thread {thread_id} (collection {collection_name}) has been deleted.",
             }
         else:
             logger.error(f"Thread {thread_id} does not exist.")
-            raise HTTPException(status_code=404, detail=f"Thread {thread_id} not found")
+            raise HTTPException(status_code=404, detail=f"Thread {thread_id} not found.")
     except Exception as e:
         logger.error(f"Failed to delete thread {thread_id}: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to delete thread")
+        raise HTTPException(status_code=500, detail="Failed to delete thread.")
 
 @app.post("/api/save_models")
 async def save_models_endpoint(request: Request):
+    """
+    Save models to MongoDB.
+
+    Parameters:
+    - request: HTTP request containing model data.
+
+    Returns:
+    - JSON response indicating success or failure.
+    """
     try:
         data = await request.json()
         models = data.get("models")
         if models is None:
-            raise HTTPException(status_code=400, detail="No model data provided")
+            raise HTTPException(status_code=400, detail="No model data provided.")
         
         # Connect to MongoDB collection for saving model data
         db = clientdb["threaddata"]  
@@ -589,13 +683,19 @@ async def save_models_endpoint(request: Request):
         return {"status": "success"}
     except Exception as e:
         logger.error(f"Failed to save models to MongoDB: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to save models")
+        raise HTTPException(status_code=500, detail="Failed to save models.")
 
 @app.get("/api/load_models")
 async def load_models_endpoint():
+    """
+    Load models from MongoDB.
+
+    Returns:
+    - JSON response containing the list of models.
+    """
     try:
         db = clientdb["threaddata"]  # Connect to MongoDB database
-        collection = db["models"]  # Use the "models" collection
+        collection = db["models"]  # Use the models collection
         
         # Retrieve all models from MongoDB
         models_from_db = list(collection.find({}, {"_id": 0}))  # Exclude _id field when fetching models
@@ -612,29 +712,38 @@ async def load_models_endpoint():
         return {"models": models_list}
     except Exception as e:
         logger.error(f"Failed to load models: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to load models from database or file")
+        raise HTTPException(status_code=500, detail="Failed to load models from database or file.")
 
 @app.get("/api/check_model_tools_support/{model_id}")
 async def check_model_tools_support(model_id: str):
+    """
+    Check if a model supports tools.
+
+    Parameters:
+    - model_id: The ID of the model to check.
+
+    Returns:
+    - JSON response indicating whether tools are supported and the list of tools.
+    """
     try:
-        logger.info(f"Received request to check model tool support, model_id: {model_id}")
+        logger.info(f"Received request to check model tool support, model_id {model_id}")
         dbm = clientdb["threaddata"]  # Connect to MongoDB database
-        dbms = dbm["models"]  # Use "models" collection
-        dbls = dbm["tools"]  # Use "tools" collection
+        dbms = dbm["models"]  # Use models collection
+        dbls = dbm["tools"]  # Use tools collection
 
         # Find the model in the database
         model = dbms.find_one({"id": model_id})  # Assume the model has a unique 'id' field
         if not model:
             logger.error(f"Model not found: {model_id}")
-            raise HTTPException(status_code=404, detail="Model not found")
+            raise HTTPException(status_code=404, detail="Model not found.")
         
         # Get the actual model ID from OpenRouter
         basemodel = model.get("baseModel")
         if not basemodel:
-            logger.error(f"Model {model_id} does not have a 'basemodel' field configured")
-            raise HTTPException(status_code=400, detail="Model does not have 'basemodel' field configured")
+            logger.error(f"Model {model_id} does not have a 'basemodel' field configured.")
+            raise HTTPException(status_code=400, detail="Model does not have 'basemodel' field configured.")
         
-        logger.info(f"Model {model_id} basemodel: {basemodel}")
+        logger.info(f"Model {model_id} basemodel {basemodel}")
 
         # Get the OpenRouter API key
         openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
@@ -649,20 +758,20 @@ async def check_model_tools_support(model_id: str):
 
         # Construct request URL
         openrouter_url = f'https://openrouter.ai/api/v1/parameters/{basemodel}'
-        logger.info(f"Sending request to OpenRouter Parameters API: {openrouter_url}, Headers: {headers}")
+        logger.info(f"Sending request to OpenRouter Parameters API {openrouter_url}, Headers {headers}")
 
         async with httpx.AsyncClient() as client:
             response = await client.get(openrouter_url, headers=headers)
 
-        logger.info(f"Received response from OpenRouter Parameters API, Status Code: {response.status_code}")
+        logger.info(f"Received response from OpenRouter Parameters API, Status Code {response.status_code}")
 
         if response.status_code != 200:
-            logger.error(f"OpenRouter Parameters API error: {response.status_code} - {response.text}")
+            logger.error(f"OpenRouter Parameters API error {response.status_code} - {response.text}")
             # If model not found or error occurs, assume tools are not supported
             return {"supportsTools": False}
         
         data = response.json()
-        logger.debug(f"OpenRouter Parameters API response body: {data}")
+        logger.debug(f"OpenRouter Parameters API response body {data}")
 
         supported_parameters = data.get('data', {}).get('supported_parameters', [])
         supports_tools = 'tools' in supported_parameters
@@ -671,52 +780,141 @@ async def check_model_tools_support(model_id: str):
 
         if supports_tools:
             # Load tools from the database
-            db = clientdb["threaddata"]
-            collection = db["tools"]
-            available_tools = list(collection.find({"enabled": True}, {"_id": 0}))
-            
-            # If no tools in database, get defaults
-            if not available_tools:
-                available_tools = get_default_tools()
-                if available_tools:
-                    collection.insert_many(available_tools)
-            
-            logger.info(f"Returning {len(available_tools)} available tools for model {model_id}")
-            return {
-                "supportsTools": True,
-                "available_tools": available_tools
-            }
+            tools = list(dbls.find({}))
+            serialized_tools = [serialize_tool(tool) for tool in tools]
+            logger.info(f"Loaded {len(serialized_tools)} tools.")
+            return {"supportsTools": True, "tools": serialized_tools}
         else:
+            logger.info(f"Model {model_id} does not support tools.")
             return {"supportsTools": False}
+
     except Exception as e:
         logger.error(f"Error checking model tool support: {str(e)}")
+        # On error, assume tools are not supported
         return {"supportsTools": False}
 
-@app.post("/api/chat")
+@app.post("/api/process_tool_use")
+async def process_tool_use(request: ToolUseRequest):
+    """
+    Process tool use by dynamically importing and executing the specified tool function.
+
+    Parameters:
+    - request: ToolUseRequest object containing tool name, arguments, and tool call ID.
+
+    Returns:
+    - ToolUseResponse object containing the result or error.
+    """
+    tool_name = request.tool_name
+    tool_args = request.tool_args
+    tool_call_id = request.tool_call_id
+
+    # 假设工具函数位于 'tool_functions' 目录
+    # 获取当前文件的目录
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    # 工具函数目录
+    tool_functions_dir = os.path.join(current_dir, '..', 'tool_functions')
+
+    # 将工具函数目录添加到 sys.path，以便可以导入模块
+    if tool_functions_dir not in sys.path:
+        sys.path.append(tool_functions_dir)
+        logger.info(f"Added {tool_functions_dir} to sys.path")
+
+    # 列出所有可调用的函数
+    logger.info("Listing all callable functions in each module within 'tool_functions'")
+    for filename in os.listdir(tool_functions_dir):
+        if filename.endswith('.py'):
+            module_name = filename[:-3]  # Remove the '.py' extension to get the module name
+            try:
+                # Import the module dynamically
+                module = importlib.import_module(module_name)
+                # List all callable functions in the module
+                callable_functions = [func for func in dir(module) if callable(getattr(module, func))]
+                logger.info(f"Module '{module_name}' callable functions: {callable_functions}")
+            except Exception as e:
+                logger.error(f"Error loading module '{module_name}': {e}")
+
+    try:
+        # 动态导入模块，假设模块名与 tool_name 相同
+        module = importlib.import_module(tool_name)
+    except ImportError as e:
+        error_message = f"未找到工具 '{tool_name}'。"
+        logger.error(error_message)
+        raise HTTPException(status_code=404, detail=error_message)
+
+    try:
+        callable_functions = [func for func in dir(module) if callable(getattr(module, func))]
+        logger.info(f"Callable functions in '{tool_name}': {callable_functions}")
+        # 获取模块中的函数，假设函数名与模块名相同，或者统一为 'run'
+        if hasattr(module, tool_name):
+            function = getattr(module, tool_name)
+        elif hasattr(module, 'run'):
+            function = getattr(module, 'run')
+        elif hasattr(module, 'execute'):
+            function = getattr(module, 'execute')
+        else:
+            error_message = f"在工具 '{tool_name}' 中未找到可执行的函数。"
+            logger.error(error_message)
+            raise HTTPException(status_code=500, detail=error_message)
+    except Exception as e:
+        error_message = f"获取工具 '{tool_name}' 中的函数时出错：{str(e)}"
+        logger.error(error_message)
+        raise HTTPException(status_code=500, detail=error_message)
+
+    try:
+        # 执行函数，传入 tool_args 作为关键字参数
+        result = function(**tool_args)
+        logger.info(f"Executed function '{tool_name}' with args {tool_args}, result: {result}")
+    except Exception as e:
+        # 捕获并记录异常
+        traceback_str = ''.join(traceback.format_exception(None, e, e.__traceback__))
+        error_message = f"执行工具 '{tool_name}' 时出错：{str(e)}\n{traceback_str}"
+        logger.error(error_message)
+        # 返回错误信息
+        return {
+            'role': 'tool',
+            'name': tool_name,
+            'tool_call_id': tool_call_id,
+            'content': json.dumps({'error': error_message}, ensure_ascii=False),
+        }
+
+    # 将结果转换为 JSON 字符串（如果需要）
+    if not isinstance(result, str):
+        result = json.dumps(result, ensure_ascii=False)
+
+    # 返回成功结果
+    return {
+        'role': 'tool',
+        'name': tool_name,
+        'tool_call_id': tool_call_id,
+        'content': result,
+    }
+
+""" @app.post("/api/chat")
 async def chat(request: ChatRequest):
+  
     try:
         logger.info(f"Received chat request: {request}")
         
         # ------------------------- Validate Request -------------------------
         if not request.messages or not request.configuration:
             logger.error("Missing required fields in the request.")
-            raise HTTPException(status_code=400, detail="Missing required fields")
-
+            raise HTTPException(status_code=400, detail="Missing required fields.")
+    
         if not request.configuration.model:
             logger.error("Missing 'model' field in configuration.")
-            raise HTTPException(status_code=400, detail="Missing 'model' field in configuration")
-
+            raise HTTPException(status_code=400, detail="Missing 'model' field in configuration.")
+    
         # ------------------------- Prepare Messages and Configuration -------------------------
         # Convert the list of messages to a dictionary format compatible with OpenRouter
         messages = [{'role': msg.role, 'content': msg.content} for msg in request.messages]
         logger.info(f"Prepared messages for OpenRouter: {messages}")
-
+    
         # ------------------------- Filter Enabled Tools -------------------------
         active_tools = [tool for tool in tools_list if tool.get("enabled", False)]
         for tool in active_tools:
             if '_id' in tool:
                 tool['_id'] = str(tool['_id'])
-
+    
         # ------------------------- Prepare OpenRouter API Parameters -------------------------
         params = {
             'model': request.configuration.model,
@@ -742,7 +940,7 @@ async def chat(request: ChatRequest):
             'stream': False,  # Initial request does not enable streaming
         }
         logger.info(f"Prepared parameters for OpenRouter API: {params}")
-
+    
         # ------------------------- Set Request Headers -------------------------
         headers = {
             'Content-Type': 'application/json',
@@ -751,7 +949,7 @@ async def chat(request: ChatRequest):
             'X-Title': 'Aide',
         }
         logger.info(f"Prepared headers for OpenRouter API: {headers}")
-
+    
         # ------------------------- Send Initial Request -------------------------
         async with httpx.AsyncClient() as client:
             # Initial request does not enable streaming
@@ -765,16 +963,16 @@ async def chat(request: ChatRequest):
             if response.status_code != 200:
                 logger.error(f"OpenRouter API error: {response.text}")
                 raise HTTPException(status_code=response.status_code, detail=f"OpenRouter API error: {response.text}")
-
+    
             # Parse initial response data
             initial_data = response.json()
             logger.info(f"Received initial data from OpenRouter: {initial_data}")
             if 'choices' in initial_data and initial_data['choices']:
-                assistant_message = initial_data['choices'][0]['message']
+                assistant_message = initial_data['choices'][0].get('message', {})
             else:
                 logger.error(f"Error in initial response: {initial_data.get('error')}")
                 raise HTTPException(status_code=400, detail=f"Error in initial response: {initial_data.get('error', {}).get('message', 'Unknown error')}")
-
+    
             # ------------------------- Check and Handle Tool Calls -------------------------
             tool_calls = assistant_message.get('tool_calls') if assistant_message else None
             if tool_calls:
@@ -820,7 +1018,7 @@ async def chat(request: ChatRequest):
                     
                     elif tool_name == 'calculate':
                         try:
-                            tool_result = calculate(**tool_args)
+                            tool_result = calculate(tool_args)
                             logger.info(f"Tool result: {tool_result}")
                             messages.append({
                                 'role': 'tool',
@@ -836,12 +1034,12 @@ async def chat(request: ChatRequest):
                                 'tool_call_id': tool_call['id'],
                                 'content': json.dumps({"error": str(e)}),
                             })
-
+    
                 # ------------------------- Send Final Request and Stream Response -------------------------
                 # Regardless of whether there are tool calls, always use stream_openai_response for streaming
                 params['messages'] = messages
                 params['stream'] = True  # Enable streaming
-
+    
                 final_response = await client.post(
                     'https://openrouter.ai/api/v1/chat/completions',
                     headers=headers,
@@ -857,7 +1055,7 @@ async def chat(request: ChatRequest):
                 # Since the initial request has stream=False, we need to resend a request to get streaming response
                 params['messages'] = messages
                 params['stream'] = True  # Enable streaming
-
+    
                 final_response = await client.post(
                     'https://openrouter.ai/api/v1/chat/completions',
                     headers=headers,
@@ -865,11 +1063,63 @@ async def chat(request: ChatRequest):
                 )
                 logger.info(f"Final response status code: {final_response.status_code}")
                 return StreamingResponse(stream_openai_response(final_response), media_type="text/event-stream")
-
+    
     except Exception as e:
         logger.error(f"Error in /api/chat: {str(e)}")
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail="Backend error")
+        raise HTTPException(status_code=500, detail="Backend error.") """
+
+# ------------------------- Streaming Helper Functions -------------------------
+
+async def stream_assistant_response(content: str):
+    """
+    Simulate streaming response by sending content in chunks.
+
+    Parameters:
+    - content: The content to stream.
+
+    Yields:
+    - Chunks of the content.
+    """
+    chunk_size = 100  # Adjust chunk size as needed
+    for i in range(0, len(content), chunk_size):
+        chunk = content[i:i+chunk_size]
+        data = json.dumps({"choices": [{"delta": {"content": chunk}}]})
+        yield f"data: {data}\n\n"
+        await asyncio.sleep(0)  # Yield control
+    yield "data: [DONE]\n\n"
+
+async def stream_openai_response(response: httpx.Response):
+    """
+    Stream the response from OpenRouter API.
+
+    Parameters:
+    - response: The httpx.Response object.
+
+    Yields:
+    - Streamed data to the client.
+    """
+    async for line in response.aiter_lines():
+        if line.startswith("data: "):
+            data_str = line[6:].strip()
+            if data_str == "[DONE]":
+                yield "data: [DONE]\n\n"
+                break
+            try:
+                data = json.loads(data_str)
+                logger.info(f"Received data chunk: {data}")
+                
+                if 'error' in data:
+                    logger.error(f"Error from OpenRouter: {data['error']}")
+                    break  # Stop processing
+                
+                # Directly send the entire data chunk to the frontend
+                yield f"data: {json.dumps(data)}\n\n"
+            except json.JSONDecodeError as e:
+                logger.error(f"JSON decode error: {e}")
+                continue
+
+# ------------------------- Main Entrypoint -------------------------
 
 if __name__ == "__main__":
     import uvicorn
@@ -877,4 +1127,4 @@ if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
     
     logger.info("API key loaded.")
-    print("Allowed origins:", allowed_origins)
+    logger.info(f"Allowed origins: {allowed_origins}")
