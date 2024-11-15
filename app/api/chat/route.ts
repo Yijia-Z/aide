@@ -7,11 +7,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { messages, configuration } = body;
 
-    console.log("Received messages:", JSON.stringify(messages, null, 2));
-    console.log("Received configuration:", JSON.stringify(configuration, null, 2));
 
-    console.log("Received messages:", JSON.stringify(messages, null, 2));
-    console.log("Received configuration:", JSON.stringify(configuration, null, 2));
 
     if (!process.env.OPENROUTER_API_KEY) {
       console.error("OPENROUTER_API_KEY is not set");
@@ -44,38 +40,12 @@ export async function POST(req: NextRequest) {
         enabled: tool.enabled === true || tool.enabled === "true",
       };
     });
-    console.log("All tools after normalization:", JSON.stringify(allTools, null, 2));
-    const toolsResponse = await fetch(
-      `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/load_tools`
-    );
 
-    if (!toolsResponse.ok) {
-      const errorText = await toolsResponse.text();
-      console.error(
-        `Failed to load tools: ${toolsResponse.status} ${toolsResponse.statusText}`,
-        errorText
-      );
-      throw new Error(
-        `Failed to load tools: ${toolsResponse.status} ${toolsResponse.statusText}`
-      );
-    }
-
-    const toolsData = await toolsResponse.json();
-    console.log("Loaded tools data:", JSON.stringify(toolsData, null, 2));
-
-    // 提取工具列表并规范化 enabled 字段
-    const allTools = toolsData.tools.map((tool: any) => {
-      return {
-        ...tool,
-        enabled: tool.enabled === true || tool.enabled === "true",
-      };
-    });
-    console.log("All tools after normalization:", JSON.stringify(allTools, null, 2));
+  
 
     // 过滤启用的工具
-    const activeTools = allTools.filter((tool: any) => tool.enabled);
-    console.log("Active tools:", JSON.stringify(activeTools, null, 2));
-    console.log("Active tools:", JSON.stringify(activeTools, null, 2));
+    const activeTools = allTools.filter((tool: any) => tool.enabled==true||tool.enabled=="true");
+   
 
     // 初始化消息列表
     let currentMessages = [...messages];
@@ -87,8 +57,7 @@ export async function POST(req: NextRequest) {
     const stream = new ReadableStream({
       async start(controller) {
         while (shouldContinue) {
-          console.log("aaax");
-          console.log("aaax");
+         
           const params = {
             messages: currentMessages,
             model: configuration.model,
@@ -114,10 +83,7 @@ export async function POST(req: NextRequest) {
             }),
             stream: true,
           };
-          const filteredParams = Object.fromEntries(
-            Object.entries(params).filter(([_, value]) => value !== undefined)
-          );
-          console.log("Request parameters:", JSON.stringify(filteredParams, null, 2));
+         
           const filteredParams = Object.fromEntries(
             Object.entries(params).filter(([_, value]) => value !== undefined)
           );
@@ -191,30 +157,32 @@ export async function POST(req: NextRequest) {
 
                   const delta = parsed.choices[0]?.delta;
                   const finish_reason = parsed.choices[0]?.finish_reason;
-                  console.log("Paaa:", finish_reason);
-                  console.log("Paaa:", finish_reason);
+                
                   // 累积助手的内容
                   if (delta?.content) {
                     console.log("Delta content detected:", delta.content);
                     assistantMessages += delta.content;
                     console.log("Accumulated assistantMessages:", assistantMessages);
-                  
+                    controller.enqueue(
+                      new TextEncoder().encode(
+                        `data: ${JSON.stringify(parsed)}\n\n`
+                      )
+                    );
                     // 将内容发送给客户端
                     
                   }
                   if (finish_reason) {
-                    console.log(`Finish reason detected: ${finish_reason}`);
-                    console.log(`Finish reason detected: ${finish_reason}`);
+                  
                     if (finish_reason === "tool_calls") {
                       console.log("Finish reason is 'tool_calls', preparing to process tool calls.");
 
-                 /*    if (assistantMessages) {
+              if (assistantMessages) {
                       currentMessages.push({
                         role: 'assistant',
                         content: assistantMessages,
                       });
                       assistantMessages = ''; // 重置助手消息
-                    } */
+                    } 
                     let parsedArgs;
                       try {
                         parsedArgs = JSON.parse(currentToolCall.function.arguments);
@@ -268,11 +236,7 @@ export async function POST(req: NextRequest) {
               console.log("Finish reason is 'endturn', closing stream.");
               parsed.choices[0].delta.content = assistantMessages;
 
-                  controller.enqueue(
-                    new TextEncoder().encode(
-                      `data: ${JSON.stringify(parsed)}\n\n`
-                    )
-                  );
+                  
               shouldContinue = false;
              
           /*     // 发送 [DONE] 并关闭流
