@@ -39,3 +39,6 @@ backend/venv/
 backend/__pycache__/
 venv/
 data/
+tool_functions/__pycache__/__init__.cpython-310.pyc
+tool_functions/__pycache__/calculate.cpython-310.pyc
+tool_functions/__pycache__/get_current_weather.cpython-310.pyc
