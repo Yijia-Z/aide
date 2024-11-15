@@ -1191,7 +1191,7 @@ export default function ThreadedDocument() {
     }
   }, [replyingTo]);
 
-  // Connect to backend on component mount
+ /*  // Connect to backend on component mount
   useEffect(() => {
     const connectToBackend = async () => {
       if (!apiBaseUrl) return;
@@ -1228,7 +1228,7 @@ export default function ThreadedDocument() {
 
     return () => clearInterval(intervalId);
   }, [isConnected, lastAttemptTime]);
-
+ */
   // Save threads
   useEffect(() => {
     debouncedSaveThreads(threads);

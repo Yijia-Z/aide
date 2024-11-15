@@ -71,4 +71,4 @@ export interface Tool {
   function: ToolFunction;
 }
 
-export type ToolChoice = "none" | "auto" | "required" | { type: "function"; function: { name: string } };
+export type ToolChoice = "auto" | "none" | "required" | { type: "function"; function: { name: string } };
