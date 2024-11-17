@@ -18,6 +18,7 @@ import { Thread, Message, Model, ModelParameters, Tool } from "./types";
 import { useModels } from "./hooks/use-models";
 import { useThreads } from "./hooks/use-threads";
 import { useMessages } from "./hooks/use-messages";
+import { useTools } from "./hooks/use-tools";
 
 const DEFAULT_MODEL: Model = {
   id: "default",
@@ -89,10 +90,18 @@ export default function ThreadedDocument() {
     {}
   );
 
-  const [tools, setTools] = useState<Tool[]>([]);
-  const [toolsLoading, setToolsLoading] = useState(false);
-  const [toolsError, setToolsError] = useState("");
-  const [modelSupportsTools, setModelSupportsTools] = useState<boolean | null>(null);
+  // Tool-related states
+  const {
+    tools,
+    setTools,
+    toolsLoading,
+    setToolsLoading,
+    toolsError,
+    setToolsError,
+    modelSupportsTools,
+    setModelSupportsTools,
+  } = useTools();
+  
   const checkModelSupportsTools = async (modelId: string) => {
     try {
       console.log(`检查模型工具支持，modelId: ${modelId}`);
