@@ -142,7 +142,7 @@
     @apply bg-background rounded px-1 font-mono text-sm text-muted-foreground;
   }
   pre {
-    @apply bg-transparent rounded overflow-auto pt-4;
+    @apply bg-transparent rounded-md overflow-auto pt-4;
   }
   pre code {
     @apply bg-transparent p-0;

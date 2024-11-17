@@ -1786,7 +1786,7 @@ export default function ThreadedDocument() {
               </TabsContent>
             </Tabs>
           </ResizablePanel>
-          <ResizableHandle className="mx-2 p-px bg-gradient-to-b from-background via-transparent to-background" />
+          <ResizableHandle className="mx-2 w-0 px-px bg-gradient-to-b from-background via-transparent to-background" />
           <ResizablePanel defaultSize={69}>
             <div className="h-full overflow-y-auto">
               <RenderMessages
