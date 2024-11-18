@@ -1731,7 +1731,7 @@ export default function ThreadedDocument() {
               }
               className="w-full flex flex-col"
             >
-              <TabsList className="grid w-full grid-cols-3 bg-transparent custom-shadow select-none">
+              <TabsList className="grid w-full grid-cols-3 bg-transparent py-0 custom-shadow select-none">
                 <TabsTrigger
                   className="bg-transparent transition-scale-zoom hover:bg-secondary hover:custom-shadow data-[state=active]:bg-background"
                   value="threads"

@@ -265,7 +265,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="w-6 h-6 p-0 rounded-md hover:bg-secondary bg-background border border-border"
+                  className="w-6 h-6 p-0 rounded-md bg-background border"
                   onClick={(e) => {
                     e.stopPropagation();
                     toggleCollapse(threadId, message.id);
@@ -806,7 +806,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
             {message.replies.map((reply) => (
               <div
                 key={reply.id}
-                className={`${selectedMessage === message.id ? "border-l-2 border-b-2 rounded-bl-lg border-border ml-4" : "ml-4"}`}
+                className={`${selectedMessage === message.id ? `relative before:absolute before:left-0 before:-top-2 before:w-4 before:h-10 before:border-b-2 before:rounded-bl-lg before:border-border before:border-l-2 ${getSiblings(message.replies, reply.id).slice(-1)[0].id !== reply.id ? "after:absolute after:left-0 after:top-3 after:bottom-0 after:border-l-2 after:border-border" : ""} ml-4` : "ml-4"}`}
               >
                 <RenderMessage
                   key={reply.id}

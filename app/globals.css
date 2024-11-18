@@ -37,7 +37,7 @@
 
   .dark {
     /* Dark theme variables */
-    --background: 20 10.3% 13.1%;
+    --background: 20 12.3% 11.1%;
     --foreground: 60 9.1% 97.8%;
     --card: 20 14.3% 4.1%;
     --card-foreground: 60 9.1% 97.8%;
@@ -90,7 +90,7 @@
 }
 
 .custom-shadow {
-  @apply transform-gpu dark:backdrop-blur-md dark:[border:1px_solid_rgba(255,255,255,.1)] dark:[box-shadow:0_-20px_80px_-20px_#ffffff1f_inset];
+  @apply transform-gpu dark:backdrop-blur-[2px] dark:[border:1px_solid_rgba(255,255,255,.1)] dark:[box-shadow:0_-20px_80px_-20px_#ffffff1f_inset];
 }
 
 /* Hide scrollbar */

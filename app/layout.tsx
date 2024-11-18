@@ -44,7 +44,8 @@ export const viewport: Viewport = {
 const serif = Averia_Serif_Libre({
   subsets: ['latin'],
   variable: '--font-serif',
-  weight: '300'
+  weight: '300',
+  display: 'swap'
 });
 
 const jetBrainsMono = localfont({
@@ -55,6 +56,8 @@ const jetBrainsMono = localfont({
     },
   ],
   variable: "--font-jetbrains-mono",
+  display: 'swap',
+  preload: true
 });
 
 export default function RootLayout({
