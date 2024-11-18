@@ -88,7 +88,6 @@ const ModelConfig: React.FC<ModelConfigProps> = ({
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.1 }}
                 whileHover={{
                   boxShadow: "inset 0px 0px 10px rgba(128, 128, 128, 0.2)",
                   transition: { duration: 0.2 },

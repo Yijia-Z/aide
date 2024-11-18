@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
 import { Viewport } from "next";
 import "./globals.css";
-import { ThemeProvider } from "@/components/theme-provider";
 import { Averia_Serif_Libre } from 'next/font/google';
 import localfont from "next/font/local";
-import { SpeedInsights } from '@vercel/speed-insights/next';
+import { Providers } from "./providers";
 
 export const metadata: Metadata = {
   title: "Aide",
@@ -71,15 +70,9 @@ export default function RootLayout({
         <meta name="mobile-web-app-capable" content="yes" />
       </head>
       <body className={`font-sans overflow-hidden`}>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="dark"
-          enableSystem
-          disableTransitionOnChange
-        >
+        <Providers>
           {children}
-          <SpeedInsights />
-        </ThemeProvider>
+        </Providers>
       </body>
     </html>
   );

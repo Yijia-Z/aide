@@ -18,8 +18,9 @@ import { Thread, Message, Model, ModelParameters, Tool } from "./types";
 import { useModels } from "./hooks/use-models";
 import { useThreads } from "./hooks/use-threads";
 import { useMessages } from "./hooks/use-messages";
-import { useSession } from "next-auth/react";
-import LoginModal from "@/components/LoginModal"; 
+import { useSession, signOut } from "next-auth/react"
+import { LoginForm } from "@/components/login-form";
+import { Button } from "./ui/button";
 import { useTools } from "./hooks/use-tools";
 
 const DEFAULT_MODEL: Model = {
@@ -37,10 +38,17 @@ const DEFAULT_MODEL: Model = {
 const apiBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 
 export default function ThreadedDocument() {
+  const { data: session, status } = useSession()
+  const [activeTab, setActiveTab] = useState<"threads" | "messages" | "models" | "tools" | "settings">(
+    !session ? "settings" : "threads"
+  )
+  const user = session?.user
+
+  const handleLogout = () => {
+    signOut()
+  }
+
   // Thread-related states
-  const [activeTab, setActiveTab] = useState<"threads" | "messages" | "models" |"tools">(
-    "threads"
-  );
   const {
     threads,
     setThreads,
@@ -104,72 +112,48 @@ export default function ThreadedDocument() {
     setModelSupportsTools,
   } = useTools();
   
+  const settingsContent = (
+    <div>
+      {!session ? (
+        <LoginForm />
+      ) : (
+        <div className="space-y-4">
+          <h2 className="text-2xl font-bold">Account Settings</h2>
+          <div className="flex items-center space-x-2">
+            <span>Logged in as: {session?.user?.name}</span>
+            <Button
+              variant="destructive"
+              onClick={handleLogout}
+            >
+              Logout
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+
   const checkModelSupportsTools = async (modelId: string) => {
     try {
-      console.log(`检查模型工具支持，modelId: ${modelId}`);
+      console.log(`Checking model tool support, modelId: ${modelId}`);
       const response = await fetch(
-        apiBaseUrl ? `${apiBaseUrl}/api/check_model_tools_support/${encodeURIComponent(modelId)}` : "/api/check_model_tools_support/${encodeURIComponent(modelId)}",
+        apiBaseUrl ? `${apiBaseUrl}/api/check_model_tools_support/${encodeURIComponent(modelId)}` : `/api/check_model_tools_support/${encodeURIComponent(modelId)}`,
       );
-      console.log(`收到来自后端的响应状态: ${response.status}`);
+      console.log(`Received response status from backend: ${response.status}`);
       const data = await response.json();
-      console.log(`后端返回的数据:`, data);
+      console.log(`Data returned from backend:`, data);
       setModelSupportsTools(data.supportsTools);
     } catch (error) {
-      console.error("检查模型能力时出错:", error);
+      console.error("Error checking model capabilities:", error);
       setModelSupportsTools(false);
     }
-  };
-  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
-  const [user, setUser] = useState<{
-    username: string;
-    email: string;
-  } | null>(null);
-
-  // 在组件加载时检查用户登录状态
-  useEffect(() => {
-    const token = localStorage.getItem("access_token");
-    if (token) {
-      // 请求用户信息
-      const fetchUserInfo = async () => {
-        try {
-          const response = await fetch("http://localhost:8000/api/userinfo", {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          });
-          if (response.ok) {
-            const data = await response.json();
-            setUser({
-              username: data.username,
-              email: data.email,
-            });
-          } else {
-            // 如果令牌无效，清除本地存储并重置用户状态
-            localStorage.removeItem("access_token");
-            setUser(null);
-          }
-        } catch (error) {
-          console.error("Error fetching user info:", error);
-          localStorage.removeItem("access_token");
-          setUser(null);
-        }
-      };
-
-      fetchUserInfo();
-    }
-  }, []);
-
-  // 退出登录
-  const handleLogout = () => {
-    localStorage.removeItem("access_token");
-    setUser(null);
   };
 
   useEffect(() => {
     if (selectedModel) {
       checkModelSupportsTools(selectedModel);
     } else {
-      // 如果未选择模型，重置工具状态
+      // If no model is selected, reset tool state
       setModelSupportsTools(null);
       setTools([]);
     }
@@ -181,11 +165,11 @@ export default function ThreadedDocument() {
       try {
         const response = await fetch(`${apiBaseUrl}/api/load_tools`);
         const data = await response.json();
-        console.log("加载到的工具:", data);
+        console.log("Loaded tools:", data);
         setTools(data.tools || []);
       } catch (error) {
-        console.error("加载工具时出错:", error);
-        setToolsError("加载工具失败。");
+        console.error("Error loading tools:", error);
+        setToolsError("Failed to load tools.");
       } finally {
         setToolsLoading(false);
       }
@@ -195,10 +179,11 @@ export default function ThreadedDocument() {
     if (modelSupportsTools) {
       loadTools();
     } else {
-      // 如果模型不支持工具，清空工具列表
+      // If model does not support tools, clear tool list
       setTools([]);
     }
   }, [modelSupportsTools]);
+
   // Helper methods
   const getModelDetails = (modelId: string | undefined) => {
     if (!modelId) return null;
@@ -1718,6 +1703,9 @@ export default function ThreadedDocument() {
               error={toolsError}
             />
           </TabsContent>
+          <TabsContent value="settings" className="flex-grow overflow-y-clip">
+            {settingsContent}
+          </TabsContent>
           <TabsList
             className="grid 
               bg-transparent
@@ -1728,7 +1716,7 @@ export default function ThreadedDocument() {
               left-0 
               right-0 
               pb-14 
-              grid-cols-4
+              grid-cols-5
               select-none"
           >
             <TabsTrigger
@@ -1755,6 +1743,12 @@ export default function ThreadedDocument() {
             >
               Tools
             </TabsTrigger>
+            <TabsTrigger
+              className="bg-transparent transition-scale-zoom hover:bg-secondary hover:custom-shadow data-[state=active]:bg-background"
+              value="settings"
+            >
+              Settings
+            </TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
@@ -1777,7 +1771,7 @@ export default function ThreadedDocument() {
               }
               className="w-full flex flex-col"
             >
-              <TabsList className="grid w-full grid-cols-3 bg-transparent py-0 custom-shadow select-none">
+              <TabsList className="grid w-full grid-cols-4 bg-transparent py-0 custom-shadow select-none">
                 <TabsTrigger
                   className="bg-transparent transition-scale-zoom hover:bg-secondary hover:custom-shadow data-[state=active]:bg-background"
                   value="threads"
@@ -1795,7 +1789,13 @@ export default function ThreadedDocument() {
                     value="tools"
                   >
                     Tools
-                  </TabsTrigger>
+                </TabsTrigger>
+                <TabsTrigger
+                  className="bg-transparent transition-scale-zoom hover:bg-secondary hover:custom-shadow data-[state=active]:bg-background"
+                  value="settings"
+                >
+                  Settings
+                </TabsTrigger>
               </TabsList>
               <TabsContent
                 value="threads"
@@ -1839,6 +1839,9 @@ export default function ThreadedDocument() {
                   error={toolsError}
                 />
               </TabsContent>
+              <TabsContent value="settings" className="flex-grow overflow-y-clip">
+                {settingsContent}
+              </TabsContent>
             </Tabs>
           
           </ResizablePanel>
@@ -1879,35 +1882,6 @@ export default function ThreadedDocument() {
           </ResizablePanel>
         </ResizablePanelGroup>
       </div>
-    
-      {/* 登录按钮和用户信息 */}
-      {!user && (
-        <button
-          className="fixed bottom-4 left-4 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 z-50"
-          onClick={() => setIsLoginModalOpen(true)}
-        >
-          login or sign up
-        </button>
-      )}
-
-      {user && (
-        <div className="fixed bottom-4 left-4 z-50 flex items-center space-x-2">
-          <span className="text-white">Hi，{user.username}</span>
-          <button
-            className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600"
-            onClick={handleLogout}
-          >
-            退出
-          </button>
-        </div>
-      )}
-
-      {/* 登录和注册模态窗口 */}
-      <LoginModal
-        isOpen={isLoginModalOpen}
-        onClose={() => setIsLoginModalOpen(false)}
-        onLoginSuccess={(userData) => setUser(userData)}
-      />
     </div>
   );
 }
