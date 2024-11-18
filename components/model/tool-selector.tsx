@@ -32,10 +32,9 @@ export function ToolSelector({
   onToolChoiceChange,
 }: ToolSelectorProps) {
   return (
-    <div className="space-y-4">
+    <div className="space-y-2">
       <div>
-        <label className="text-sm font-medium">Selected Tools</label>
-        <div className="flex flex-wrap gap-2 mt-2">
+        <div className="flex flex-wrap">
           {selectedTools.map((toolName) => (
             <Badge key={toolName} variant="secondary">
               {toolName}
@@ -68,8 +67,8 @@ export function ToolSelector({
         </Command>
       </div>
 
-      <div>
-        <label className="text-sm font-medium">Tool Choice</label>
+      <div className="space-y-2">
+        <label className="text-sm font-medium">tool_choice</label>
         <Select
           value={typeof toolChoice === 'string' ? toolChoice : 'specific'}
           onValueChange={(value) => {
@@ -90,7 +89,6 @@ export function ToolSelector({
             <SelectItem value="none">None</SelectItem>
             <SelectItem value="auto">Auto</SelectItem>
             <SelectItem value="required">Required</SelectItem>
-            <SelectItem value="specific">Specific Tool</SelectItem>
           </SelectContent>
         </Select>
       </div>

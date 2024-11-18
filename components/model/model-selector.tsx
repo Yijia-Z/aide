@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Check, ChevronsUpDown } from "lucide-react";
+import { Check, ChevronsUpDown, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ToolSelector } from "./tool-selector";
@@ -257,7 +257,10 @@ export function SelectBaseModel({
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
-            <span className="cursor-help">{title}</span>
+            <div className="flex items-center gap-1">
+              <span>{title}</span>
+              <Info className="cursor-help h-4 w-4" />
+            </div>
           </TooltipTrigger>
           <TooltipContent className="font-serif w-60 mx-4 custom-shadow">
             <p>{content}</p>
@@ -501,7 +504,7 @@ export function SelectBaseModel({
           {renderParameter("temperature")}
           <Accordion type="single" collapsible className="w-auto">
             <AccordionItem value="additional-parameters">
-              <AccordionTrigger className="text-sm rounded-md mb-2 h-10">
+              <AccordionTrigger className="text-sm text-foreground rounded-lg h-8">
                 Additional Parameters
               </AccordionTrigger>
               <AccordionContent>
