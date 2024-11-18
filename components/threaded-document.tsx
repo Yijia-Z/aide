@@ -19,8 +19,7 @@ import { useModels } from "./hooks/use-models";
 import { useThreads } from "./hooks/use-threads";
 import { useMessages } from "./hooks/use-messages";
 import { useSession, signOut } from "next-auth/react"
-import { LoginForm } from "@/components/login-form";
-import { Button } from "./ui/button";
+import { SettingsPanel } from "./settings/settings-panel"
 import { useTools } from "./hooks/use-tools";
 
 const DEFAULT_MODEL: Model = {
@@ -111,27 +110,6 @@ export default function ThreadedDocument() {
     modelSupportsTools,
     setModelSupportsTools,
   } = useTools();
-  
-  const settingsContent = (
-    <div>
-      {!session ? (
-        <LoginForm />
-      ) : (
-        <div className="space-y-4">
-          <h2 className="text-2xl font-bold">Account Settings</h2>
-          <div className="flex items-center space-x-2">
-            <span>Logged in as: {session?.user?.name}</span>
-            <Button
-              variant="destructive"
-              onClick={handleLogout}
-            >
-              Logout
-            </Button>
-          </div>
-        </div>
-      )}
-    </div>
-  )
 
   const checkModelSupportsTools = async (modelId: string) => {
     try {
@@ -1704,7 +1682,7 @@ export default function ThreadedDocument() {
             />
           </TabsContent>
           <TabsContent value="settings" className="flex-grow overflow-y-clip">
-            {settingsContent}
+            <SettingsPanel />
           </TabsContent>
           <TabsList
             className="grid 
@@ -1840,7 +1818,7 @@ export default function ThreadedDocument() {
                 />
               </TabsContent>
               <TabsContent value="settings" className="flex-grow overflow-y-clip">
-                {settingsContent}
+                <SettingsPanel />
               </TabsContent>
             </Tabs>
           

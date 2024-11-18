@@ -14,7 +14,6 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { motion } from 'framer-motion';
 
 export function LoginForm() {
   const [isLoading, setIsLoading] = useState(false)
@@ -58,11 +57,6 @@ export function LoginForm() {
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
-    >
       <Card className="mx-auto max-w-max custom-shadow">
         <CardHeader>
           <CardTitle className="text-2xl">Welcome</CardTitle>
@@ -199,7 +193,6 @@ export function LoginForm() {
             Continue with Google
           </Button>
         </CardFooter>
-      </Card>
-    </motion.div>
+    </Card>
   )
 }

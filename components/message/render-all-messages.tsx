@@ -70,7 +70,7 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
 
   return currentThread ? (
     <div
-      className={`flex flex-col relative sm:h-full h-[calc(97vh)] hide-scrollbar bg-[radial-gradient(#3a322f_1px,transparent_1px)] [background-size:16px_16px]`}
+      className={`flex flex-col relative sm:h-full h-[calc(97vh)] hide-scrollbar bg-[radial-gradient(hsl(var(--border))_1px,transparent_1px)] [background-size:16px_16px]`}
     >
       <div
         className="top-bar bg-gradient-to-b from-background/100 to-background/00"

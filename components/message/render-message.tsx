@@ -243,7 +243,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
       id={`message-${message.id}`}
     >
       <div
-        className={`flex 
+        className={`flex
           items-start 
           space-x-1 
           p-1 
@@ -476,7 +476,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                                 }-${codeString.slice(0, 32)}`;
                               return !inline && match ? (
                                 <div className="relative">
-                                  <div className="absolute -top-4 w-full text-muted-foreground flex justify-between items-center p-1 pb-0 pl-3 rounded-md text-xs bg-[#1D2021]">
+                                  <div className="absolute -top-3 w-full text-muted-foreground flex justify-between items-center p-1 pb-0 pl-3 rounded-md text-xs bg-[#1D2021]">
                                     <span>{match[1]}</span>
                                     <Button
                                       className="w-6 h-6 p-0"
@@ -641,7 +641,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                     <MenubarMenu>
                       <MenubarTrigger
                         className={cn(
-                          "h-10 rounded-lg hover:bg-blue-900 transition-scale-zoom",
+                          "h-10 rounded-lg hover:bg-blue-900 dark:hover:bg-blue-200 transition-scale-zoom",
                           isGenerating &&
                           "animate-pulse bg-blue-200 dark:bg-blue-900 duration-1000"
                         )}
