@@ -641,7 +641,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                     <MenubarMenu>
                       <MenubarTrigger
                         className={cn(
-                          "h-10 rounded-lg hover:bg-blue-900 dark:hover:bg-blue-200 transition-scale-zoom",
+                          "h-10 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900 transition-scale-zoom",
                           isGenerating &&
                           "animate-pulse bg-blue-200 dark:bg-blue-900 duration-1000"
                         )}

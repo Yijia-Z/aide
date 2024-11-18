@@ -111,7 +111,7 @@ export default function ThreadedDocument() {
     setModelSupportsTools,
   } = useTools();
 
-  const checkModelSupportsTools = async (modelId: string) => {
+  const checkModelSupportsTools = useCallback(async (modelId: string) => {
     try {
       console.log(`Checking model tool support, modelId: ${modelId}`);
       const response = await fetch(
@@ -125,7 +125,7 @@ export default function ThreadedDocument() {
       console.error("Error checking model capabilities:", error);
       setModelSupportsTools(false);
     }
-  };
+  }, [setModelSupportsTools]);
 
   useEffect(() => {
     if (selectedModel) {
@@ -137,7 +137,7 @@ export default function ThreadedDocument() {
     }
   }, [selectedModel, checkModelSupportsTools, setModelSupportsTools, setTools]);
 
-  const loadTools = async () => {
+  const loadTools = useCallback(async () => {
     if (apiBaseUrl) {
       setToolsLoading(true);
       try {
@@ -152,7 +152,8 @@ export default function ThreadedDocument() {
         setToolsLoading(false);
       }
     }
-  };
+  }, [setToolsLoading, setTools, setToolsError]);
+
   useEffect(() => {
     if (modelSupportsTools) {
       loadTools();
@@ -160,7 +161,7 @@ export default function ThreadedDocument() {
       // If model does not support tools, clear tool list
       setTools([]);
     }
-  }, [modelSupportsTools, loadTools, setTools]);
+  }, [modelSupportsTools, setTools, loadTools]);
 
   // Helper methods
   const getModelDetails = (modelId: string | undefined) => {
