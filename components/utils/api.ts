@@ -10,9 +10,9 @@ export async function generateAIResponse(
   threads: Thread[],
   currentThread: string | null,
   replyingTo: string | null,
-  tools: any[], 
-  onData: (chunk: string) => void
-
+  tools: any[],
+  onData: (chunk: string) => void,
+  abortController?: AbortController
 ) {
   const requestPayload = {
     messages: [
@@ -42,6 +42,7 @@ export async function generateAIResponse(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(requestPayload),
+      signal: abortController?.signal
     }
   );
   console.log(response);

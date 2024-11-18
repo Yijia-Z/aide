@@ -18,7 +18,7 @@
     --primary-foreground: 60 9.1% 97.8%;
     --secondary: 60 4.8% 95.9%;
     --secondary-foreground: 24 9.8% 10%;
-    --muted: 60 4.8% 95.9%;
+    --muted: 60 4.8% 88.8%;
     --muted-foreground: 25 5.3% 33.3%;
 
     --accent: 60 4.8% 95.9%;
@@ -176,12 +176,12 @@ button:active,
 
 button svg,
 .button svg {
-  filter: drop-shadow(1px 2px 4px rgba(0, 0, 0, 0.5));
+  filter: drop-shadow(1px 2px 4px rgba(0, 0, 0, 0.3));
 }
 
 .dark button svg,
 .dark .button svg {
-  filter: drop-shadow(1px 2px 4px rgba(0, 0, 0, 0.7));
+  filter: drop-shadow(1px 2px 4px rgba(0, 0, 0, 0.5));
 }
 
 /* Glow effect */

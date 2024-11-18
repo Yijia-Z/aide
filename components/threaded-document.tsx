@@ -21,6 +21,7 @@ import { useMessages } from "./hooks/use-messages";
 import { useSession, signOut } from "next-auth/react"
 import { SettingsPanel } from "./settings/settings-panel"
 import { useTools } from "./hooks/use-tools";
+import { AlignJustify, MessageSquare, Sparkle, Settings, Package } from "lucide-react";
 
 const DEFAULT_MODEL: Model = {
   id: "default",
@@ -39,7 +40,8 @@ const apiBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 export default function ThreadedDocument() {
   const { data: session, status } = useSession()
   const [activeTab, setActiveTab] = useState<"threads" | "messages" | "models" | "tools" | "settings">(
-    !session ? "settings" : "threads"
+    //!session ? "settings" : "threads"
+    "threads"
   )
   const user = session?.user
 
@@ -95,9 +97,8 @@ export default function ThreadedDocument() {
   const [lastAttemptTime, setLastAttemptTime] = useState<number | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [copiedStates, setCopiedStates] = useState<{ [key: string]: boolean }>(
-    {}
-  );
+  const [copiedStates, setCopiedStates] = useState<{ [key: string]: boolean }>({});
+  const [abortController, setAbortController] = useState<AbortController | null>(null);
 
   // Tool-related states
   const {
@@ -466,7 +467,7 @@ export default function ThreadedDocument() {
           );
           const currentTime = Date.now();
           if (currentTime - lastUpdateTime > 60000) {
-          // Update every 60 seconds
+            // Update every 60 seconds
             const response = await fetch(`${apiBaseUrl}/api/save_thread`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -1029,6 +1030,15 @@ export default function ThreadedDocument() {
   // Generate AI reply
   const generateAIReply = useCallback(
     async (threadId: string, messageId: string, count: number = 1) => {
+      // If already generating, abort the current generation
+      if (isGenerating && abortController) {
+        abortController.abort();
+        setAbortController(null);
+        setIsGenerating(false);
+        // TODO: close streaming connection
+        return;
+      }
+
       const thread = threads.find((t: { id: string }) => t.id === threadId);
       if (!thread) return;
 
@@ -1039,19 +1049,22 @@ export default function ThreadedDocument() {
       try {
         const model =
           models.find((m: { id: any }) => m.id === selectedModel) || models[0];
-  
+
         const enabledTools = tools
           .filter((tool) => tool.enabled)
           .map((tool) => ({
             type: tool.type,
             function: tool.function,
           }));
-  
+
         for (let i = 0; i < count; i++) {
           const newMessageId = Date.now().toString();
           addMessage(threadId, messageId, "", "ai", newMessageId);
           setSelectedMessage(newMessageId);
-  
+
+          const controller = new AbortController();
+          setAbortController(controller);
+
           let fullResponse = "";
           await generateAIResponse(
             message.content,
@@ -1062,13 +1075,11 @@ export default function ThreadedDocument() {
             messageId,
             enabledTools,
             (chunk) => {
-              // 处理每个数据块
               const lines = chunk.split("\n");
               for (const line of lines) {
                 if (line.startsWith("data:")) {
                   const dataStr = line.replace("data:", "").trim();
                   if (dataStr === "[DONE]") {
-                    // 结束符，停止处理
                     return;
                   }
                   try {
@@ -1083,27 +1094,23 @@ export default function ThreadedDocument() {
                   }
                 }
               }
-            }
+            },
+            controller
           );
         }
       } catch (error) {
-        console.error("Failed to generate AI response:", error);
+        if (error instanceof Error && error.name === 'AbortError') {
+          console.log('Generation aborted');
+        } else {
+          console.error("Failed to generate AI response:", error);
+        }
       } finally {
         setIsGenerating(false);
+        setAbortController(null);
       }
     },
-    [
-      threads,
-      models,
-      selectedModel,
-      addMessage,
-      setSelectedMessage,
-      findMessageById,
-      updateMessageContent,
-      tools,
-    ]
+    [threads, models, selectedModel, tools, isGenerating, abortController]
   );
-
 
   // useEffect hooks
   // Load threads
@@ -1210,7 +1217,7 @@ export default function ThreadedDocument() {
     }
   }, [replyingTo]);
 
- /*  // Connect to backend on component mount
+/*   // Connect to backend on component mount
   useEffect(() => {
     const connectToBackend = async () => {
       if (!apiBaseUrl) return;
@@ -1247,7 +1254,7 @@ export default function ThreadedDocument() {
 
     return () => clearInterval(intervalId);
   }, [isConnected, lastAttemptTime]);
- */
+  */
   // Save threads
   useEffect(() => {
     debouncedSaveThreads(threads);
@@ -1392,102 +1399,99 @@ export default function ThreadedDocument() {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      // Check if any input element is focused
       const activeElement = document.activeElement;
       const isInputFocused = activeElement instanceof HTMLInputElement ||
         activeElement instanceof HTMLTextAreaElement;
 
-      // Special cases for thread title editing
-      if (editingThreadTitle && isInputFocused) {
-        if (event.key === 'Enter') {
-          event.preventDefault();
-          setEditingThreadTitle(null);
-        }
-        else if (event.key === 'Escape') {
-          event.preventDefault();
-          cancelEditThreadTitle();
-        }
-        return
-      }
-
-      // Special cases for message editing
-      if (editingMessage && isInputFocused) {
-        if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
-          event.preventDefault();
-          if (currentThread) {
-            confirmEditingMessage(currentThread, editingMessage);
-          }
-        } else if (event.key === 'Escape') {
-          event.preventDefault();
-          cancelEditingMessage();
-        }
-        return;
-      }
-
-      // Special cases for model editing
-      if (editingModel && isInputFocused) {
-        if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
-          event.preventDefault();
-          saveModelChanges();
-        } else if (event.key === 'Escape') {
-          event.preventDefault();
-          setEditingModel(null);
-        }
-        return;
-      }
-
-      // If any other input is focused, don't handle hotkeys
+      // Handle special input cases first
       if (isInputFocused) {
+        // Thread title editing
+        if (editingThreadTitle) {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            setEditingThreadTitle(null);
+          }
+          else if (event.key === 'Escape') {
+            event.preventDefault();
+            cancelEditThreadTitle();
+          }
+          return;
+        }
+
+        // Message editing
+        if (editingMessage) {
+          if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+            event.preventDefault();
+            if (currentThread) {
+              confirmEditingMessage(currentThread, editingMessage);
+            }
+          } else if (event.key === 'Escape') {
+            event.preventDefault();
+            cancelEditingMessage();
+          }
+          return;
+        }
+
+        // Model editing
+        if (editingModel) {
+          if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+            event.preventDefault();
+            saveModelChanges();
+          } else if (event.key === 'Escape') {
+            event.preventDefault();
+            setEditingModel(null);
+          }
+          return;
+        }
+
+        // Any other input focused - ignore hotkeys
         return;
       }
 
-      // Only handle navigation and action hotkeys if no input is focused
-      if (!isInputFocused) {
-        // Handle copy/paste operations that only require thread selection
-        if (currentThread) {
-          switch (event.key) {
-            case 'c':
-              if ((event.metaKey || event.ctrlKey) && selectedMessage) {
-                event.preventDefault();
-                copyOrCutMessage(currentThread, selectedMessage, "copy");
-              }
-              break;
-            case 'x':
-              if ((event.metaKey || event.ctrlKey) && selectedMessage) {
-                event.preventDefault();
-                copyOrCutMessage(currentThread, selectedMessage, "cut");
-              }
-              break;
-            case 'v':
-              if (event.metaKey || event.ctrlKey) {
-                event.preventDefault();
-                if (clipboardMessage) {
-                  // If no message is selected, paste at thread root level
-                  pasteMessage(currentThread, selectedMessage || null);
-                }
-              }
-              break;
-            case 'Escape':
-              if (clipboardMessage) {
-                setClipboardMessage(null);
-              }
-              break;
+      // Handle thread-level operations
+      if (currentThread) {
+        const key = event.key.toLowerCase();
+
+        // Copy/Cut/Paste operations
+        if (event.metaKey || event.ctrlKey) {
+          if (selectedMessage && key === 'c') {
+            event.preventDefault();
+            copyOrCutMessage(currentThread, selectedMessage, "copy");
+            return;
+          }
+          if (selectedMessage && key === 'x') {
+            event.preventDefault();
+            copyOrCutMessage(currentThread, selectedMessage, "cut");
+            return;
+          }
+          if (key === 'v' && clipboardMessage) {
+            event.preventDefault();
+            pasteMessage(currentThread, selectedMessage || null);
+            return;
           }
         }
 
-        // Handle operations that require both thread and message selection
-        if (!selectedMessage || !currentThread) return;
+        // New message at root level
+        if (key === 'n') {
+          event.preventDefault();
+          addEmptyReply(currentThread, null);
+          return;
+        }
+      }
 
+      // Handle message-level operations
+      if (selectedMessage && currentThread) {
         const currentThreadData = threads.find((t) => t.id === currentThread);
         if (!currentThreadData) return;
 
         const [currentMessage, parentMessages] = findMessageAndParents(currentThreadData.messages, selectedMessage);
-        const parentMessage = parentMessages.length > 0 ? parentMessages[parentMessages.length - 1] : null;
         if (!currentMessage) return;
 
+        const parentMessage = parentMessages.length > 0 ? parentMessages[parentMessages.length - 1] : null;
         const siblings = getSiblings(currentThreadData.messages, selectedMessage);
         const currentIndex = siblings.findIndex((m) => m.id === currentMessage.id);
 
+        // Navigation keys
         switch (event.key) {
           case "ArrowLeft":
             if (parentMessage) {
@@ -1513,45 +1517,34 @@ export default function ThreadedDocument() {
               setSelectedMessage(siblings[currentIndex + 1].id);
             }
             break;
+
+          // Action keys  
           case "r":
-            // R for replying to a message
             event.preventDefault();
-            if (currentThread) {
-              addEmptyReply(currentThread, selectedMessage);
-            }
+            addEmptyReply(currentThread, selectedMessage);
             break;
           case "g":
-            // G for generating AI reply
             event.preventDefault();
-            if (currentThread) {
-              generateAIReply(currentThread, selectedMessage);
-            }
+            generateAIReply(currentThread, selectedMessage);
             break;
           case "e":
-            // E for editing a message
             if (!editingMessage) {
               event.preventDefault();
-              const message = findMessageById(
-                currentThreadData.messages,
-                selectedMessage
-              );
+              const message = findMessageById(currentThreadData.messages, selectedMessage);
               if (message) {
                 startEditingMessage(message);
               }
             }
             break;
-          case "Delete":
-          case "Backspace":
-            // Delete or Backspace for deleting a message
-            if (event.shiftKey) {
-              // Shift+Delete/Backspace to delete the message and its children
-              deleteMessage(currentThread, selectedMessage, true);
-            } else {
-              // Regular Delete/Backspace to delete only the message
-              deleteMessage(currentThread, selectedMessage, false);
+          case "Escape":
+            if (clipboardMessage) {
+              setClipboardMessage(null);
             }
             break;
-          default:
+          case "Delete":
+          case "Backspace":
+            event.preventDefault();
+            deleteMessage(currentThread, selectedMessage, event.shiftKey);
             break;
         }
       }
@@ -1574,7 +1567,7 @@ export default function ThreadedDocument() {
     startEditingMessage,
     deleteMessage,
     findMessageById,
-    confirmEditingMessage, 
+    confirmEditingMessage,
     cancelEditingMessage,
     saveModelChanges,
     clipboardMessage,
@@ -1595,7 +1588,7 @@ export default function ThreadedDocument() {
         <Tabs
           value={activeTab}
           onValueChange={(value) =>
-            setActiveTab(value as "threads" | "messages" | "models" | "tools")
+            setActiveTab(value as "threads" | "messages" | "models" | "tools" | "settings")
           }
           className="w-full flex flex-col"
         >
@@ -1687,46 +1680,46 @@ export default function ThreadedDocument() {
           </TabsContent>
           <TabsList
             className="grid 
-              bg-transparent
+              bg-background/80
               custom-shadow
               w-full 
               fixed 
               bottom-0 
               left-0 
               right-0 
-              pb-14 
+              pb-12 
               grid-cols-5
               select-none"
           >
             <TabsTrigger
               value="threads"
-              className="bg-transparent hover:bg-secondary hover:custom-shadow data-[state=active]:bg-muted"
+              className="bg-transparent hover:bg-secondary hover:custom-shadow data-[state=active]:bg-secondary/80"
             >
-              Threads
+              <AlignJustify className="h-5 w-5" />
             </TabsTrigger>
             <TabsTrigger
               value="messages"
-              className="bg-transparent hover:bg-secondary hover:custom-shadow data-[state=active]:bg-muted"
+              className="bg-transparent hover:bg-secondary hover:custom-shadow data-[state=active]:bg-secondary/80"
             >
-              Messages
+              <MessageSquare className="h-5 w-5" />
             </TabsTrigger>
             <TabsTrigger
               value="models"
-              className="bg-transparent hover:bg-secondary hover:custom-shadow data-[state=active]:bg-muted"
+              className="bg-transparent hover:bg-secondary hover:custom-shadow data-[state=active]:bg-secondary/80"
             >
-              Models
+              <Sparkle className="h-5 w-5" />
             </TabsTrigger>
             <TabsTrigger
-              className="bg-transparent hover:bg-secondary hover:custom-shadow data-[state=active]:bg-muted"
+              className="bg-transparent hover:bg-secondary hover:custom-shadow data-[state=active]:bg-secondary/80"
               value="tools"
             >
-              Tools
+              <Package className="h-5 w-5" />
             </TabsTrigger>
             <TabsTrigger
-              className="bg-transparent transition-scale-zoom hover:bg-secondary hover:custom-shadow data-[state=active]:bg-background"
+              className="bg-transparent hover:bg-secondary hover:custom-shadow data-[state=active]:bg-secondary/80"
               value="settings"
             >
-              Settings
+              <Settings className="h-5 w-5" />
             </TabsTrigger>
           </TabsList>
         </Tabs>
@@ -1742,38 +1735,42 @@ export default function ThreadedDocument() {
       >
         {/* Desktop layout with resizable panels */}
         <ResizablePanelGroup direction="horizontal" className="flex-grow">
-          <ResizablePanel defaultSize={31} minSize={26} maxSize={50}>
+          <ResizablePanel defaultSize={28} minSize={28} maxSize={56}>
             <Tabs
               value={activeTab}
               onValueChange={(value) =>
-                setActiveTab(value as "threads" | "models" | "tools")
+                setActiveTab(value as "threads" | "models" | "tools" | "settings")
               }
               className="w-full flex flex-col"
             >
               <TabsList className="grid w-full grid-cols-4 bg-transparent py-0 custom-shadow select-none">
                 <TabsTrigger
-                  className="bg-transparent transition-scale-zoom hover:bg-secondary hover:custom-shadow data-[state=active]:bg-background"
+                  className="bg-transparent transition-scale-zoom hover:bg-secondary hover:custom-shadow data-[state=active]:bg-background group"
                   value="threads"
                 >
-                  Threads
+                  <AlignJustify className="h-4 w-4 group-hover:hidden" />
+                  <span className="hidden group-hover:inline">Threads</span>
                 </TabsTrigger>
                 <TabsTrigger
-                  className="bg-transparent transition-scale-zoom hover:bg-secondary hover:custom-shadow data-[state=active]:bg-background"
+                  className="bg-transparent transition-scale-zoom hover:bg-secondary hover:custom-shadow data-[state=active]:bg-background group"
                   value="models"
                 >
-                  Models
+                  <Sparkle className="h-4 w-4 group-hover:hidden" />
+                  <span className="hidden group-hover:inline">Models</span>
                 </TabsTrigger>
                 <TabsTrigger
-                    className="bg-transparent transition-scale-zoom hover:bg-secondary hover:custom-shadow data-[state=active]:bg-background"
-                    value="tools"
-                  >
-                    Tools
+                  className="bg-transparent transition-scale-zoom hover:bg-secondary hover:custom-shadow data-[state=active]:bg-background group"
+                  value="tools"
+                >
+                  <Package className="h-4 w-4 group-hover:hidden" />
+                  <span className="hidden group-hover:inline">Tools</span>
                 </TabsTrigger>
                 <TabsTrigger
-                  className="bg-transparent transition-scale-zoom hover:bg-secondary hover:custom-shadow data-[state=active]:bg-background"
+                  className="bg-transparent transition-scale-zoom hover:bg-secondary hover:custom-shadow data-[state=active]:bg-background group"
                   value="settings"
                 >
-                  Settings
+                  <Settings className="h-4 w-4 group-hover:hidden" />
+                  <span className="hidden group-hover:inline">Settings</span>
                 </TabsTrigger>
               </TabsList>
               <TabsContent
@@ -1822,7 +1819,7 @@ export default function ThreadedDocument() {
                 <SettingsPanel />
               </TabsContent>
             </Tabs>
-          
+
           </ResizablePanel>
           <ResizableHandle className="mx-2 w-0 px-px bg-gradient-to-b from-background via-transparent to-background" />
           <ResizablePanel defaultSize={69}>

@@ -1,6 +1,6 @@
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Check, X, Trash } from "lucide-react";
+import { Check, X, Trash, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -75,7 +75,7 @@ const ModelConfig: React.FC<ModelConfigProps> = ({
           size="default"
           onClick={addNewModel}
         >
-          <Plus className="h-4 w-4" />
+          <Sparkles className="h-4 w-4" />
           <span className="ml-2 hidden md:inline">New Model</span>
         </Button>
       </div>

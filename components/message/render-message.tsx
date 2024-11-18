@@ -5,6 +5,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+import 'katex/dist/katex.min.css';
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { gruvboxDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { cn } from "@/lib/utils";
@@ -17,13 +20,15 @@ import {
   Edit,
   Trash,
   Trash2,
-  MessageSquare,
+  MessageSquareReply,
   X,
   Check,
-  Sparkle,
   Copy,
   Scissors,
   ClipboardPaste,
+  WandSparkles,
+  OctagonX,
+  LoaderCircle,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -284,7 +289,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                 <span
                   className={`font-bold truncate ${message.publisher === "ai"
                     ? "text-blue-500"
-                    : "text-green-600"
+                    : "text-green-700"
                     }`}
                 >
                   {parentId === null ||
@@ -454,16 +459,16 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                       ) : (
                         <div className="markdown-content">
                           <Markdown
-                            remarkPlugins={[remarkGfm]}
-                            rehypePlugins={[rehypeRaw]}
-                            components={{
-                              code({
-                                node,
-                                inline,
-                                className,
-                                children,
-                                ...props
-                              }: any) {
+                              remarkPlugins={[remarkGfm, remarkMath]}
+                              rehypePlugins={[rehypeRaw, rehypeKatex]}
+                              components={{
+                                code({
+                                  node,
+                                  inline,
+                                  className,
+                                  children,
+                                  ...props
+                                }: any) {
                               const match = /language-(\w+)/.exec(
                                 className || ""
                               );
@@ -519,18 +524,18 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                       )}
                     </div>
                   </ContextMenuTrigger>
-                  <ContextMenuContent className="custom-shadow bg-transparent">
+                  <ContextMenuContent className="custom-shadow bg-background/90">
                     <ContextMenuItem
                       onClick={() => addEmptyReply(threadId, message.id)}
                     >
-                      <MessageSquare className="h-4 w-4 mr-2" />
+                      <MessageSquareReply className="h-4 w-4 mr-2" />
                       Reply
                       <ContextMenuShortcut>R</ContextMenuShortcut>
                     </ContextMenuItem>
                     <ContextMenuItem
                       onClick={() => generateAIReply(threadId, message.id, 1)}
                     >
-                      <Sparkle className="h-4 w-4 mr-2" />
+                      <WandSparkles className="h-4 w-4 mr-2" />
                       Generate AI Reply
                       <ContextMenuShortcut>G</ContextMenuShortcut>
                     </ContextMenuItem>
@@ -634,19 +639,37 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                       addEmptyReply(threadId, message.id);
                     }}
                   >
-                    <MessageSquare className="h-4 w-4" />
+                      <MessageSquareReply className="h-4 w-4" />
                     <span className="hidden md:inline ml-2">Reply</span>
                   </Button>
-                  <Menubar className="p-0 border-none bg-transparent">
-                    <MenubarMenu>
-                      <MenubarTrigger
+                    {isGenerating ? (
+                      <Button
+                        size="sm"
+                        variant="ghost"
                         className={cn(
-                          "h-10 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900 transition-scale-zoom",
-                          isGenerating &&
-                          "animate-pulse bg-blue-200 dark:bg-blue-900 duration-1000"
+                          "h-10 w-inherit relative group",
+                          "hover:text-destructive-foreground hover:bg-destructive transition-scale-zoom"
                         )}
+                        onClick={() => generateAIReply(threadId, message.id, 1)}
                       >
-                        <Sparkle className="h-4 w-4" />
+                        <span className="group-hover:hidden">
+                          <LoaderCircle className="h-4 w-4 animate-spin" />
+                        </span>
+                        <span className="hidden group-hover:inline">
+                          <OctagonX className="h-4 w-4" />
+                        </span>
+                        <span className="md:inline ml-2 w-[67.2px] inline-block">
+                          <span className="group-hover:hidden">Working</span>
+                          <span className="hidden group-hover:inline">Stop</span>
+                        </span>
+                      </Button>
+                    ) : (
+                        <Menubar className="p-0 border-none bg-transparent">
+                          <MenubarMenu>
+                            <MenubarTrigger
+                              className="h-10 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900 transition-scale-zoom"
+                            >
+                              <WandSparkles className="h-4 w-4" />
                           <span className="hidden md:inline ml-2">Generate</span>
                         </MenubarTrigger>
                         <MenubarContent className="custom-shadow">
@@ -690,6 +713,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                         </MenubarContent>
                       </MenubarMenu>
                     </Menubar>
+                    )}
                     <Button
                       className="h-10 hover:bg-background transition-scale-zoom"
                       size="sm"
