@@ -135,7 +135,7 @@ export default function ThreadedDocument() {
       setModelSupportsTools(null);
       setTools([]);
     }
-  }, [selectedModel]);
+  }, [selectedModel, checkModelSupportsTools, setModelSupportsTools, setTools]);
 
   const loadTools = async () => {
     if (apiBaseUrl) {
@@ -160,7 +160,7 @@ export default function ThreadedDocument() {
       // If model does not support tools, clear tool list
       setTools([]);
     }
-  }, [modelSupportsTools]);
+  }, [modelSupportsTools, loadTools, setTools]);
 
   // Helper methods
   const getModelDetails = (modelId: string | undefined) => {
