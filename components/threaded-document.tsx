@@ -18,6 +18,8 @@ import { Thread, Message, Model, ModelParameters, Tool } from "./types";
 import { useModels } from "./hooks/use-models";
 import { useThreads } from "./hooks/use-threads";
 import { useMessages } from "./hooks/use-messages";
+import { useSession } from "next-auth/react";
+import LoginModal from "@/components/LoginModal"; 
 import { useTools } from "./hooks/use-tools";
 
 const DEFAULT_MODEL: Model = {
@@ -117,7 +119,51 @@ export default function ThreadedDocument() {
       setModelSupportsTools(false);
     }
   };
-  
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [user, setUser] = useState<{
+    username: string;
+    email: string;
+  } | null>(null);
+
+  // 在组件加载时检查用户登录状态
+  useEffect(() => {
+    const token = localStorage.getItem("access_token");
+    if (token) {
+      // 请求用户信息
+      const fetchUserInfo = async () => {
+        try {
+          const response = await fetch("http://localhost:8000/api/userinfo", {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+          if (response.ok) {
+            const data = await response.json();
+            setUser({
+              username: data.username,
+              email: data.email,
+            });
+          } else {
+            // 如果令牌无效，清除本地存储并重置用户状态
+            localStorage.removeItem("access_token");
+            setUser(null);
+          }
+        } catch (error) {
+          console.error("Error fetching user info:", error);
+          localStorage.removeItem("access_token");
+          setUser(null);
+        }
+      };
+
+      fetchUserInfo();
+    }
+  }, []);
+
+  // 退出登录
+  const handleLogout = () => {
+    localStorage.removeItem("access_token");
+    setUser(null);
+  };
 
   useEffect(() => {
     if (selectedModel) {
@@ -1722,7 +1768,7 @@ export default function ThreadedDocument() {
         }}
       >
         {/* Desktop layout with resizable panels */}
-        <ResizablePanelGroup direction="horizontal" className="h-full">
+        <ResizablePanelGroup direction="horizontal" className="flex-grow">
           <ResizablePanel defaultSize={31} minSize={26} maxSize={50}>
             <Tabs
               value={activeTab}
@@ -1794,6 +1840,7 @@ export default function ThreadedDocument() {
                 />
               </TabsContent>
             </Tabs>
+          
           </ResizablePanel>
           <ResizableHandle className="mx-2 w-0 px-px bg-gradient-to-b from-background via-transparent to-background" />
           <ResizablePanel defaultSize={69}>
@@ -1832,6 +1879,35 @@ export default function ThreadedDocument() {
           </ResizablePanel>
         </ResizablePanelGroup>
       </div>
+    
+      {/* 登录按钮和用户信息 */}
+      {!user && (
+        <button
+          className="fixed bottom-4 left-4 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 z-50"
+          onClick={() => setIsLoginModalOpen(true)}
+        >
+          login or sign up
+        </button>
+      )}
+
+      {user && (
+        <div className="fixed bottom-4 left-4 z-50 flex items-center space-x-2">
+          <span className="text-white">Hi，{user.username}</span>
+          <button
+            className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600"
+            onClick={handleLogout}
+          >
+            退出
+          </button>
+        </div>
+      )}
+
+      {/* 登录和注册模态窗口 */}
+      <LoginModal
+        isOpen={isLoginModalOpen}
+        onClose={() => setIsLoginModalOpen(false)}
+        onLoginSuccess={(userData) => setUser(userData)}
+      />
     </div>
   );
 }
