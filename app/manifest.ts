@@ -21,8 +21,8 @@ export default function manifest(): MetadataRoute.Manifest {
                 "purpose": "maskable"
             }
         ],
-        "theme_color": "#211f1c",
-        "background_color": "#211f1c",
+        "theme_color": "accent",
+        "background_color": "background",
         "id": "aide.zy-j",
         "dir": "ltr",
         "scope": "/",
