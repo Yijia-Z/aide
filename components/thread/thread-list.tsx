@@ -1,4 +1,4 @@
-import React, { useRef } from "react";
+import React, { useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +19,8 @@ interface ThreadListProps {
   startEditingThreadTitle: (id: string, title: string) => void;
   toggleThreadPin: (id: string) => void;
   deleteThread: (id: string) => void;
+  threadToDelete: string | null;
+  setThreadToDelete: React.Dispatch<React.SetStateAction<string | null>>;
 }
 
 const ThreadList: React.FC<ThreadListProps> = ({
@@ -33,6 +35,8 @@ const ThreadList: React.FC<ThreadListProps> = ({
   confirmEditThreadTitle,
   startEditingThreadTitle,
   toggleThreadPin,
+  threadToDelete,
+  setThreadToDelete,
   deleteThread,
 }) => {
   const threadTitleInputRef = useRef<HTMLInputElement>(null);
@@ -177,25 +181,51 @@ const ThreadList: React.FC<ThreadListProps> = ({
                             >
                               {thread.isPinned ? (
                                 <>
-                                  <Pin className="h-4 w-4 group-hover/pin:hidden" />
-                                  <PinOff className="h-4 w-4 hidden group-hover/pin:block" />
+                                  <Pin className="h-4 w-4 hidden md:block md:group-hover/pin:hidden" />
+                                  <PinOff className="h-4 w-4 md:hidden md:group-hover/pin:block" />
                                 </>
                               ) : (
-                                <Pin className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                  <Pin className="h-4 w-4 md:opacity-0 md:group-hover:opacity-100 transition-opacity" />
                               )}
                             </Button>
                           </div>
-                          <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                deleteThread(thread.id);
-                              }}
-                            >
-                              <Trash className="h-4 w-4" />
-                            </Button>
+                          <div className="md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                            {threadToDelete === thread.id ? (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    deleteThread(thread.id);
+                                    setThreadToDelete(null);
+                                  }}
+                                >
+                                  <Check className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setThreadToDelete(null);
+                                  }}
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </>
+                            ) : (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setThreadToDelete(thread.id);
+                                  }}
+                                >
+                                  <Trash className="h-4 w-4" />
+                                </Button>
+                            )}
                           </div>
                         </div>
                     </div>

@@ -21,8 +21,6 @@ export default function manifest(): MetadataRoute.Manifest {
                 "purpose": "maskable"
             }
         ],
-        "theme_color": "accent",
-        "background_color": "background",
         "id": "aide.zy-j",
         "dir": "ltr",
         "scope": "/",
@@ -33,6 +31,17 @@ export default function manifest(): MetadataRoute.Manifest {
             "utilities"
         ],
         "prefer_related_applications": false,
-        "display_override": ["standalone", "browser"]
+        "display_override": ["standalone"],
+        "serviceworker": {
+            "src": "/sw.js",
+            "scope": "/"
+        },
+        "shortcuts": [
+            {
+                "name": "New Thread",
+                "url": "/?action=new",
+                "description": "Start a new conversation thread"
+            }
+        ]
     }
 }

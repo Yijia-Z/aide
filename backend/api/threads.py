@@ -46,3 +46,22 @@ async def load_threads_endpoint():
     except Exception as e:
         logger.error(f"Failed to load threads from MongoDB: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to load threads.")
+
+@router.delete("/delete_thread/{thread_id}")
+async def delete_thread_endpoint(thread_id: str):
+    try:
+        db = clientdb["threaddata"]
+        collection_name = f"thread_{thread_id}"
+        
+        # Check if collection exists before attempting deletion
+        if collection_name in db.list_collection_names():
+            db.drop_collection(collection_name)
+            logger.info(f"Successfully deleted thread {thread_id}.")
+            return {"status": "success"}
+        else:
+            logger.warning(f"Thread {thread_id} not found.")
+            raise HTTPException(status_code=404, detail="Thread not found.")
+            
+    except Exception as e:
+        logger.error(f"Failed to delete thread from MongoDB: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to delete thread.")

@@ -47,7 +47,7 @@ const ModelConfig: React.FC<ModelConfigProps> = ({
   fetchModelParameters,
 }) => {
   return (
-    <div className="flex flex-col relative h-[calc(97vh)] overflow-clip select-none">
+    <div className="flex flex-col relative  h-[calc(97vh)] overflow-clip select-none">
       <div
         className="top-bar bg-gradient-to-b from-background/100 to-background/00"
         style={{

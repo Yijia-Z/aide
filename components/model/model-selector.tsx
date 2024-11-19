@@ -439,16 +439,16 @@ export function SelectBaseModel({
             variant="outline"
             role="combobox"
             aria-expanded={open}
-            className="w-full justify-between text-primary"
+            className="w-full justify-between"
           >
+            <span className="whitespace-break-spaces flex-1 text-left">
             {value ? (
-              <span className="truncate">
-                {availableModels.find((model) => model.id === value)?.name ||
-                  value}
-              </span>
+                availableModels.find((model) => model.id === value)?.name ||
+                value
             ) : (
               "Select model..."
             )}
+            </span>
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>

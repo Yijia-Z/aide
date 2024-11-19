@@ -59,6 +59,9 @@ export default function ThreadedDocument() {
     setEditingThreadTitle,
     originalThreadTitle,
     setOriginalThreadTitle,
+    threadToDelete,
+    setThreadToDelete
+
   } = useThreads();
   const threadTitleInputRef = useRef<HTMLInputElement>(null);
 
@@ -291,11 +294,6 @@ export default function ThreadedDocument() {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ threadId: thread.id, thread }),
-            }).then((response) => {
-              if (!response.ok) {
-                throw new Error(`Failed to save thread ${thread.id}`);
-              }
-              return response.json();
             })
           );
           await Promise.all(savePromises);
@@ -1117,6 +1115,10 @@ export default function ThreadedDocument() {
   useEffect(() => {
     const loadThreads = async () => {
       try {
+        // Clear existing threads first
+        setThreads([]);
+        setCurrentThread(null);
+
         const cachedThreads = storage.get("threads");
         if (cachedThreads) {
           setThreads(cachedThreads);
@@ -1152,9 +1154,10 @@ export default function ThreadedDocument() {
         });
         if (response.ok) {
           const data = await response.json();
-          setThreads(data.threads || []);
-          setCurrentThread(data.threads[0]?.id || null);
-          storage.set("threads", data.threads || []);
+          const loadedThreads = data.threads || [];
+          setThreads(loadedThreads);
+          setCurrentThread(loadedThreads[0]?.id || null);
+          storage.set("threads", loadedThreads);
         } else {
           throw new Error("Failed to load threads from backend");
         }
@@ -1217,44 +1220,44 @@ export default function ThreadedDocument() {
     }
   }, [replyingTo]);
 
-/*   // Connect to backend on component mount
-  useEffect(() => {
-    const connectToBackend = async () => {
-      if (!apiBaseUrl) return;
-
-      try {
-        const response = await fetch(`${apiBaseUrl}/api/connect`, {
-          method: "GET",
-        });
-        if (response.ok) {
-          console.log("Connected to backend!");
-          setIsConnected(true);
-        } else {
-          console.error("Failed to connect to backend.");
+  /*   // Connect to backend on component mount
+    useEffect(() => {
+      const connectToBackend = async () => {
+        if (!apiBaseUrl) return;
+  
+        try {
+          const response = await fetch(`${apiBaseUrl}/api/connect`, {
+            method: "GET",
+          });
+          if (response.ok) {
+            console.log("Connected to backend!");
+            setIsConnected(true);
+          } else {
+            console.error("Failed to connect to backend.");
+          }
+        } catch (error) {
+          console.error("Error connecting to backend:", error);
+        } finally {
+          setLastAttemptTime(Date.now());
         }
-      } catch (error) {
-        console.error("Error connecting to backend:", error);
-      } finally {
-        setLastAttemptTime(Date.now());
-      }
-    };
-
-    if (
-      !isConnected &&
-      (!lastAttemptTime || Date.now() - lastAttemptTime >= 5000)
-    ) {
-      connectToBackend();
-    }
-
-    const intervalId = setInterval(() => {
-      if (!isConnected) {
+      };
+  
+      if (
+        !isConnected &&
+        (!lastAttemptTime || Date.now() - lastAttemptTime >= 5000)
+      ) {
         connectToBackend();
       }
-    }, 5000);
-
-    return () => clearInterval(intervalId);
-  }, [isConnected, lastAttemptTime]);
-  */
+  
+      const intervalId = setInterval(() => {
+        if (!isConnected) {
+          connectToBackend();
+        }
+      }, 5000);
+  
+      return () => clearInterval(intervalId);
+    }, [isConnected, lastAttemptTime]);
+    */
   // Save threads
   useEffect(() => {
     debouncedSaveThreads(threads);
@@ -1582,7 +1585,7 @@ export default function ThreadedDocument() {
   ]);
 
   return (
-    <div className="h-screen flex flex-col md:flex-row p-2 overflow-hidden ">
+    <div className="h-screen flex flex-col md:flex-row p-2 overflow-ellipsis ">
       <div className="sm:hidden bg-transparent">
         {/* Mobile layout with tabs for threads, messages, and models */}
         <Tabs
@@ -1610,6 +1613,8 @@ export default function ThreadedDocument() {
               addThread={addThread}
               setSelectedMessage={setSelectedMessage}
               setThreads={setThreads}
+              threadToDelete={threadToDelete}
+              setThreadToDelete={setThreadToDelete}
             />
           </TabsContent>
           <TabsContent
@@ -1667,7 +1672,11 @@ export default function ThreadedDocument() {
               handleModelChange={handleModelChange}
             />
           </TabsContent>
-          <TabsContent value="tools" className="overflow-y-clip fixed top-0 left-2 right-2 pb-20">
+          <TabsContent
+            value="tools"
+            className="overflow-y-clip fixed top-0 left-2 right-2 pb-20"
+            style={{ paddingTop: "env(safe-area-inset-top)" }}
+          >
             <ToolManager
               tools={tools}
               setTools={(tools: Tool[]) => void saveTools(tools)}
@@ -1675,7 +1684,11 @@ export default function ThreadedDocument() {
               error={toolsError}
             />
           </TabsContent>
-          <TabsContent value="settings" className="flex-grow overflow-y-clip">
+          <TabsContent
+            value="settings"
+            className="overflow-y-clip fixed top-0 left-2 right-2 pb-20"
+            style={{ paddingTop: "env(safe-area-inset-top)" }}
+          >
             <SettingsPanel />
           </TabsContent>
           <TabsList
@@ -1687,7 +1700,8 @@ export default function ThreadedDocument() {
               bottom-0 
               left-0 
               right-0 
-              pb-12 
+              pb-14 
+              space-x-1
               grid-cols-5
               select-none"
           >
@@ -1695,31 +1709,31 @@ export default function ThreadedDocument() {
               value="threads"
               className="bg-transparent hover:bg-secondary hover:custom-shadow data-[state=active]:bg-secondary/80"
             >
-              <AlignJustify className="h-5 w-5" />
+              <AlignJustify className="h-6 w-6" />
             </TabsTrigger>
             <TabsTrigger
               value="messages"
               className="bg-transparent hover:bg-secondary hover:custom-shadow data-[state=active]:bg-secondary/80"
             >
-              <MessageSquare className="h-5 w-5" />
+              <MessageSquare className="h-6 w-6" />
             </TabsTrigger>
             <TabsTrigger
               value="models"
               className="bg-transparent hover:bg-secondary hover:custom-shadow data-[state=active]:bg-secondary/80"
             >
-              <Sparkle className="h-5 w-5" />
+              <Sparkle className="h-6 w-6" />
             </TabsTrigger>
             <TabsTrigger
               className="bg-transparent hover:bg-secondary hover:custom-shadow data-[state=active]:bg-secondary/80"
               value="tools"
             >
-              <Package className="h-5 w-5" />
+              <Package className="h-6 w-6" />
             </TabsTrigger>
             <TabsTrigger
               className="bg-transparent hover:bg-secondary hover:custom-shadow data-[state=active]:bg-secondary/80"
               value="settings"
             >
-              <Settings className="h-5 w-5" />
+              <Settings className="h-6 w-6" />
             </TabsTrigger>
           </TabsList>
         </Tabs>
@@ -1748,28 +1762,28 @@ export default function ThreadedDocument() {
                   className="bg-transparent transition-scale-zoom hover:bg-secondary hover:custom-shadow data-[state=active]:bg-background group"
                   value="threads"
                 >
-                  <AlignJustify className="h-4 w-4 group-hover:hidden" />
+                  <AlignJustify className="h-5 w-5 group-hover:hidden" />
                   <span className="hidden group-hover:inline">Threads</span>
                 </TabsTrigger>
                 <TabsTrigger
                   className="bg-transparent transition-scale-zoom hover:bg-secondary hover:custom-shadow data-[state=active]:bg-background group"
                   value="models"
                 >
-                  <Sparkle className="h-4 w-4 group-hover:hidden" />
+                  <Sparkle className="h-5 w-5 group-hover:hidden" />
                   <span className="hidden group-hover:inline">Models</span>
                 </TabsTrigger>
                 <TabsTrigger
                   className="bg-transparent transition-scale-zoom hover:bg-secondary hover:custom-shadow data-[state=active]:bg-background group"
                   value="tools"
                 >
-                  <Package className="h-4 w-4 group-hover:hidden" />
+                  <Package className="h-5 w-5 group-hover:hidden" />
                   <span className="hidden group-hover:inline">Tools</span>
                 </TabsTrigger>
                 <TabsTrigger
                   className="bg-transparent transition-scale-zoom hover:bg-secondary hover:custom-shadow data-[state=active]:bg-background group"
                   value="settings"
                 >
-                  <Settings className="h-4 w-4 group-hover:hidden" />
+                  <Settings className="h-5 w-5 group-hover:hidden" />
                   <span className="hidden group-hover:inline">Settings</span>
                 </TabsTrigger>
               </TabsList>
@@ -1782,6 +1796,8 @@ export default function ThreadedDocument() {
                   currentThread={currentThread}
                   setCurrentThread={setCurrentThread}
                   startEditingThreadTitle={startEditingThreadTitle}
+                  threadToDelete={threadToDelete}
+                  setThreadToDelete={setThreadToDelete}
                   confirmEditThreadTitle={confirmEditThreadTitle}
                   cancelEditThreadTitle={cancelEditThreadTitle}
                   toggleThreadPin={toggleThreadPin}
@@ -1822,7 +1838,7 @@ export default function ThreadedDocument() {
 
           </ResizablePanel>
           <ResizableHandle className="mx-2 w-0 px-px bg-gradient-to-b from-background via-transparent to-background" />
-          <ResizablePanel defaultSize={69}>
+          <ResizablePanel defaultSize={72}>
             <div className="h-full overflow-y-auto">
               <RenderMessages
                 threads={threads}
