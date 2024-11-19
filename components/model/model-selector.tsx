@@ -439,9 +439,9 @@ export function SelectBaseModel({
             variant="outline"
             role="combobox"
             aria-expanded={open}
-            className="w-full justify-between"
+            className="w-full h-fit justify-between"
           >
-            <span className="whitespace-break-spaces flex-1 text-left">
+            <span className="whitespace-break-spaces flex-1 text-left text-foreground">
             {value ? (
                 availableModels.find((model) => model.id === value)?.name ||
                 value
