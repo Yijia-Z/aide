@@ -269,8 +269,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
               <div className="flex items-center space-x-1">
                 <Button
                   variant="ghost"
-                  size="sm"
-                  className="w-6 h-6 p-0 rounded-md bg-background border"
+                  className="w-6 h-6 p-0 rounded-md custom-shadow"
                   onClick={(e) => {
                     e.stopPropagation();
                     toggleCollapse(threadId, message.id);
@@ -484,7 +483,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                                   <div className="absolute -top-3 w-full text-muted-foreground flex justify-between items-center p-1 pb-0 pl-3 rounded-md text-xs bg-[#1D2021]">
                                     <span>{match[1]}</span>
                                     <Button
-                                      className="w-6 h-6 p-0"
+                                      className="rounded-sm w-6 h-6 p-0"
                                       variant="ghost"
                                       size="sm"
                                         onClick={() =>
@@ -658,7 +657,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                         <span className="hidden group-hover:inline">
                           <OctagonX className="h-4 w-4" />
                         </span>
-                        <span className="md:inline ml-2 w-[67.2px] inline-block">
+                        <span className="hidden md:inline ml-2 w-[67.2px]">
                           <span className="group-hover:hidden">Working</span>
                           <span className="hidden group-hover:inline">Stop</span>
                         </span>
@@ -728,7 +727,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                     </Button>
                     <Menubar className="p-0 border-none bg-transparent">
                       <MenubarMenu>
-                        <MenubarTrigger className="h-10 hover:bg-background transition-scale-zoom">
+                        <MenubarTrigger className="h-10 rounded-lg hover:bg-background transition-scale-zoom">
                           {clipboardMessage ? (
                             <ClipboardPaste className="h-4 w-4" />
                           ) : (
@@ -787,7 +786,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                   </Menubar>
                   <Menubar className="p-0 border-none bg-transparent">
                     <MenubarMenu>
-                      <MenubarTrigger className="h-10 hover:bg-destructive transition-scale-zoom">
+                        <MenubarTrigger className="h-10 rounded-lg hover:bg-destructive transition-scale-zoom">
                         <Trash className="h-4 w-4" />
                         <span className="hidden md:inline ml-2">Delete</span>
                       </MenubarTrigger>
@@ -825,7 +824,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
         {!message.isCollapsed && (
           <motion.div
             transition={{ duration: 0.1 }}
-            layout={"preserve-aspect"}
+            layout={"position"}
           >
             {message.replies.map((reply) => (
               <div

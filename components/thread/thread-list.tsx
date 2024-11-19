@@ -85,7 +85,6 @@ const ThreadList: React.FC<ThreadListProps> = ({
                 exit={{ opacity: 0, y: -20 }}
                 whileHover={{
                   y: -2,
-                  transition: { duration: 0.2 },
                 }}
                 className={`
                   font-serif
@@ -106,7 +105,7 @@ const ThreadList: React.FC<ThreadListProps> = ({
                   setCurrentThread(thread.id);
                 }}
               >
-                <div className="flex-grow">
+                <div className="flex-grow group">
                   {editingThreadTitle === thread.id ? (
                     <div className="flex items-center justify-between">
                       <Input
@@ -167,31 +166,38 @@ const ThreadList: React.FC<ThreadListProps> = ({
                     >
                       <span className="pl-1 flex-grow">{thread.title}</span>
                         <div className="flex items-center">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleThreadPin(thread.id);
-                          }}
-                        >
-                          {thread.isPinned ? (
-                            <PinOff className="h-4 w-4" />
-                          ) : (
-                            <Pin className="h-4 w-4" />
-                          )}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            deleteThread(thread.id);
-                          }}
-                        >
-                          <Trash className="h-4 w-4" />
-                        </Button>
-                      </div>
+                          <div className="group/pin">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleThreadPin(thread.id);
+                              }}
+                            >
+                              {thread.isPinned ? (
+                                <>
+                                  <Pin className="h-4 w-4 group-hover/pin:hidden" />
+                                  <PinOff className="h-4 w-4 hidden group-hover/pin:block" />
+                                </>
+                              ) : (
+                                <Pin className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity" />
+                              )}
+                            </Button>
+                          </div>
+                          <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deleteThread(thread.id);
+                              }}
+                            >
+                              <Trash className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
                     </div>
                   )}
                 </div>
