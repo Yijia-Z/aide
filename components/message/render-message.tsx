@@ -498,8 +498,9 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                                     PreTag={"pre"}
                                     style={gruvboxDark}
                                     language={match[1]}
-                                    // showLineNumbers
                                     wrapLines
+                                    showLineNumbers
+                                    lineProps={{ style: { whiteSpace: 'pre-wrap', wordBreak: 'break-word' } }}
                                     {...props}
                                   >
                                     {codeString}
