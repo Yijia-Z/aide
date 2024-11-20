@@ -695,6 +695,7 @@ export default function ThreadedDocument() {
     setThreads((prev: Thread[]) =>
       prev.map((thread) => {
         const removeEmptyMessage = (messages: Message[]): Message[] => {
+          if (!messages) return [];
           return messages.reduce((acc: Message[], message) => {
             if (message.id === editingMessage) {
               if (message.content.trim() === "") {
@@ -1707,30 +1708,30 @@ export default function ThreadedDocument() {
           >
             <TabsTrigger
               value="threads"
-              className="bg-transparent hover:bg-secondary hover:custom-shadow data-[state=active]:bg-secondary/80"
+              className="bg-transparent data-[state=active]:bg-secondary/80"
             >
               <AlignJustify className="h-6 w-6" />
             </TabsTrigger>
             <TabsTrigger
               value="messages"
-              className="bg-transparent hover:bg-secondary hover:custom-shadow data-[state=active]:bg-secondary/80"
+              className="bg-transparent data-[state=active]:bg-secondary/80"
             >
               <MessageSquare className="h-6 w-6" />
             </TabsTrigger>
             <TabsTrigger
               value="models"
-              className="bg-transparent hover:bg-secondary hover:custom-shadow data-[state=active]:bg-secondary/80"
+              className="bg-transparent data-[state=active]:bg-secondary/80"
             >
               <Sparkle className="h-6 w-6" />
             </TabsTrigger>
             <TabsTrigger
-              className="bg-transparent hover:bg-secondary hover:custom-shadow data-[state=active]:bg-secondary/80"
+              className="bg-transparent data-[state=active]:bg-secondary/80"
               value="tools"
             >
               <Package className="h-6 w-6" />
             </TabsTrigger>
             <TabsTrigger
-              className="bg-transparent hover:bg-secondary hover:custom-shadow data-[state=active]:bg-secondary/80"
+              className="bg-transparent data-[state=active]:bg-secondary/80"
               value="settings"
             >
               <Settings className="h-6 w-6" />
@@ -1757,7 +1758,7 @@ export default function ThreadedDocument() {
               }
               className="w-full flex flex-col"
             >
-              <TabsList className="grid w-full grid-cols-4 bg-transparent py-0 custom-shadow select-none">
+              <TabsList className="grid w-full grid-cols-4 bg-transparent space-x-1 py-0 custom-shadow select-none">
                 <TabsTrigger
                   className="bg-transparent transition-scale-zoom hover:bg-secondary hover:custom-shadow data-[state=active]:bg-background group"
                   value="threads"
@@ -1837,7 +1838,7 @@ export default function ThreadedDocument() {
             </Tabs>
 
           </ResizablePanel>
-          <ResizableHandle className="mx-2 w-0 px-px bg-gradient-to-b from-background via-transparent to-background" />
+          <ResizableHandle withHandle className="mx-2 w-0 px-px bg-gradient-to-b from-background via-transparent to-background" />
           <ResizablePanel defaultSize={72}>
             <div className="h-full overflow-y-auto">
               <RenderMessages

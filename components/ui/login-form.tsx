@@ -107,7 +107,7 @@ export function LoginForm() {
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="login" className="w-full" onValueChange={(value) => setMode(value as 'login' | 'register')}>
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-2 space-x-1">
             <TabsTrigger
               className="transition-scale-zoom hover:bg-secondary hover:custom-shadow"
               value="login"

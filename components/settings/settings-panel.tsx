@@ -2,7 +2,7 @@
 
 import { useSession, signOut } from "next-auth/react"
 import { Button } from "@/components/ui/button"
-import { LoginForm } from "@/components/login-form"
+import { LoginForm } from "@/components/ui/login-form"
 import { ModeToggle } from "./mode-toggle"
 import { motion } from 'framer-motion';
 import { ScrollArea } from "@/components/ui/scroll-area";

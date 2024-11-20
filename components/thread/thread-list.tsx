@@ -96,7 +96,7 @@ const ThreadList: React.FC<ThreadListProps> = ({
                   cursor-pointer
                   rounded-md
                   mb-2
-                  hover:shadow-[inset_0_0_10px_10px_rgba(128,128,128,0.2)]
+                  md:hover:shadow-[inset_0_0_10px_10px_rgba(128,128,128,0.2)]
                   active:shadow-[inset_0px_0px_10px_rgba(0,0,0,0.7)]
                   ${
                   currentThread === thread.id

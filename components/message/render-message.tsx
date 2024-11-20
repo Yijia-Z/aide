@@ -29,6 +29,8 @@ import {
   WandSparkles,
   OctagonX,
   LoaderCircle,
+  Plus,
+  Minus,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -238,13 +240,9 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 20 }}
-      transition={{
-        duration: 0.3,
-        ease: "easeInOut",
-      }}
       className={"mt-2"}
       style={{ marginLeft: `${indent}px` }}
-      layout={"preserve-aspect"} // Add this prop to enable layout animations
+      layout={"position"}
       id={`message-${message.id}`}
     >
       <div
@@ -268,27 +266,19 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-1">
                 <Button
-                  variant="ghost"
-                  className="w-6 h-6 p-0 rounded-md custom-shadow"
+                  variant="outline"
+                  className="w-6 h-6 p-0 rounded-md"
                   onClick={(e) => {
                     e.stopPropagation();
                     toggleCollapse(threadId, message.id);
                   }}
                 >
-                  {message.isCollapsed ? (
-                    message.userCollapsed ? (
-                      <ChevronRight className="h-4 m-0 transition-transform" />
-                    ) : (
-                      <ChevronRight className="h-4 m-0 transition-transform text-muted-foreground" />
-                    )
-                  ) : (
-                    <ChevronRight className="h-4 m-0 transition-transform rotate-90" />
-                  )}
-                </Button>{" "}
+                  {message.isCollapsed ? <Plus /> : <Minus />}
+                </Button>
                 <span
-                  className={`font-bold truncate ${message.publisher === "ai"
-                    ? "text-blue-500"
-                    : "text-green-700"
+                  className={`font-bold truncate ${message.publisher === "ai" 
+                    ? "text-blue-800 dark:text-blue-600"
+                    : "text-green-800 dark:text-green-600"
                     }`}
                 >
                   {parentId === null ||

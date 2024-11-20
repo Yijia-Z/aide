@@ -89,7 +89,8 @@
 }
 
 .transition-scale-zoom {
-  @apply transition-all ease-in-out hover:scale-[94%];
+@apply transition-all ease-in-out md:hover:scale-[94%];
+
 }
 
 .custom-shadow {
@@ -159,11 +160,13 @@
 }
 
 /* Button styles */
-.dark button:hover,
-.dark .button:hover,
-button:hover,
-.button:hover {
-  box-shadow: inset 0 0 10px 10px rgba(128, 128, 128, 0.2);
+@media (min-width: 768px) {
+  .dark button:hover,
+  .dark .button:hover,
+  button:hover,
+  .button:hover {
+    box-shadow: inset 0 0 10px 10px rgba(128, 128, 128, 0.2);
+  }
 }
 
 .dark button:active,
@@ -194,8 +197,10 @@ button svg,
   }
 }
 
-.glow-effect {
-  animation: glow 1.5s infinite;
+@media (min-width: 640px) {
+  .glow-effect {
+    animation: glow 1.5s infinite;
+  }
 }
 
 /* Transition styles for messages, threads, and models */
