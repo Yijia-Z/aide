@@ -1494,6 +1494,7 @@ export default function ThreadedDocument() {
         const parentMessage = parentMessages.length > 0 ? parentMessages[parentMessages.length - 1] : null;
         const siblings = getSiblings(currentThreadData.messages, selectedMessage);
         const currentIndex = siblings.findIndex((m) => m.id === currentMessage.id);
+        const message = findMessageById(currentThreadData.messages, selectedMessage);
 
         // Navigation keys
         switch (event.key) {
@@ -1525,11 +1526,21 @@ export default function ThreadedDocument() {
           // Action keys  
           case "r":
             event.preventDefault();
+            if (message && message.isCollapsed) {
+              toggleCollapse(currentThread, selectedMessage);
+            }
             addEmptyReply(currentThread, selectedMessage);
             break;
           case "g":
             event.preventDefault();
+            if (message && message.isCollapsed) {
+              toggleCollapse(currentThread, selectedMessage);
+            }
             generateAIReply(currentThread, selectedMessage);
+            break;
+          case "c":
+            event.preventDefault();
+            toggleCollapse(currentThread, selectedMessage);
             break;
           case "e":
             if (!editingMessage) {

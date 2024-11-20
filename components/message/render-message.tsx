@@ -215,6 +215,19 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
       : null;
   const siblings = getSiblings(currentThreadData.messages, message.id);
   const currentIndex = siblings.findIndex((m) => m.id === message.id);
+  const truncateContent = (content: string, isSelected: boolean) => {
+    // Don't truncate if selected or parent of selected
+    if (isSelected || isParentOfSelected) return content;
+
+    const maxLength = 500;
+    const lines = content.split('\n');
+    const firstThreeLines = lines.slice(0, 3).join('\n');
+
+    if (content.length > maxLength || lines.length > 3) {
+      return `${firstThreeLines.slice(0, maxLength)}${content.length > maxLength ? '...' : lines.length > 3 ? '\n...' : ''}`;
+    }
+    return content;
+  };
 
   // Additional data
   const totalReplies = getTotalReplies(message);
@@ -256,9 +269,6 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
       `}
         onClick={() => {
           setSelectedMessage(message.id);
-          if (message.isCollapsed) {
-            toggleCollapse(threadId, message.id);
-          }
         }}
       >
         <div className="flex-grow p-0 overflow-hidden">
@@ -507,7 +517,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                               },
                             }}
                           >
-                            {message.content}
+                              {truncateContent(message.content, isSelected)}
                           </Markdown>
                         </div>
                       )}
@@ -515,17 +525,27 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                   </ContextMenuTrigger>
                   <ContextMenuContent className="custom-shadow bg-background/90">
                     <ContextMenuItem
-                      onClick={() => addEmptyReply(threadId, message.id)}
+                      onClick={() => {
+                        if (message.isCollapsed) {
+                          toggleCollapse(threadId, message.id);
+                        }
+                        addEmptyReply(threadId, message.id);
+                      }}
                     >
                       <MessageSquareReply className="h-4 w-4 mr-2" />
                       Reply
                       <ContextMenuShortcut>R</ContextMenuShortcut>
                     </ContextMenuItem>
                     <ContextMenuItem
-                      onClick={() => generateAIReply(threadId, message.id, 1)}
+                      onClick={() => {
+                        if (message.isCollapsed) {
+                          toggleCollapse(threadId, message.id);
+                        }
+                        generateAIReply(threadId, message.id, 1);
+                      }}
                     >
                       <WandSparkles className="h-4 w-4 mr-2" />
-                      Generate AI Reply
+                      Generate
                       <ContextMenuShortcut>G</ContextMenuShortcut>
                     </ContextMenuItem>
                     <ContextMenuItem
@@ -623,8 +643,11 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                     size="sm"
                     variant="ghost"
                     onClick={() => {
+                      if (message.isCollapsed) {
+                        toggleCollapse(threadId, message.id);
+                      }
                       cancelEditingMessage();
-                      setSelectedMessage(null);
+                      setSelectedMessage(null); 
                       addEmptyReply(threadId, message.id);
                     }}
                   >
@@ -663,9 +686,12 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                         </MenubarTrigger>
                         <MenubarContent className="custom-shadow">
                           <MenubarItem
-                            onClick={() =>
-                              generateAIReply(threadId, message.id, 1)
-                            }
+                                onClick={() => {
+                                  if (message.isCollapsed) {
+                                    toggleCollapse(threadId, message.id);
+                                  }
+                                  generateAIReply(threadId, message.id, 1);
+                                }}
                           >
                             Once
                             <MenubarShortcut className="ml-auto">
@@ -673,14 +699,20 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                             </MenubarShortcut>
                           </MenubarItem>
                           <MenubarItem
-                            onClick={() =>
-                              generateAIReply(threadId, message.id, 3)
-                            }
+                                onClick={() => {
+                                  if (message.isCollapsed) {
+                                    toggleCollapse(threadId, message.id);
+                                  }
+                                  generateAIReply(threadId, message.id, 3);
+                                }}
                           >
                             Thrice
                           </MenubarItem>
                           <MenubarItem
                             onClick={() => {
+                                  if (message.isCollapsed) {
+                                    toggleCollapse(threadId, message.id);
+                                  }
                               const times = prompt(
                                 "How many times do you want to generate?",
                                 "5"
