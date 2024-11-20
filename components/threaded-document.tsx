@@ -1543,7 +1543,7 @@ export default function ThreadedDocument() {
             toggleCollapse(currentThread, selectedMessage);
             break;
           case "e":
-            if (!editingMessage) {
+            if (!editingMessage || editingMessage !== selectedMessage) {
               event.preventDefault();
               const message = findMessageById(currentThreadData.messages, selectedMessage);
               if (message) {
