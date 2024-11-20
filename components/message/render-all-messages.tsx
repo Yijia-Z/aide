@@ -143,6 +143,7 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
     <div className="flex items-center justify-center h-full select-none">
       <div className="hidden sm:block">
         <p className="text-sm text-muted-foreground whitespace-pre">
+          <span> C                    ┃ Toggle collapse</span><br />
           <span> ←/→ Arrow keys       ┃ Navigate parent/child</span><br />
           <span> ↑/↓ Arrow keys       ┃ Navigate siblings</span><br />
           <span> R                    ┃ Reply</span><br />

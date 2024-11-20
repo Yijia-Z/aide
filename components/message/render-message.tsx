@@ -1,5 +1,3 @@
-// components/RenderMessage.tsx
-
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Markdown from "react-markdown";
@@ -258,219 +256,217 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
       layout={"position"}
       id={`message-${message.id}`}
     >
-      <div
-        className={`flex
-          items-start 
-          space-x-1 
-          p-1 
-          rounded-lg
-          ${isSelectedOrParent ? "custom-shadow" : "text-muted-foreground"}
-          ${glowingMessageId === message.id ? "glow-effect" : ""}
-      `}
-        onClick={() => {
-          setSelectedMessage(message.id);
-        }}
-      >
-        <div className="flex-grow p-0 overflow-hidden">
-          <div className="flex flex-col">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-1">
-                <Button
-                  variant="outline"
-                  className="w-6 h-6 p-0 rounded-md"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleCollapse(threadId, message.id);
-                  }}
-                >
-                  {message.isCollapsed ? <Plus /> : <Minus />}
-                </Button>
-                <span
-                  className={`font-bold truncate ${message.publisher === "ai" 
-                    ? "text-blue-800 dark:text-blue-600"
-                    : "text-green-800 dark:text-green-600"
-                    }`}
-                >
-                  {parentId === null ||
-                    message.publisher !==
-                    findMessageById(
-                      threads.find((t) => t.id === currentThread)?.messages ||
-                      [],
-                      parentId
-                    )?.publisher
-                    ? message.publisher === "ai"
-                      ? modelDetails?.name || "AI"
-                      : "User"
-                    : null}
-                </span>
-                {modelDetails && (
+      <ContextMenu>
+        <ContextMenuTrigger
+          disabled={editingMessage === message.id}
+          onContextMenu={() => setSelectedMessage(message.id)}
+        >
+          <div
+            className={`flex items-start space-x-1 p-1 rounded-lg ${isSelectedOrParent ? "custom-shadow" : "text-muted-foreground"
+              } ${glowingMessageId === message.id ? "glow-effect" : ""}`}
+            onClick={() => {
+              setSelectedMessage(message.id);
+            }}
+          >
+            <div className="flex-grow p-0 overflow-hidden">
+              <div className="flex flex-col">
+                <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-1">
-                    <Badge variant="secondary">
-                      {modelDetails.baseModel?.split("/").pop()?.split("-")[0]}
-                    </Badge>
-                  </div>
-                )}
-              </div>
-              <div
-                className={`flex space-x-1 ${isSelectedOrParent || isSelected
-                  ? "opacity-100"
-                  : "opacity-0 hover:opacity-100"
-                  } transition-opacity duration-200`}
-              >
-                {parentMessage && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="w-6 h-6 p-0"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedMessage(parentMessage.id);
-                    }}
-                    onMouseEnter={() => setGlowingMessageId(parentMessage.id)}
-                    onMouseLeave={() => setGlowingMessageId(null)}
-                  >
-                    <ArrowLeft className="h-4 w-4" />
-                  </Button>
-                )}
-                {currentMessage?.replies &&
-                  currentMessage.replies.length > 0 && (
                     <Button
-                      variant="ghost"
-                      size="sm"
-                      className="w-6 h-6 p-0"
+                      variant="outline"
+                      className="w-6 h-6 p-0 rounded-md"
                       onClick={(e) => {
                         e.stopPropagation();
-                        setSelectedMessage(currentMessage.replies[0].id);
+                        toggleCollapse(threadId, message.id);
                       }}
-                      onMouseEnter={() =>
-                        setGlowingMessageId(currentMessage.replies[0].id)
-                      }
-                      onMouseLeave={() => setGlowingMessageId(null)}
                     >
-                      <ArrowRight className="h-4 w-4" />
+                      {message.isCollapsed ? <Plus /> : <Minus />}
                     </Button>
-                  )}
-                {siblings[currentIndex - 1] && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="w-6 h-6 p-0"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedMessage(siblings[currentIndex - 1].id);
-                    }}
-                    onMouseEnter={() =>
-                      setGlowingMessageId(siblings[currentIndex - 1].id)
-                    }
-                    onMouseLeave={() => setGlowingMessageId(null)}
-                  >
-                    <ArrowUp className="h-4 w-4" />
-                  </Button>
-                )}
-                {siblings[currentIndex + 1] && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="w-6 h-6 p-0"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedMessage(siblings[currentIndex + 1].id);
-                    }}
-                    onMouseEnter={() =>
-                      setGlowingMessageId(siblings[currentIndex + 1].id)
-                    }
-                    onMouseLeave={() => setGlowingMessageId(null)}
-                  >
-                    <ArrowDown className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
-            </div>
-            {editingMessage === message.id ? (
-              <Textarea
-                value={editingContent}
-                onChange={(e) => setEditingContent(e.target.value)}
-                className="min-font-size font-serif flex-grow w-auto m-1 p-0 bg-inherit"
-                style={{
-                  minHeight: Math.min(
-                    Math.max(
-                      20,
-                      editingContent.split("\n").length *
-                      (window.innerWidth < 480
-                        ? 35
-                        : window.innerWidth < 640
-                          ? 30
-                          : window.innerWidth < 1024
-                            ? 25
-                            : 20),
-                      editingContent.length *
-                      (window.innerWidth < 480
-                        ? 0.6
-                        : window.innerWidth < 640
-                          ? 0.5
-                          : window.innerWidth < 1024
-                            ? 0.35
-                            : 0.25)
-                    ),
-                    window.innerHeight * 0.5
-                  ),
-                  maxHeight: "50vh",
-                }}
-                autoFocus
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
-                    confirmEditingMessage(threadId, message.id);
-                  } else if (e.key === "Escape") {
-                    cancelEditingMessage();
-                  }
-                }}
-              />
-            ) : (
-              <ContextMenu>
-                  <ContextMenuTrigger
-                    onContextMenu={() => setSelectedMessage(message.id)}
-                  >
-                    <div
-                      className="whitespace-normal break-words markdown-content font-serif overflow-hidden pt-0.5 px-1 "
-                      onDoubleClick={() => {
-                        cancelEditingMessage();
-                        startEditingMessage(message);
-                      }}
+                    <span
+                      className={`font-bold truncate ${message.publisher === "ai"
+                        ? "text-blue-800 dark:text-blue-600"
+                        : "text-green-800 dark:text-green-600"
+                        }`}
                     >
-                      {message.isCollapsed ? (
-                        <div className="flex flex-col">
-                          <div>
-                            {`${message.content.split("\n")[0].slice(0, 50)}
-                                          ${message.content.length > 50
-                                ? "..."
-                                : ""
-                              }`}
-                          </div>
-                          {totalReplies > 0 && (
-                            <div className="self-end">
-                              <span className="text-yellow-600">
-                                {`(${totalReplies} ${totalReplies === 1 ? "reply" : "replies"
-                                  })`}
-                              </span>
-                            </div>
-                          )}
+                      {parentId === null ||
+                        message.publisher !==
+                        findMessageById(
+                          threads.find((t) => t.id === currentThread)
+                            ?.messages || [],
+                          parentId
+                        )?.publisher
+                        ? message.publisher === "ai"
+                          ? modelDetails?.name || "AI"
+                          : "User"
+                        : null}
+                    </span>
+                    {modelDetails && (
+                      <div className="flex items-center space-x-1">
+                        <Badge variant="secondary">
+                          {modelDetails.baseModel
+                            ?.split("/")
+                            .pop()
+                            ?.split("-")[0]}
+                        </Badge>
+                      </div>
+                    )}
+                  </div>
+                  <div
+                    className={`flex space-x-1 ${isSelectedOrParent || isSelected
+                      ? "opacity-100"
+                      : "opacity-0 hover:opacity-100"
+                      } transition-opacity duration-200`}
+                  >
+                    {parentMessage && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-6 h-6 p-0"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedMessage(parentMessage.id);
+                        }}
+                        onMouseEnter={() =>
+                          setGlowingMessageId(parentMessage.id)
+                        }
+                        onMouseLeave={() => setGlowingMessageId(null)}
+                      >
+                        <ArrowLeft className="h-4 w-4" />
+                      </Button>
+                    )}
+                    {currentMessage?.replies &&
+                      currentMessage.replies.length > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="w-6 h-6 p-0"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedMessage(currentMessage.replies[0].id);
+                          }}
+                          onMouseEnter={() =>
+                            setGlowingMessageId(currentMessage.replies[0].id)
+                          }
+                          onMouseLeave={() => setGlowingMessageId(null)}
+                        >
+                          <ArrowRight className="h-4 w-4" />
+                        </Button>
+                      )}
+                    {siblings[currentIndex - 1] && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-6 h-6 p-0"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedMessage(siblings[currentIndex - 1].id);
+                        }}
+                        onMouseEnter={() =>
+                          setGlowingMessageId(siblings[currentIndex - 1].id)
+                        }
+                        onMouseLeave={() => setGlowingMessageId(null)}
+                      >
+                        <ArrowUp className="h-4 w-4" />
+                      </Button>
+                    )}
+                    {siblings[currentIndex + 1] && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-6 h-6 p-0"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedMessage(siblings[currentIndex + 1].id);
+                        }}
+                        onMouseEnter={() =>
+                          setGlowingMessageId(siblings[currentIndex + 1].id)
+                        }
+                        onMouseLeave={() => setGlowingMessageId(null)}
+                      >
+                        <ArrowDown className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                {editingMessage === message.id ? (
+                  <Textarea
+                    value={editingContent}
+                    onChange={(e) => setEditingContent(e.target.value)}
+                    className="min-font-size font-serif flex-grow w-auto m-1 p-0 bg-inherit"
+                    style={{
+                      minHeight: Math.min(
+                        Math.max(
+                          20,
+                          editingContent.split("\n").length *
+                          (window.innerWidth < 480
+                            ? 35
+                            : window.innerWidth < 640
+                              ? 30
+                              : window.innerWidth < 1024
+                                ? 25
+                                : 20),
+                          editingContent.length *
+                          (window.innerWidth < 480
+                            ? 0.6
+                            : window.innerWidth < 640
+                              ? 0.5
+                              : window.innerWidth < 1024
+                                ? 0.35
+                                : 0.25)
+                        ),
+                        window.innerHeight * 0.5
+                      ),
+                      maxHeight: "50vh",
+                    }}
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+                        confirmEditingMessage(threadId, message.id);
+                      } else if (e.key === "Escape") {
+                        cancelEditingMessage();
+                      }
+                    }}
+                  />
+                ) : (
+                  <div
+                    className="whitespace-normal break-words markdown-content font-serif overflow-hidden pt-0.5 px-1"
+                    onDoubleClick={() => {
+                      cancelEditingMessage();
+                      startEditingMessage(message);
+                    }}
+                  >
+                    {message.isCollapsed ? (
+                      <div className="flex flex-col">
+                        <div>
+                          {`${message.content
+                            .split("\n")[0]
+                            .slice(0, 50)}${message.content.length > 50 ? "..." : ""
+                            }`}
                         </div>
-                      ) : (
-                        <div className="markdown-content">
-                          <Markdown
-                              remarkPlugins={[remarkGfm, remarkMath]}
-                              rehypePlugins={[rehypeRaw, rehypeKatex]}
-                              components={{
-                                code({
-                                  node,
-                                  inline,
-                                  className,
-                                  children,
-                                  ...props
-                                }: any) {
-                              const match = /language-(\w+)/.exec(
-                                className || ""
-                              );
+                        {totalReplies > 0 && (
+                          <div className="self-end">
+                            <span className="text-yellow-600">
+                              {`(${totalReplies} ${totalReplies === 1 ? "reply" : "replies"
+                                })`}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="markdown-content">
+                        <Markdown
+                          remarkPlugins={[remarkGfm, remarkMath]}
+                          rehypePlugins={[rehypeRaw, rehypeKatex]}
+                          components={{
+                            code({
+                              node,
+                              inline,
+                              className,
+                              children,
+                              ...props
+                            }: any) {
+                              const match =
+                                /language-(\w+)/.exec(className || "");
                               const codeString = String(children).replace(
                                 /\n$/,
                                 ""
@@ -486,304 +482,248 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                                       className="rounded-sm w-6 h-6 p-0"
                                       variant="ghost"
                                       size="sm"
-                                        onClick={() =>
-                                          handleCopy(codeString, codeBlockId)
-                                        }
-                                      >
-                                        {copiedStates[codeBlockId] ? (
-                                          <Check className="h-4 w-4" />
-                                        ) : (
-                                          <Copy className="h-4 w-4" />
-                                        )}
-                                      </Button>
-                                    </div>
-                                    <SyntaxHighlighter
-                                      className="text-xs"
-                                      PreTag={"pre"}
-                                      style={gruvboxDark}
-                                      language={match[1]}
-                                      // showLineNumbers
-                                      wrapLines
-                                      {...props}
+                                      onClick={() =>
+                                        handleCopy(codeString, codeBlockId)
+                                      }
                                     >
-                                      {codeString}
-                                    </SyntaxHighlighter>
+                                      {copiedStates[codeBlockId] ? (
+                                        <Check className="h-4 w-4" />
+                                      ) : (
+                                        <Copy className="h-4 w-4" />
+                                      )}
+                                    </Button>
                                   </div>
-                                ) : (
-                                  <code className={className} {...props}>
-                                    {children}
-                                  </code>
-                                );
-                              },
-                            }}
-                          >
-                              {truncateContent(message.content, isSelected)}
-                          </Markdown>
-                        </div>
-                      )}
-                    </div>
-                  </ContextMenuTrigger>
-                  <ContextMenuContent className="custom-shadow bg-background/90">
-                    <ContextMenuItem
-                      onClick={() => {
-                        if (message.isCollapsed) {
-                          toggleCollapse(threadId, message.id);
-                        }
-                        addEmptyReply(threadId, message.id);
-                      }}
-                    >
-                      <MessageSquareReply className="h-4 w-4 mr-2" />
-                      Reply
-                      <ContextMenuShortcut>R</ContextMenuShortcut>
-                    </ContextMenuItem>
-                    <ContextMenuItem
-                      onClick={() => {
-                        if (message.isCollapsed) {
-                          toggleCollapse(threadId, message.id);
-                        }
-                        generateAIReply(threadId, message.id, 1);
-                      }}
-                    >
-                      <WandSparkles className="h-4 w-4 mr-2" />
-                      Generate
-                      <ContextMenuShortcut>G</ContextMenuShortcut>
-                    </ContextMenuItem>
-                    <ContextMenuItem
-                      onClick={() => {
-                        cancelEditingMessage();
-                        startEditingMessage(message);
-                      }}
-                    >
-                      <Edit className="h-4 w-4 mr-2" />
-                      Edit
-                      <ContextMenuShortcut>E</ContextMenuShortcut>
-                    </ContextMenuItem>
-                    <ContextMenuSeparator />
-                    <ContextMenuItem
-                      onClick={() =>
-                        copyOrCutMessage(threadId, message.id, "copy")
-                      }
-                    >
-                      <Copy className="h-4 w-4 mr-2" />
-                      Copy
-                      <ContextMenuShortcut>⌘ C</ContextMenuShortcut>
-                    </ContextMenuItem>
-                    <ContextMenuItem
-                      onClick={() =>
-                        copyOrCutMessage(threadId, message.id, "cut")
-                      }
-                    >
-                      <Scissors className="h-4 w-4 mr-2" />
-                      Cut
-                      <ContextMenuShortcut>⌘ X</ContextMenuShortcut>
-                    </ContextMenuItem>
-                    {clipboardMessage && (
-                      <ContextMenuItem
-                        onClick={() => pasteMessage(threadId, message.id)}
-                      >
-                        <ClipboardPaste className="h-4 w-4 mr-2" />
-                        Paste
-                        <ContextMenuShortcut>⌘ V</ContextMenuShortcut>
-                      </ContextMenuItem>
+                                  <SyntaxHighlighter
+                                    className="text-xs"
+                                    PreTag={"pre"}
+                                    style={gruvboxDark}
+                                    language={match[1]}
+                                    // showLineNumbers
+                                    wrapLines
+                                    {...props}
+                                  >
+                                    {codeString}
+                                  </SyntaxHighlighter>
+                                </div>
+                              ) : (
+                                <code className={className} {...props}>
+                                  {children}
+                                </code>
+                              );
+                            },
+                          }}
+                        >
+                          {truncateContent(message.content, isSelected)}
+                        </Markdown>
+                      </div>
                     )}
-                    <ContextMenuSeparator />
-                    <ContextMenuItem
-                      className="text-red-500"
-                      onClick={() => deleteMessage(threadId, message.id, false)}
-                    >
-                      <Trash className="h-4 w-4 mr-2" />
-                      Delete
-                      <ContextMenuShortcut>⌫</ContextMenuShortcut>
-                    </ContextMenuItem>
-                    <ContextMenuItem
-                      className="text-red-500"
-                      onClick={() => deleteMessage(threadId, message.id, true)}
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Delete with Replies
-                    <ContextMenuShortcut className="ml-2">
-                      ⇧ ⌫
-                    </ContextMenuShortcut>
-                  </ContextMenuItem>
-                </ContextMenuContent>
-              </ContextMenu>
-            )}
-          </div>
-          {selectedMessage === message.id && (
-            <div className="space-x-1 mt-1 flex flex-wrap items-center select-none">
-              {editingMessage === message.id ? (
-                <>
-                  <Button
-                    className="hover:bg-background space-x-2 transition-scale-zoom"
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => confirmEditingMessage(threadId, message.id)}
-                  >
-                    <Check className="h-4 w-4" />
-                    <span className="hidden md:inline ml-auto">
-                      <MenubarShortcut>⌘ ↩</MenubarShortcut>
-                    </span>
-                  </Button>
-                  <Button
-                    className="hover:bg-background space-x-2 transition-scale-zoom"
-                    size="sm"
-                    variant="ghost"
-                    onClick={cancelEditingMessage}
-                  >
-                    <X className="h-4 w-4" />
-                    <span className="hidden md:inline ml-auto">
-                      <MenubarShortcut>Esc</MenubarShortcut>
-                    </span>
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <Button
-                    className="h-10 hover:bg-background transition-scale-zoom"
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => {
-                      if (message.isCollapsed) {
-                        toggleCollapse(threadId, message.id);
-                      }
-                      cancelEditingMessage();
-                      setSelectedMessage(null); 
-                      addEmptyReply(threadId, message.id);
-                    }}
-                  >
-                      <MessageSquareReply className="h-4 w-4" />
-                    <span className="hidden md:inline ml-2">Reply</span>
-                  </Button>
-                    {isGenerating ? (
+                  </div>
+                )}
+              </div>
+              {selectedMessage === message.id && (
+                <div className="space-x-1 mt-1 flex flex-wrap items-center select-none">
+                  {editingMessage === message.id ? (
+                    <>
                       <Button
+                        className="hover:bg-background space-x-2 transition-scale-zoom"
                         size="sm"
                         variant="ghost"
-                        className={cn(
-                          "h-10 w-inherit relative group",
-                          "hover:text-destructive-foreground hover:bg-destructive transition-scale-zoom"
-                        )}
-                        onClick={() => generateAIReply(threadId, message.id, 1)}
+                        onClick={() =>
+                          confirmEditingMessage(threadId, message.id)
+                        }
                       >
-                        <span className="group-hover:hidden">
-                          <LoaderCircle className="h-4 w-4 animate-spin" />
-                        </span>
-                        <span className="hidden group-hover:inline">
-                          <OctagonX className="h-4 w-4" />
-                        </span>
-                        <span className="hidden md:inline ml-2 w-[67.2px]">
-                          <span className="group-hover:hidden">Working</span>
-                          <span className="hidden group-hover:inline">Stop</span>
+                        <Check className="h-4 w-4" />
+                        <span className="hidden md:inline ml-auto">
+                          <MenubarShortcut>⌘ ↩</MenubarShortcut>
                         </span>
                       </Button>
-                    ) : (
+                      <Button
+                        className="hover:bg-background space-x-2 transition-scale-zoom"
+                        size="sm"
+                        variant="ghost"
+                        onClick={cancelEditingMessage}
+                      >
+                        <X className="h-4 w-4" />
+                        <span className="hidden md:inline ml-auto">
+                          <MenubarShortcut>Esc</MenubarShortcut>
+                        </span>
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button
+                        className="h-10 hover:bg-background transition-scale-zoom"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          if (message.isCollapsed) {
+                            toggleCollapse(threadId, message.id);
+                          }
+                          cancelEditingMessage();
+                          setSelectedMessage(null);
+                          addEmptyReply(threadId, message.id);
+                        }}
+                      >
+                        <MessageSquareReply className="h-4 w-4" />
+                        <span className="hidden md:inline ml-2">
+                          Reply
+                        </span>
+                      </Button>
+                      {isGenerating ? (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className={cn(
+                            "h-10 w-inherit relative group",
+                            "hover:text-destructive-foreground hover:bg-destructive transition-scale-zoom"
+                          )}
+                          onClick={() =>
+                            generateAIReply(threadId, message.id, 1)
+                          }
+                        >
+                          <span className="group-hover:hidden">
+                            <LoaderCircle className="h-4 w-4 animate-spin" />
+                          </span>
+                          <span className="hidden group-hover:inline">
+                            <OctagonX className="h-4 w-4" />
+                          </span>
+                          <span className="hidden md:inline ml-2 w-[67.2px]">
+                            <span className="group-hover:hidden">
+                              Working
+                            </span>
+                            <span className="hidden group-hover:inline">
+                              Stop
+                            </span>
+                          </span>
+                        </Button>
+                      ) : (
                         <Menubar className="p-0 border-none bg-transparent">
                           <MenubarMenu>
                             <MenubarTrigger
                               className="h-10 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900 transition-scale-zoom"
                             >
                               <WandSparkles className="h-4 w-4" />
-                          <span className="hidden md:inline ml-2">Generate</span>
-                        </MenubarTrigger>
-                        <MenubarContent className="custom-shadow">
-                          <MenubarItem
+                              <span className="hidden md:inline ml-2">
+                                Generate
+                              </span>
+                            </MenubarTrigger>
+                            <MenubarContent className="custom-shadow">
+                              <MenubarItem
                                 onClick={() => {
                                   if (message.isCollapsed) {
                                     toggleCollapse(threadId, message.id);
                                   }
                                   generateAIReply(threadId, message.id, 1);
                                 }}
-                          >
-                            Once
-                            <MenubarShortcut className="ml-auto">
-                              ⎇ G
-                            </MenubarShortcut>
-                          </MenubarItem>
-                          <MenubarItem
+                              >
+                                Once
+                                <MenubarShortcut className="ml-auto">
+                                  ⎇ G
+                                </MenubarShortcut>
+                              </MenubarItem>
+                              <MenubarItem
                                 onClick={() => {
                                   if (message.isCollapsed) {
                                     toggleCollapse(threadId, message.id);
                                   }
                                   generateAIReply(threadId, message.id, 3);
                                 }}
-                          >
-                            Thrice
-                          </MenubarItem>
-                          <MenubarItem
-                            onClick={() => {
+                              >
+                                Thrice
+                              </MenubarItem>
+                              <MenubarItem
+                                onClick={() => {
                                   if (message.isCollapsed) {
                                     toggleCollapse(threadId, message.id);
                                   }
-                              const times = prompt(
-                                "How many times do you want to generate?",
-                                "5"
-                              );
-                              const numTimes = parseInt(times || "0", 10);
-                              if (
-                                !isNaN(numTimes) &&
-                                numTimes > 0 &&
-                                numTimes <= 10
-                              ) {
-                                generateAIReply(threadId, message.id, numTimes);
-                              } else if (numTimes > 10) {
-                                generateAIReply(threadId, message.id, 10);
-                              }
-                            }}
+                                  const times = prompt(
+                                    "How many times do you want to generate?",
+                                    "5"
+                                  );
+                                  const numTimes = parseInt(
+                                    times || "0",
+                                    10
+                                  );
+                                  if (
+                                    !isNaN(numTimes) &&
+                                    numTimes > 0 &&
+                                    numTimes <= 10
+                                  ) {
+                                    generateAIReply(
+                                      threadId,
+                                      message.id,
+                                      numTimes
+                                    );
+                                  } else if (numTimes > 10) {
+                                    generateAIReply(threadId, message.id, 10);
+                                  }
+                                }}
+                              >
+                                Custom
+                              </MenubarItem>
+                            </MenubarContent>
+                          </MenubarMenu>
+                        </Menubar>
+                      )}
+                      <Button
+                        className="h-10 hover:bg-background transition-scale-zoom"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          cancelEditingMessage();
+                          startEditingMessage(message);
+                        }}
+                      >
+                        <Edit className="h-4 w-4" />
+                        <span className="hidden md:inline ml-2">
+                          Edit
+                        </span>
+                      </Button>
+                      <Menubar className="p-0 border-none bg-transparent">
+                        <MenubarMenu>
+                          <MenubarTrigger
+                            className="h-10 rounded-lg hover:bg-background transition-scale-zoom"
                           >
-                            Custom
-                          </MenubarItem>
-                        </MenubarContent>
-                      </MenubarMenu>
-                    </Menubar>
-                    )}
-                    <Button
-                      className="h-10 hover:bg-background transition-scale-zoom"
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => {
-                        cancelEditingMessage();
-                        startEditingMessage(message);
-                      }}
-                    >
-                      <Edit className="h-4 w-4" />
-                      <span className="hidden md:inline ml-2">Edit</span>
-                    </Button>
-                    <Menubar className="p-0 border-none bg-transparent">
-                      <MenubarMenu>
-                        <MenubarTrigger className="h-10 rounded-lg hover:bg-background transition-scale-zoom">
-                          {clipboardMessage ? (
-                            <ClipboardPaste className="h-4 w-4" />
-                          ) : (
-                            <Copy className="h-4 w-4" />
-                          )}
-                          <span className="hidden md:inline ml-2">
-                            {clipboardMessage ? "Paste" : "Copy"}
-                          </span>
-                        </MenubarTrigger>
-                        <MenubarContent className="custom-shadow">
-                          {clipboardMessage ? (
-                            <>
-                              <MenubarItem
-                                onClick={() => pasteMessage(threadId, message.id)}
-                              >
-                                Paste Here
-                                <span className="hidden md:inline ml-auto">
-                                  <MenubarShortcut>⌘ V</MenubarShortcut>
-                                </span>
-                              </MenubarItem>
-                              <MenubarItem
-                                onClick={() => setClipboardMessage(null)}
-                              >
-                                Clear Clipboard
-                                <span className="hidden md:inline ml-auto">
-                                  <MenubarShortcut>Esc</MenubarShortcut>
-                                </span>
-                              </MenubarItem>
-                            </>
-                          ) : (
-                            <>
+                            {clipboardMessage ? (
+                              <ClipboardPaste className="h-4 w-4" />
+                            ) : (
+                              <Copy className="h-4 w-4" />
+                            )}
+                            <span className="hidden md:inline ml-2">
+                              {clipboardMessage ? "Paste" : "Copy"}
+                            </span>
+                          </MenubarTrigger>
+                          <MenubarContent className="custom-shadow">
+                            {clipboardMessage ? (
+                              <>
                                 <MenubarItem
                                   onClick={() =>
-                                    copyOrCutMessage(threadId, message.id, "copy")
+                                    pasteMessage(threadId, message.id)
+                                  }
+                                >
+                                  Paste Here
+                                  <span className="hidden md:inline ml-auto">
+                                    <MenubarShortcut>⌘ V</MenubarShortcut>
+                                  </span>
+                                </MenubarItem>
+                                <MenubarItem
+                                  onClick={() => setClipboardMessage(null)}
+                                >
+                                  Clear Clipboard
+                                  <span className="hidden md:inline ml-auto">
+                                    <MenubarShortcut>Esc</MenubarShortcut>
+                                  </span>
+                                </MenubarItem>
+                              </>
+                            ) : (
+                              <>
+                                <MenubarItem
+                                  onClick={() =>
+                                    copyOrCutMessage(
+                                      threadId,
+                                      message.id,
+                                      "copy"
+                                    )
                                   }
                                 >
                                   Copy
@@ -791,57 +731,150 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                                     <MenubarShortcut>⌘ C</MenubarShortcut>
                                   </span>
                                 </MenubarItem>
+                                <MenubarItem
+                                  onClick={() =>
+                                    copyOrCutMessage(
+                                      threadId,
+                                      message.id,
+                                      "cut"
+                                    )
+                                  }
+                                >
+                                  Cut
+                                  <span className="hidden md:inline ml-auto">
+                                    <MenubarShortcut>⌘ X</MenubarShortcut>
+                                  </span>
+                                </MenubarItem>
+                              </>
+                            )}
+                          </MenubarContent>
+                        </MenubarMenu>
+                      </Menubar>
+                      <Menubar className="p-0 border-none bg-transparent">
+                        <MenubarMenu>
+                          <MenubarTrigger
+                            className="h-10 rounded-lg hover:bg-destructive transition-scale-zoom"
+                          >
+                            <Trash className="h-4 w-4" />
+                            <span className="hidden md:inline ml-2">
+                              Delete
+                            </span>
+                          </MenubarTrigger>
+                          <MenubarContent className="custom-shadow">
                             <MenubarItem
                               onClick={() =>
-                                copyOrCutMessage(threadId, message.id, "cut")
+                                deleteMessage(threadId, message.id, false)
                               }
                             >
-                              Cut
+                              Keep Replies
                               <span className="hidden md:inline ml-auto">
-                                <MenubarShortcut>⌘ X</MenubarShortcut>
+                                <MenubarShortcut>⌫</MenubarShortcut>
                               </span>
                             </MenubarItem>
-                          </>
-                        )}
-                      </MenubarContent>
-                    </MenubarMenu>
-                  </Menubar>
-                  <Menubar className="p-0 border-none bg-transparent">
-                    <MenubarMenu>
-                        <MenubarTrigger className="h-10 rounded-lg hover:bg-destructive transition-scale-zoom">
-                        <Trash className="h-4 w-4" />
-                        <span className="hidden md:inline ml-2">Delete</span>
-                      </MenubarTrigger>
-                      <MenubarContent className="custom-shadow">
-                        <MenubarItem
-                          onClick={() =>
-                            deleteMessage(threadId, message.id, false)
-                          }
-                        >
-                          Keep Replies
-                          <span className="hidden md:inline ml-auto">
-                            <MenubarShortcut>⌫</MenubarShortcut>
-                          </span>
-                        </MenubarItem>
-                        <MenubarItem
-                          onClick={() =>
-                            deleteMessage(threadId, message.id, true)
-                          }
-                        >
-                          With Replies
-                          <span className="hidden md:inline ml-auto">
-                            <MenubarShortcut>⇧ ⌫</MenubarShortcut>
-                          </span>
-                        </MenubarItem>
-                      </MenubarContent>
-                    </MenubarMenu>
-                  </Menubar>
-                </>
+                            <MenubarItem
+                              onClick={() =>
+                                deleteMessage(threadId, message.id, true)
+                              }
+                            >
+                              With Replies
+                              <span className="hidden md:inline ml-auto">
+                                <MenubarShortcut>⇧ ⌫</MenubarShortcut>
+                              </span>
+                            </MenubarItem>
+                          </MenubarContent>
+                        </MenubarMenu>
+                      </Menubar>
+                    </>
+                  )}
+                </div>
               )}
             </div>
+          </div>
+        </ContextMenuTrigger>
+        <ContextMenuContent className="custom-shadow bg-background/90">
+          <ContextMenuItem
+            onClick={() => {
+              if (message.isCollapsed) {
+                toggleCollapse(threadId, message.id);
+              }
+              addEmptyReply(threadId, message.id);
+            }}
+          >
+            <MessageSquareReply className="h-4 w-4 mr-2" />
+            Reply
+            <ContextMenuShortcut>R</ContextMenuShortcut>
+          </ContextMenuItem>
+          <ContextMenuItem
+            onClick={() => {
+              if (message.isCollapsed) {
+                toggleCollapse(threadId, message.id);
+              }
+              generateAIReply(threadId, message.id, 1);
+            }}
+          >
+            <WandSparkles className="h-4 w-4 mr-2" />
+            Generate
+            <ContextMenuShortcut>G</ContextMenuShortcut>
+          </ContextMenuItem>
+          <ContextMenuItem
+            onClick={() => {
+              cancelEditingMessage();
+              startEditingMessage(message);
+            }}
+          >
+            <Edit className="h-4 w-4 mr-2" />
+            Edit
+            <ContextMenuShortcut>E</ContextMenuShortcut>
+          </ContextMenuItem>
+          <ContextMenuSeparator />
+          <ContextMenuItem
+            onClick={() =>
+              copyOrCutMessage(threadId, message.id, "copy")
+            }
+          >
+            <Copy className="h-4 w-4 mr-2" />
+            Copy
+            <ContextMenuShortcut>⌘ C</ContextMenuShortcut>
+          </ContextMenuItem>
+          <ContextMenuItem
+            onClick={() =>
+              copyOrCutMessage(threadId, message.id, "cut")
+            }
+          >
+            <Scissors className="h-4 w-4 mr-2" />
+            Cut
+            <ContextMenuShortcut>⌘ X</ContextMenuShortcut>
+          </ContextMenuItem>
+          {clipboardMessage && (
+            <ContextMenuItem
+              onClick={() => pasteMessage(threadId, message.id)}
+            >
+              <ClipboardPaste className="h-4 w-4 mr-2" />
+              Paste
+              <ContextMenuShortcut>⌘ V</ContextMenuShortcut>
+            </ContextMenuItem>
           )}
-        </div>
-      </div>
+          <ContextMenuSeparator />
+          <ContextMenuItem
+            className="text-red-500"
+            onClick={() => deleteMessage(threadId, message.id, false)}
+          >
+            <Trash className="h-4 w-4 mr-2" />
+            Delete
+            <ContextMenuShortcut>⌫</ContextMenuShortcut>
+          </ContextMenuItem>
+          <ContextMenuItem
+            className="text-red-500"
+            onClick={() => deleteMessage(threadId, message.id, true)}
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            Delete with Replies
+            <ContextMenuShortcut className="ml-2">
+              ⇧ ⌫
+            </ContextMenuShortcut>
+          </ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
       <AnimatePresence>
         {!message.isCollapsed && (
           <motion.div
@@ -851,7 +884,14 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
             {message.replies.map((reply) => (
               <div
                 key={reply.id}
-                className={`${selectedMessage === message.id ? `relative before:absolute before:left-0 before:-top-2 before:w-4 before:h-10 before:border-b-2 before:rounded-bl-lg before:border-border before:border-l-2 ${getSiblings(message.replies, reply.id).slice(-1)[0].id !== reply.id ? "after:absolute after:left-0 after:top-3 after:bottom-0 after:border-l-2 after:border-border" : ""} ml-4` : "ml-4"}`}
+                className={`${selectedMessage === message.id
+                  ? `relative before:absolute before:left-0 before:-top-2 before:w-4 before:h-10 before:border-b-2 before:rounded-bl-lg before:border-border before:border-l-2 ${getSiblings(message.replies, reply.id).slice(-1)[0].id !==
+                    reply.id
+                    ? "after:absolute after:left-0 after:top-3 after:bottom-0 after:border-l-2 after:border-border"
+                    : ""
+                  } ml-4`
+                  : "ml-4"
+                  }`}
               >
                 <RenderMessage
                   key={reply.id}
