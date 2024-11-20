@@ -254,15 +254,15 @@ export function SelectBaseModel({
     }
 
     const renderTooltip = (title: string, content: string) => (
-      <TooltipProvider>
+      <TooltipProvider delayDuration={200}>
         <Tooltip>
           <TooltipTrigger asChild>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 cursor-help">
               <span>{title}</span>
-              <Info className="cursor-help h-4 w-4" />
+              <Info className="hidden md:inline h-4 w-4" />
             </div>
           </TooltipTrigger>
-          <TooltipContent className="font-serif w-60 mx-4 custom-shadow">
+          <TooltipContent className="font-serif w-60 mx-4 custom-shadow" side="top">
             <p>{content}</p>
           </TooltipContent>
         </Tooltip>

@@ -617,9 +617,9 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                                 }}
                               >
                                 Once
-                                <MenubarShortcut className="ml-auto">
-                                  ⎇ G
-                                </MenubarShortcut>
+                                    <span className="hidden md:inline ml-auto">
+                                      <MenubarShortcut>⎇ G</MenubarShortcut>
+                                    </span>
                               </MenubarItem>
                               <MenubarItem
                                 onClick={() => {
