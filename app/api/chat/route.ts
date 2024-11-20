@@ -7,45 +7,46 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { messages, configuration } = body;
 
-
+    const apiBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 
     if (!process.env.OPENROUTER_API_KEY) {
       console.error("OPENROUTER_API_KEY is not set");
       throw new Error("OPENROUTER_API_KEY is not set");
     }
 
-    // 获取工具列表
-    const toolsResponse = await fetch(
-      `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/load_tools`
-    );
+    let activeTools: any[] = [];
 
-    if (!toolsResponse.ok) {
-      const errorText = await toolsResponse.text();
-      console.error(
-        `Failed to load tools: ${toolsResponse.status} ${toolsResponse.statusText}`,
-        errorText
+    if (apiBaseUrl) {
+      // 获取工具列表
+      const toolsResponse = await fetch(
+        `${apiBaseUrl}/api/load_tools`
       );
-      throw new Error(
-        `Failed to load tools: ${toolsResponse.status} ${toolsResponse.statusText}`
-      );
+
+      if (!toolsResponse.ok) {
+        const errorText = await toolsResponse.text();
+        console.error(
+          `Failed to load tools: ${toolsResponse.status} ${toolsResponse.statusText}`,
+          errorText
+        );
+        throw new Error(
+          `Failed to load tools: ${toolsResponse.status} ${toolsResponse.statusText}`
+        );
+      }
+
+      const toolsData = await toolsResponse.json();
+      console.log("Loaded tools data:", JSON.stringify(toolsData, null, 2));
+
+      // 提取工具列表并规范化 enabled 字段
+      const allTools = toolsData.tools.map((tool: any) => {
+        return {
+          ...tool,
+          enabled: tool.enabled === true || tool.enabled === "true",
+        };
+      });
+
+      // 过滤启用的工具
+      activeTools = allTools.filter((tool: any) => tool.enabled == true || tool.enabled == "true");
     }
-
-    const toolsData = await toolsResponse.json();
-    console.log("Loaded tools data:", JSON.stringify(toolsData, null, 2));
-
-    // 提取工具列表并规范化 enabled 字段
-    const allTools = toolsData.tools.map((tool: any) => {
-      return {
-        ...tool,
-        enabled: tool.enabled === true || tool.enabled === "true",
-      };
-    });
-
-
-
-    // 过滤启用的工具
-    const activeTools = allTools.filter((tool: any) => tool.enabled == true || tool.enabled == "true");
-
 
     // 初始化消息列表
     let currentMessages = [...messages];
