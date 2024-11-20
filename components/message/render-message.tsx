@@ -802,7 +802,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
           >
             <MessageSquareReply className="h-4 w-4 mr-2" />
             Reply
-            <ContextMenuShortcut>R</ContextMenuShortcut>
+            <ContextMenuShortcut className="hidden md:inline">R</ContextMenuShortcut>
           </ContextMenuItem>
           <ContextMenuItem
             onClick={() => {
@@ -814,7 +814,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
           >
             <WandSparkles className="h-4 w-4 mr-2" />
             Generate
-            <ContextMenuShortcut>G</ContextMenuShortcut>
+            <ContextMenuShortcut className="hidden md:inline">G</ContextMenuShortcut>
           </ContextMenuItem>
           <ContextMenuItem
             onClick={() => {
@@ -824,7 +824,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
           >
             <Edit className="h-4 w-4 mr-2" />
             Edit
-            <ContextMenuShortcut>E</ContextMenuShortcut>
+            <ContextMenuShortcut className="hidden md:inline">E</ContextMenuShortcut>
           </ContextMenuItem>
           <ContextMenuSeparator />
           <ContextMenuItem
@@ -834,7 +834,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
           >
             <Copy className="h-4 w-4 mr-2" />
             Copy
-            <ContextMenuShortcut>⌘ C</ContextMenuShortcut>
+            <ContextMenuShortcut className="hidden md:inline">⌘ C</ContextMenuShortcut>
           </ContextMenuItem>
           <ContextMenuItem
             onClick={() =>
@@ -843,7 +843,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
           >
             <Scissors className="h-4 w-4 mr-2" />
             Cut
-            <ContextMenuShortcut>⌘ X</ContextMenuShortcut>
+            <ContextMenuShortcut className="hidden md:inline">⌘ X</ContextMenuShortcut>
           </ContextMenuItem>
           {clipboardMessage && (
             <ContextMenuItem
@@ -851,7 +851,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
             >
               <ClipboardPaste className="h-4 w-4 mr-2" />
               Paste
-              <ContextMenuShortcut>⌘ V</ContextMenuShortcut>
+              <ContextMenuShortcut className="hidden md:inline">⌘ V</ContextMenuShortcut>
             </ContextMenuItem>
           )}
           <ContextMenuSeparator />
@@ -861,15 +861,15 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
           >
             <Trash className="h-4 w-4 mr-2" />
             Delete
-            <ContextMenuShortcut>⌫</ContextMenuShortcut>
+            <ContextMenuShortcut className="hidden md:inline">⌫</ContextMenuShortcut>
           </ContextMenuItem>
           <ContextMenuItem
             className="text-red-500"
             onClick={() => deleteMessage(threadId, message.id, true)}
           >
             <Trash2 className="h-4 w-4 mr-2" />
-            Delete with Replies
-            <ContextMenuShortcut className="ml-2">
+            With Replies
+            <ContextMenuShortcut className="hidden md:inline ml-2">
               ⇧ ⌫
             </ContextMenuShortcut>
           </ContextMenuItem>
