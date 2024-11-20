@@ -37,58 +37,6 @@ const MessageView: React.FC<MessageViewProps> = ({
 }) => {
   const currentThreadData = threads.find((t) => t.id === currentThread);
 
-  if (!currentThread) {
-    return (
-      <div className="flex items-center justify-center h-full select-none">
-        <div className="hidden sm:block">
-          <p className="text-sm text-muted-foreground whitespace-pre">
-            <span>  ←/→ Arrow keys        ┃ Navigate parent/children</span><br />
-            <span>  ↑/↓ Arrow keys        ┃ Navigate on same level</span><br />
-            <span>  R                     ┃ Reply</span><br />
-            <span>  G                     ┃ Generate AI reply</span><br />
-            <span>  E/Double-click        ┃ Edit message</span><br />
-            <span>  Enter                 ┃ Confirm edit</span><br />
-            <span>  Escape                ┃ Cancel edit</span><br />
-            <span>  Delete                ┃ Delete message</span><br />
-            <span>  Shift+Delete          ┃ Delete with replies</span>
-          </p>
-          <div className="mt-4 text-center text-sm text-muted-foreground font-serif">
-            <span>Select a thread to view messages.</span>
-            <br />
-            <a
-              href="https://github.com/yijia-z/aide"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:underline"
-            >
-              GitHub
-            </a>
-            <span className="mx-2">|</span>
-            <a href="mailto:z@zy-j.com" className="hover:underline">
-              Contact
-            </a>
-          </div>
-        </div>
-        <div className="sm:hidden fixed bottom-20 left-0 right-0 p-4 text-center text-sm text-muted-foreground bg-background font-serif">
-          <span>Select a thread to view messages.</span>
-          <br />
-          <a
-            href="https://github.com/yijia-z/aide"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hover:underline"
-          >
-            GitHub
-          </a>
-          <span className="mx-2">|</span>
-          <a href="mailto:z@zy-j.com" className="hover:underline">
-            Contact
-          </a>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div
       className={`flex flex-col relative sm:h-full h-[calc(97vh)] hide-scrollbar`}
@@ -111,7 +59,7 @@ const MessageView: React.FC<MessageViewProps> = ({
           onClick={(e) => {
             e.stopPropagation();
             cancelEditingMessage();
-            addEmptyReply(currentThread, null);
+            currentThread && addEmptyReply(currentThread, null);
           }}
         >
           <MessageSquarePlus className="h-4 w-4" />
@@ -124,7 +72,7 @@ const MessageView: React.FC<MessageViewProps> = ({
       >
         <div className="mb-4" onClick={(e) => e.stopPropagation()}>
           {currentThreadData?.messages.map((message: Message) =>
-            renderMessage(message, currentThread)
+            currentThread && renderMessage(message, currentThread)
           )}
         </div>
       </ScrollArea>

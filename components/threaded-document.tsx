@@ -12,11 +12,16 @@ import { storage } from "./store";
 import ThreadList from "@/components/thread/thread-list";
 import ModelConfig from "./model/model-config";
 import RenderMessages from "@/components/message/render-all-messages";
+import { ToolManager } from "./tool/tool-manager";
 import { generateAIResponse } from "@/components/utils/api";
-import { Thread, Message, Model, ModelParameters } from "./types";
+import { Thread, Message, Model, ModelParameters, Tool } from "./types";
 import { useModels } from "./hooks/use-models";
 import { useThreads } from "./hooks/use-threads";
 import { useMessages } from "./hooks/use-messages";
+import { useSession, signOut } from "next-auth/react"
+import { SettingsPanel } from "./settings/settings-panel"
+import { useTools } from "./hooks/use-tools";
+import { AlignJustify, MessageSquare, Sparkle, Settings, Package } from "lucide-react";
 
 const DEFAULT_MODEL: Model = {
   id: "default",
@@ -33,10 +38,18 @@ const DEFAULT_MODEL: Model = {
 const apiBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 
 export default function ThreadedDocument() {
-  // Thread-related states
-  const [activeTab, setActiveTab] = useState<"threads" | "messages" | "models">(
+  const { data: session, status } = useSession()
+  const [activeTab, setActiveTab] = useState<"threads" | "messages" | "models" | "tools" | "settings">(
+    //!session ? "settings" : "threads"
     "threads"
-  );
+  )
+  const user = session?.user
+
+  const handleLogout = () => {
+    signOut()
+  }
+
+  // Thread-related states
   const {
     threads,
     setThreads,
@@ -46,6 +59,9 @@ export default function ThreadedDocument() {
     setEditingThreadTitle,
     originalThreadTitle,
     setOriginalThreadTitle,
+    threadToDelete,
+    setThreadToDelete
+
   } = useThreads();
   const threadTitleInputRef = useRef<HTMLInputElement>(null);
 
@@ -84,9 +100,72 @@ export default function ThreadedDocument() {
   const [lastAttemptTime, setLastAttemptTime] = useState<number | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [copiedStates, setCopiedStates] = useState<{ [key: string]: boolean }>(
-    {}
-  );
+  const [copiedStates, setCopiedStates] = useState<{ [key: string]: boolean }>({});
+  const [abortController, setAbortController] = useState<AbortController | null>(null);
+
+  // Tool-related states
+  const {
+    tools,
+    setTools,
+    toolsLoading,
+    setToolsLoading,
+    toolsError,
+    setToolsError,
+    modelSupportsTools,
+    setModelSupportsTools,
+  } = useTools();
+
+  const checkModelSupportsTools = useCallback(async (modelId: string) => {
+    try {
+      console.log(`Checking model tool support, modelId: ${modelId}`);
+      const response = await fetch(
+        apiBaseUrl ? `${apiBaseUrl}/api/check_model_tools_support/${encodeURIComponent(modelId)}` : `/api/check_model_tools_support/${encodeURIComponent(modelId)}`,
+      );
+      console.log(`Received response status from backend: ${response.status}`);
+      const data = await response.json();
+      console.log(`Data returned from backend:`, data);
+      setModelSupportsTools(data.supportsTools);
+    } catch (error) {
+      console.error("Error checking model capabilities:", error);
+      setModelSupportsTools(false);
+    }
+  }, [setModelSupportsTools]);
+
+  useEffect(() => {
+    if (selectedModel) {
+      checkModelSupportsTools(selectedModel);
+    } else {
+      // If no model is selected, reset tool state
+      setModelSupportsTools(null);
+      setTools([]);
+    }
+  }, [selectedModel, checkModelSupportsTools, setModelSupportsTools, setTools]);
+
+  const loadTools = useCallback(async () => {
+    if (apiBaseUrl) {
+      setToolsLoading(true);
+      try {
+        const response = await fetch(`${apiBaseUrl}/api/load_tools`);
+        const data = await response.json();
+        console.log("Loaded tools:", data);
+        setTools(data.tools || []);
+      } catch (error) {
+        console.error("Error loading tools:", error);
+        setToolsError("Failed to load tools.");
+      } finally {
+        setToolsLoading(false);
+      }
+    }
+  }, [setToolsLoading, setTools, setToolsError]);
+
+  useEffect(() => {
+    if (modelSupportsTools) {
+      loadTools();
+    } else {
+      // If model does not support tools, clear tool list
+      setTools([]);
+    }
+  }, [modelSupportsTools, setTools, loadTools]);
 
   // Helper methods
   const getModelDetails = (modelId: string | undefined) => {
@@ -215,11 +294,6 @@ export default function ThreadedDocument() {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ threadId: thread.id, thread }),
-            }).then((response) => {
-              if (!response.ok) {
-                throw new Error(`Failed to save thread ${thread.id}`);
-              }
-              return response.json();
             })
           );
           await Promise.all(savePromises);
@@ -346,18 +420,21 @@ export default function ThreadedDocument() {
   );
 
   // Get siblings of a message
-  const getSiblings = (messages: Message[], messageId: string): Message[] => {
-    for (const message of messages) {
-      if (message.id === messageId) {
-        return messages;
+  const getSiblings = useCallback(
+    (messages: Message[], messageId: string): Message[] => {
+      for (const message of messages) {
+        if (message.id === messageId) {
+          return messages;
+        }
+        const siblings = getSiblings(message.replies, messageId);
+        if (siblings.length > 0) {
+          return siblings;
+        }
       }
-      const siblings = getSiblings(message.replies, messageId);
-      if (siblings.length > 0) {
-        return siblings;
-      }
-    }
-    return [];
-  };
+      return [];
+    },
+    []
+  );
 
   // Start editing a thread title
   const startEditingThreadTitle = useCallback(
@@ -388,7 +465,7 @@ export default function ThreadedDocument() {
           );
           const currentTime = Date.now();
           if (currentTime - lastUpdateTime > 60000) {
-          // Update every 60 seconds
+            // Update every 60 seconds
             const response = await fetch(`${apiBaseUrl}/api/save_thread`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -618,6 +695,7 @@ export default function ThreadedDocument() {
     setThreads((prev: Thread[]) =>
       prev.map((thread) => {
         const removeEmptyMessage = (messages: Message[]): Message[] => {
+          if (!messages) return [];
           return messages.reduce((acc: Message[], message) => {
             if (message.id === editingMessage) {
               if (message.content.trim() === "") {
@@ -728,6 +806,27 @@ export default function ThreadedDocument() {
     },
     [setThreads]
   );
+
+  const saveTools = async (updatedTools: Tool[]) => {
+    try {
+      const response = await fetch("/api/save_tools", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ tools: updatedTools }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to save tools");
+      }
+
+      setTools(updatedTools);
+    } catch (error) {
+      console.error("Error saving tools:", error);
+      setToolsError("Failed to save tools");
+    }
+  };
 
   const deleteThread = useCallback(
     (threadId: string) => {
@@ -930,6 +1029,15 @@ export default function ThreadedDocument() {
   // Generate AI reply
   const generateAIReply = useCallback(
     async (threadId: string, messageId: string, count: number = 1) => {
+      // If already generating, abort the current generation
+      if (isGenerating && abortController) {
+        abortController.abort();
+        setAbortController(null);
+        setIsGenerating(false);
+        // TODO: close streaming connection
+        return;
+      }
+
       const thread = threads.find((t: { id: string }) => t.id === threadId);
       if (!thread) return;
 
@@ -940,53 +1048,67 @@ export default function ThreadedDocument() {
       try {
         const model =
           models.find((m: { id: any }) => m.id === selectedModel) || models[0];
+
+        const enabledTools = tools
+          .filter((tool) => tool.enabled)
+          .map((tool) => ({
+            type: tool.type,
+            function: tool.function,
+          }));
+
         for (let i = 0; i < count; i++) {
-          const reader = await generateAIResponse(
+          const newMessageId = Date.now().toString();
+          addMessage(threadId, messageId, "", "ai", newMessageId);
+          setSelectedMessage(newMessageId);
+
+          const controller = new AbortController();
+          setAbortController(controller);
+
+          let fullResponse = "";
+          await generateAIResponse(
             message.content,
             message.publisher,
             model,
             threads,
             threadId,
-            messageId
-          );
-
-          const newMessageId = Date.now().toString();
-          addMessage(threadId, messageId, "", "ai", newMessageId);
-          setSelectedMessage(newMessageId);
-
-          let fullResponse = "";
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            const chunk = new TextDecoder().decode(value);
-            // console.log(chunk);
-            const lines = chunk.split("data: ");
-            for (const line of lines) {
-              const data = line.replace(/\n\n$/, "");
-              if (data === "[DONE]") {
-                break;
+            messageId,
+            enabledTools,
+            (chunk) => {
+              const lines = chunk.split("\n");
+              for (const line of lines) {
+                if (line.startsWith("data:")) {
+                  const dataStr = line.replace("data:", "").trim();
+                  if (dataStr === "[DONE]") {
+                    return;
+                  }
+                  try {
+                    const data = JSON.parse(dataStr);
+                    const delta = data.choices[0].delta || {};
+                    if (delta.content) {
+                      fullResponse += delta.content;
+                      updateMessageContent(threadId, newMessageId, fullResponse);
+                    }
+                  } catch (error) {
+                    console.error("Error parsing chunk:", error);
+                  }
+                }
               }
-              fullResponse += data;
-              updateMessageContent(threadId, newMessageId, fullResponse);
-            }
-          }
+            },
+            controller
+          );
         }
       } catch (error) {
-        console.error("Failed to generate AI response:", error);
+        if (error instanceof Error && error.name === 'AbortError') {
+          console.log('Generation aborted');
+        } else {
+          console.error("Failed to generate AI response:", error);
+        }
       } finally {
         setIsGenerating(false);
+        setAbortController(null);
       }
     },
-    [
-      threads,
-      models,
-      selectedModel,
-      addMessage,
-      setSelectedMessage,
-      findMessageById,
-      updateMessageContent,
-    ]
+    [threads, models, selectedModel, tools, isGenerating, abortController]
   );
 
   // useEffect hooks
@@ -994,6 +1116,10 @@ export default function ThreadedDocument() {
   useEffect(() => {
     const loadThreads = async () => {
       try {
+        // Clear existing threads first
+        setThreads([]);
+        setCurrentThread(null);
+
         const cachedThreads = storage.get("threads");
         if (cachedThreads) {
           setThreads(cachedThreads);
@@ -1029,9 +1155,10 @@ export default function ThreadedDocument() {
         });
         if (response.ok) {
           const data = await response.json();
-          setThreads(data.threads || []);
-          setCurrentThread(data.threads[0]?.id || null);
-          storage.set("threads", data.threads || []);
+          const loadedThreads = data.threads || [];
+          setThreads(loadedThreads);
+          setCurrentThread(loadedThreads[0]?.id || null);
+          storage.set("threads", loadedThreads);
         } else {
           throw new Error("Failed to load threads from backend");
         }
@@ -1094,44 +1221,44 @@ export default function ThreadedDocument() {
     }
   }, [replyingTo]);
 
-  // Connect to backend on component mount
-  useEffect(() => {
-    const connectToBackend = async () => {
-      if (!apiBaseUrl) return;
-
-      try {
-        const response = await fetch(`${apiBaseUrl}/api/connect`, {
-          method: "GET",
-        });
-        if (response.ok) {
-          console.log("Connected to backend!");
-          setIsConnected(true);
-        } else {
-          console.error("Failed to connect to backend.");
+  /*   // Connect to backend on component mount
+    useEffect(() => {
+      const connectToBackend = async () => {
+        if (!apiBaseUrl) return;
+  
+        try {
+          const response = await fetch(`${apiBaseUrl}/api/connect`, {
+            method: "GET",
+          });
+          if (response.ok) {
+            console.log("Connected to backend!");
+            setIsConnected(true);
+          } else {
+            console.error("Failed to connect to backend.");
+          }
+        } catch (error) {
+          console.error("Error connecting to backend:", error);
+        } finally {
+          setLastAttemptTime(Date.now());
         }
-      } catch (error) {
-        console.error("Error connecting to backend:", error);
-      } finally {
-        setLastAttemptTime(Date.now());
-      }
-    };
-
-    if (
-      !isConnected &&
-      (!lastAttemptTime || Date.now() - lastAttemptTime >= 5000)
-    ) {
-      connectToBackend();
-    }
-
-    const intervalId = setInterval(() => {
-      if (!isConnected) {
+      };
+  
+      if (
+        !isConnected &&
+        (!lastAttemptTime || Date.now() - lastAttemptTime >= 5000)
+      ) {
         connectToBackend();
       }
-    }, 5000);
-
-    return () => clearInterval(intervalId);
-  }, [isConnected, lastAttemptTime]);
-
+  
+      const intervalId = setInterval(() => {
+        if (!isConnected) {
+          connectToBackend();
+        }
+      }, 5000);
+  
+      return () => clearInterval(intervalId);
+    }, [isConnected, lastAttemptTime]);
+    */
   // Save threads
   useEffect(() => {
     debouncedSaveThreads(threads);
@@ -1276,162 +1403,163 @@ export default function ThreadedDocument() {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      // Check if any input element is focused
       const activeElement = document.activeElement;
       const isInputFocused = activeElement instanceof HTMLInputElement ||
         activeElement instanceof HTMLTextAreaElement;
 
-      // Special cases for thread title editing
-      if (editingThreadTitle && isInputFocused) {
-        if (event.key === 'Enter') {
-          event.preventDefault();
-          setEditingThreadTitle(null);
-        }
-        else if (event.key === 'Escape') {
-          event.preventDefault();
-          cancelEditThreadTitle();
-        }
-        return
-      }
-
-      // Special cases for message editing
-      if (editingMessage && isInputFocused) {
-        if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
-          event.preventDefault();
-          if (currentThread) {
-            confirmEditingMessage(currentThread, editingMessage);
-          }
-        } else if (event.key === 'Escape') {
-          event.preventDefault();
-          cancelEditingMessage();
-        }
-        return;
-      }
-
-      // Special cases for model editing
-      if (editingModel && isInputFocused) {
-        if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
-          event.preventDefault();
-          saveModelChanges();
-        } else if (event.key === 'Escape') {
-          event.preventDefault();
-          setEditingModel(null);
-        }
-        return;
-      }
-
-      // If any other input is focused, don't handle hotkeys
+      // Handle special input cases first
       if (isInputFocused) {
+        // Thread title editing
+        if (editingThreadTitle) {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            setEditingThreadTitle(null);
+          }
+          else if (event.key === 'Escape') {
+            event.preventDefault();
+            cancelEditThreadTitle();
+          }
+          return;
+        }
+
+        // Message editing
+        if (editingMessage) {
+          if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+            event.preventDefault();
+            if (currentThread) {
+              confirmEditingMessage(currentThread, editingMessage);
+            }
+          } else if (event.key === 'Escape') {
+            event.preventDefault();
+            cancelEditingMessage();
+          }
+          return;
+        }
+
+        // Model editing
+        if (editingModel) {
+          if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+            event.preventDefault();
+            saveModelChanges();
+          } else if (event.key === 'Escape') {
+            event.preventDefault();
+            setEditingModel(null);
+          }
+          return;
+        }
+
+        // Any other input focused - ignore hotkeys
         return;
       }
 
-      // Only handle navigation and action hotkeys if no input is focused
-      if (!isInputFocused) {
-        // Handle copy/paste operations that only require thread selection
-        if (currentThread) {
-          switch (event.key) {
-            case 'c':
-              if ((event.metaKey || event.ctrlKey) && selectedMessage) {
-                event.preventDefault();
-                copyOrCutMessage(currentThread, selectedMessage, "copy");
-              }
-              break;
-            case 'x':
-              if ((event.metaKey || event.ctrlKey) && selectedMessage) {
-                event.preventDefault();
-                copyOrCutMessage(currentThread, selectedMessage, "cut");
-              }
-              break;
-            case 'v':
-              if (event.metaKey || event.ctrlKey) {
-                event.preventDefault();
-                if (clipboardMessage) {
-                  // If no message is selected, paste at thread root level
-                  pasteMessage(currentThread, selectedMessage || null);
-                }
-              }
-              break;
-            case 'Escape':
-              if (clipboardMessage) {
-                setClipboardMessage(null);
-              }
-              break;
+      // Handle thread-level operations
+      if (currentThread) {
+        const key = event.key.toLowerCase();
+
+        // Copy/Cut/Paste operations
+        if (event.metaKey || event.ctrlKey) {
+          if (selectedMessage && key === 'c') {
+            event.preventDefault();
+            copyOrCutMessage(currentThread, selectedMessage, "copy");
+            return;
+          }
+          if (selectedMessage && key === 'x') {
+            event.preventDefault();
+            copyOrCutMessage(currentThread, selectedMessage, "cut");
+            return;
+          }
+          if (key === 'v' && clipboardMessage) {
+            event.preventDefault();
+            pasteMessage(currentThread, selectedMessage || null);
+            return;
           }
         }
 
-        // Handle operations that require both thread and message selection
-        if (!selectedMessage || !currentThread) return;
+        // New message at root level
+        if (key === 'n') {
+          event.preventDefault();
+          addEmptyReply(currentThread, null);
+          return;
+        }
+      }
 
+      // Handle message-level operations
+      if (selectedMessage && currentThread) {
         const currentThreadData = threads.find((t) => t.id === currentThread);
         if (!currentThreadData) return;
 
         const [currentMessage, parentMessages] = findMessageAndParents(currentThreadData.messages, selectedMessage);
-        const parentMessage = parentMessages.length > 0 ? parentMessages[parentMessages.length - 1] : null;
         if (!currentMessage) return;
 
+        const parentMessage = parentMessages.length > 0 ? parentMessages[parentMessages.length - 1] : null;
         const siblings = getSiblings(currentThreadData.messages, selectedMessage);
         const currentIndex = siblings.findIndex((m) => m.id === currentMessage.id);
+        const message = findMessageById(currentThreadData.messages, selectedMessage);
 
+        // Navigation keys
         switch (event.key) {
           case "ArrowLeft":
             if (parentMessage) {
+              event.preventDefault();
               setSelectedMessage(parentMessage.id);
             }
             break;
           case "ArrowRight":
             if (currentMessage.replies.length > 0) {
+              event.preventDefault();
               setSelectedMessage(currentMessage.replies[0].id);
             }
             break;
           case "ArrowUp":
             if (currentIndex > 0) {
+              event.preventDefault();
               setSelectedMessage(siblings[currentIndex - 1].id);
             }
             break;
           case "ArrowDown":
             if (currentIndex < siblings.length - 1) {
+              event.preventDefault();
               setSelectedMessage(siblings[currentIndex + 1].id);
             }
             break;
+
+          // Action keys  
           case "r":
-            // R for replying to a message
             event.preventDefault();
-            if (currentThread) {
-              addEmptyReply(currentThread, selectedMessage);
+            if (message && message.isCollapsed) {
+              toggleCollapse(currentThread, selectedMessage);
             }
+            addEmptyReply(currentThread, selectedMessage);
             break;
           case "g":
-            // G for generating AI reply
             event.preventDefault();
-            if (currentThread) {
-              generateAIReply(currentThread, selectedMessage);
+            if (message && message.isCollapsed) {
+              toggleCollapse(currentThread, selectedMessage);
             }
+            generateAIReply(currentThread, selectedMessage);
+            break;
+          case "c":
+            event.preventDefault();
+            toggleCollapse(currentThread, selectedMessage);
             break;
           case "e":
-            // E for editing a message
-            if (!editingMessage) {
+            if (!editingMessage || editingMessage !== selectedMessage) {
               event.preventDefault();
-              const message = findMessageById(
-                currentThreadData.messages,
-                selectedMessage
-              );
+              const message = findMessageById(currentThreadData.messages, selectedMessage);
               if (message) {
                 startEditingMessage(message);
               }
             }
             break;
-          case "Delete":
-          case "Backspace":
-            // Delete or Backspace for deleting a message
-            if (event.shiftKey) {
-              // Shift+Delete/Backspace to delete the message and its children
-              deleteMessage(currentThread, selectedMessage, true);
-            } else {
-              // Regular Delete/Backspace to delete only the message
-              deleteMessage(currentThread, selectedMessage, false);
+          case "Escape":
+            if (clipboardMessage) {
+              setClipboardMessage(null);
             }
             break;
-          default:
+          case "Delete":
+          case "Backspace":
+            event.preventDefault();
+            deleteMessage(currentThread, selectedMessage, event.shiftKey);
             break;
         }
       }
@@ -1457,16 +1585,25 @@ export default function ThreadedDocument() {
     confirmEditingMessage,
     cancelEditingMessage,
     saveModelChanges,
+    clipboardMessage,
+    copyOrCutMessage,
+    findMessageAndParents,
+    getSiblings,
+    pasteMessage,
+    setClipboardMessage,
+    setEditingModel,
+    setEditingThreadTitle,
+    setSelectedMessage
   ]);
 
   return (
-    <div className="h-screen flex flex-col md:flex-row p-2 overflow-hidden ">
+    <div className="h-screen flex flex-col md:flex-row p-2 overflow-ellipsis ">
       <div className="sm:hidden bg-transparent">
         {/* Mobile layout with tabs for threads, messages, and models */}
         <Tabs
           value={activeTab}
           onValueChange={(value) =>
-            setActiveTab(value as "threads" | "messages" | "models")
+            setActiveTab(value as "threads" | "messages" | "models" | "tools" | "settings")
           }
           className="w-full flex flex-col"
         >
@@ -1488,6 +1625,8 @@ export default function ThreadedDocument() {
               addThread={addThread}
               setSelectedMessage={setSelectedMessage}
               setThreads={setThreads}
+              threadToDelete={threadToDelete}
+              setThreadToDelete={setThreadToDelete}
             />
           </TabsContent>
           <TabsContent
@@ -1545,9 +1684,28 @@ export default function ThreadedDocument() {
               handleModelChange={handleModelChange}
             />
           </TabsContent>
+          <TabsContent
+            value="tools"
+            className="overflow-y-clip fixed top-0 left-2 right-2 pb-20"
+            style={{ paddingTop: "env(safe-area-inset-top)" }}
+          >
+            <ToolManager
+              tools={tools}
+              setTools={(tools: Tool[]) => void saveTools(tools)}
+              isLoading={toolsLoading}
+              error={toolsError}
+            />
+          </TabsContent>
+          <TabsContent
+            value="settings"
+            className="overflow-y-clip fixed top-0 left-2 right-2 pb-20"
+            style={{ paddingTop: "env(safe-area-inset-top)" }}
+          >
+            <SettingsPanel />
+          </TabsContent>
           <TabsList
             className="grid 
-              bg-transparent
+              bg-background/80
               custom-shadow
               w-full 
               fixed 
@@ -1555,26 +1713,39 @@ export default function ThreadedDocument() {
               left-0 
               right-0 
               pb-14 
-              grid-cols-3
+              space-x-1
+              grid-cols-5
               select-none"
           >
             <TabsTrigger
               value="threads"
-              className="bg-transparent hover:bg-secondary hover:custom-shadow data-[state=active]:bg-muted"
+              className="bg-transparent data-[state=active]:bg-secondary/80"
             >
-              Threads
+              <AlignJustify className="h-6 w-6" />
             </TabsTrigger>
             <TabsTrigger
               value="messages"
-              className="bg-transparent hover:bg-secondary hover:custom-shadow data-[state=active]:bg-muted"
+              className="bg-transparent data-[state=active]:bg-secondary/80"
             >
-              Messages
+              <MessageSquare className="h-6 w-6" />
             </TabsTrigger>
             <TabsTrigger
               value="models"
-              className="bg-transparent hover:bg-secondary hover:custom-shadow data-[state=active]:bg-muted"
+              className="bg-transparent data-[state=active]:bg-secondary/80"
             >
-              Models
+              <Sparkle className="h-6 w-6" />
+            </TabsTrigger>
+            <TabsTrigger
+              className="bg-transparent data-[state=active]:bg-secondary/80"
+              value="tools"
+            >
+              <Package className="h-6 w-6" />
+            </TabsTrigger>
+            <TabsTrigger
+              className="bg-transparent data-[state=active]:bg-secondary/80"
+              value="settings"
+            >
+              <Settings className="h-6 w-6" />
             </TabsTrigger>
           </TabsList>
         </Tabs>
@@ -1589,27 +1760,43 @@ export default function ThreadedDocument() {
         }}
       >
         {/* Desktop layout with resizable panels */}
-        <ResizablePanelGroup direction="horizontal" className="h-full">
-          <ResizablePanel defaultSize={31} minSize={26} maxSize={50}>
+        <ResizablePanelGroup direction="horizontal" className="flex-grow">
+          <ResizablePanel defaultSize={28} minSize={28} maxSize={56}>
             <Tabs
               value={activeTab}
               onValueChange={(value) =>
-                setActiveTab(value as "threads" | "models")
+                setActiveTab(value as "threads" | "models" | "tools" | "settings")
               }
               className="w-full flex flex-col"
             >
-              <TabsList className="grid w-full grid-cols-2 bg-transparent custom-shadow select-none">
+              <TabsList className="grid w-full grid-cols-4 bg-transparent space-x-1 py-0 custom-shadow select-none">
                 <TabsTrigger
-                  className="bg-transparent transition-scale-zoom hover:bg-secondary hover:custom-shadow data-[state=active]:bg-background"
+                  className="bg-transparent transition-scale-zoom hover:bg-secondary hover:custom-shadow data-[state=active]:bg-background group"
                   value="threads"
                 >
-                  Threads
+                  <AlignJustify className="h-5 w-5 group-hover:hidden" />
+                  <span className="hidden group-hover:inline">Threads</span>
                 </TabsTrigger>
                 <TabsTrigger
-                  className="bg-transparent transition-scale-zoom hover:bg-secondary hover:custom-shadow data-[state=active]:bg-background"
+                  className="bg-transparent transition-scale-zoom hover:bg-secondary hover:custom-shadow data-[state=active]:bg-background group"
                   value="models"
                 >
-                  Models
+                  <Sparkle className="h-5 w-5 group-hover:hidden" />
+                  <span className="hidden group-hover:inline">Models</span>
+                </TabsTrigger>
+                <TabsTrigger
+                  className="bg-transparent transition-scale-zoom hover:bg-secondary hover:custom-shadow data-[state=active]:bg-background group"
+                  value="tools"
+                >
+                  <Package className="h-5 w-5 group-hover:hidden" />
+                  <span className="hidden group-hover:inline">Tools</span>
+                </TabsTrigger>
+                <TabsTrigger
+                  className="bg-transparent transition-scale-zoom hover:bg-secondary hover:custom-shadow data-[state=active]:bg-background group"
+                  value="settings"
+                >
+                  <Settings className="h-5 w-5 group-hover:hidden" />
+                  <span className="hidden group-hover:inline">Settings</span>
                 </TabsTrigger>
               </TabsList>
               <TabsContent
@@ -1621,6 +1808,8 @@ export default function ThreadedDocument() {
                   currentThread={currentThread}
                   setCurrentThread={setCurrentThread}
                   startEditingThreadTitle={startEditingThreadTitle}
+                  threadToDelete={threadToDelete}
+                  setThreadToDelete={setThreadToDelete}
                   confirmEditThreadTitle={confirmEditThreadTitle}
                   cancelEditThreadTitle={cancelEditThreadTitle}
                   toggleThreadPin={toggleThreadPin}
@@ -1646,10 +1835,22 @@ export default function ThreadedDocument() {
                   handleModelChange={handleModelChange}
                 />
               </TabsContent>
+              <TabsContent value="tools" className="flex-grow overflow-y-clip">
+                <ToolManager
+                  tools={tools}
+                  setTools={(tools: Tool[]) => void saveTools(tools)}
+                  isLoading={toolsLoading}
+                  error={toolsError}
+                />
+              </TabsContent>
+              <TabsContent value="settings" className="flex-grow overflow-y-clip">
+                <SettingsPanel />
+              </TabsContent>
             </Tabs>
+
           </ResizablePanel>
-          <ResizableHandle className="mx-2 p-px bg-gradient-to-b from-background via-transparent to-background" />
-          <ResizablePanel defaultSize={69}>
+          <ResizableHandle withHandle className="mx-2 w-0 px-px bg-gradient-to-b from-background via-transparent to-background" />
+          <ResizablePanel defaultSize={72}>
             <div className="h-full overflow-y-auto">
               <RenderMessages
                 threads={threads}

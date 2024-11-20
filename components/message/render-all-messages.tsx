@@ -70,7 +70,7 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
 
   return currentThread ? (
     <div
-      className={`flex flex-col relative sm:h-full h-[calc(97vh)] hide-scrollbar`}
+      className={`flex flex-col relative sm:h-full h-[calc(97vh)] hide-scrollbar bg-[radial-gradient(hsl(var(--muted))_1px,transparent_1px)] [background-size:16px_16px]`}
     >
       <div
         className="top-bar bg-gradient-to-b from-background/100 to-background/00"
@@ -143,15 +143,17 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
     <div className="flex items-center justify-center h-full select-none">
       <div className="hidden sm:block">
         <p className="text-sm text-muted-foreground whitespace-pre">
-          <span>  ←/→ Arrow keys        ┃ Navigate parent/children</span><br />
-          <span>  ↑/↓ Arrow keys        ┃ Navigate on same level</span><br />
-          <span>  R                     ┃ Reply</span><br />
-          <span>  G                     ┃ Generate AI reply</span><br />
-          <span>  E/Double-click        ┃ Edit message</span><br />
-          <span>  Enter                 ┃ Confirm edit</span><br />
-          <span>  Escape                ┃ Cancel edit</span><br />
-          <span>  Delete                ┃ Delete message</span><br />
-          <span>  Shift+Delete          ┃ Delete with replies</span>
+          <span> C                    ┃ Toggle collapse</span><br />
+          <span> ←/→ Arrow keys       ┃ Navigate parent/child</span><br />
+          <span> ↑/↓ Arrow keys       ┃ Navigate siblings</span><br />
+          <span> R                    ┃ Reply</span><br />
+          <span> G                    ┃ Generate AI reply</span><br />
+          <span> E/Double-click       ┃ Edit message</span><br />
+          <span> Enter                ┃ Confirm edit</span><br />
+          <span> Escape               ┃ Cancel edit/copy</span><br />
+          <span> Ctrl+C/X/V           ┃ Copy/Cut/Paste</span><br />
+          <span> Delete/Backspace     ┃ Delete message</span><br />
+          <span> Shift+Delete         ┃ Delete with replies</span>
         </p>
         <div className="mt-4 text-center text-sm text-muted-foreground font-serif">
           <span>Select a thread to view messages.</span>
@@ -160,7 +162,7 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
             href="https://github.com/yijia-z/aide"
             target="_blank"
             rel="noopener noreferrer"
-            className="hover:underline"
+            className="hover:underline pl-1"
           >
             GitHub
           </a>

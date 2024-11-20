@@ -1,7 +1,7 @@
 import { Thread, Model } from "../types";
 import { findAllParentMessages } from "./helpers";
 
-const apiBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+
 
 export async function generateAIResponse(
   prompt: string,
@@ -9,7 +9,10 @@ export async function generateAIResponse(
   model: Model,
   threads: Thread[],
   currentThread: string | null,
-  replyingTo: string | null
+  replyingTo: string | null,
+  tools: any[],
+  onData: (chunk: string) => void,
+  abortController?: AbortController
 ) {
   const requestPayload = {
     messages: [
@@ -25,18 +28,21 @@ export async function generateAIResponse(
     configuration: {
       model: model.baseModel,
       ...model.parameters,
+      tools,
     },
   };
 
   console.log("Request payload:", JSON.stringify(requestPayload, null, 2));
+  const apiUrl = "http://localhost:3000/api/chat";
+  console.log(`Fetching API at: ${apiUrl}`);
 
   const response = await fetch(
-    // apiBaseUrl ? `${apiBaseUrl}/api/chat` : "/api/chat",
     "/api/chat",
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(requestPayload),
+      signal: abortController?.signal
     }
   );
   console.log(response);
@@ -47,6 +53,16 @@ export async function generateAIResponse(
   const reader = response.body?.getReader();
   if (!reader) {
     throw new Error("Failed to get response reader");
+  }
+  const decoder = new TextDecoder("utf-8");
+  let doneReading = false;
+  while (!doneReading) {
+    const { value, done } = await reader.read();
+    doneReading = done;
+    if (value) {
+      const chunkValue = decoder.decode(value, { stream: true });
+      onData(chunkValue); // 使用回调处理每个数据块
+    }
   }
 
   return reader;

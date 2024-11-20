@@ -1,6 +1,6 @@
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Check, X, Trash } from "lucide-react";
+import { Check, X, Trash, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -47,7 +47,7 @@ const ModelConfig: React.FC<ModelConfigProps> = ({
   fetchModelParameters,
 }) => {
   return (
-    <div className="flex flex-col relative h-[calc(97vh)] overflow-clip select-none">
+    <div className="flex flex-col relative  h-[calc(97vh)] overflow-clip select-none">
       <div
         className="top-bar bg-gradient-to-b from-background/100 to-background/00"
         style={{
@@ -75,7 +75,7 @@ const ModelConfig: React.FC<ModelConfigProps> = ({
           size="default"
           onClick={addNewModel}
         >
-          <Plus className="h-4 w-4" />
+          <Sparkles className="h-4 w-4" />
           <span className="ml-2 hidden md:inline">New Model</span>
         </Button>
       </div>
@@ -88,10 +88,8 @@ const ModelConfig: React.FC<ModelConfigProps> = ({
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.1 }}
                 whileHover={{
                   boxShadow: "inset 0px 0px 10px rgba(128, 128, 128, 0.2)",
-                  borderRadius: "8px",
                   transition: { duration: 0.2 },
                 }}
                 className="p-2 border rounded-md mb-2 custom-shadow"

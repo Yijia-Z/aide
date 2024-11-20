@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import { Viewport } from "next";
 import "./globals.css";
-import { ThemeProvider } from "@/components/theme-provider";
 import { Averia_Serif_Libre } from 'next/font/google';
 import localfont from "next/font/local";
-import { SpeedInsights } from '@vercel/speed-insights/next';
+import { Providers } from "./providers";
+import { registerServiceWorker } from '@/components/utils/register-sw';
 
 export const metadata: Metadata = {
   title: "Aide",
@@ -44,7 +44,8 @@ export const viewport: Viewport = {
 const serif = Averia_Serif_Libre({
   subsets: ['latin'],
   variable: '--font-serif',
-  weight: '300'
+  weight: '300',
+  display: 'swap'
 });
 
 const jetBrainsMono = localfont({
@@ -55,6 +56,8 @@ const jetBrainsMono = localfont({
     },
   ],
   variable: "--font-jetbrains-mono",
+  display: 'swap',
+  preload: true
 });
 
 export default function RootLayout({
@@ -62,21 +65,20 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Register service worker
+  if (typeof window !== 'undefined') {
+    registerServiceWorker();
+  }
+
   return (
     <html lang="en" className={`${jetBrainsMono.variable} ${serif.variable}`} suppressHydrationWarning>
       <head>
         <meta name="mobile-web-app-capable" content="yes" />
       </head>
       <body className={`font-sans overflow-hidden`}>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="dark"
-          enableSystem
-          disableTransitionOnChange
-        >
+        <Providers>
           {children}
-          <SpeedInsights />
-        </ThemeProvider>
+        </Providers>
       </body>
     </html>
   );

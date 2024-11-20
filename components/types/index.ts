@@ -43,5 +43,32 @@ export interface ModelParameters {
   response_format?: { type: string };
   stop?: string[];
   tools?: any[];
-  tool_choice?: string | { type: string; function: { name: string } };
+  tool_choice?: ToolChoice;
 }
+
+export interface ToolParameter {
+  type: string;
+  description?: string;
+  enum?: string[];
+}
+
+export interface ToolFunction {
+  name: string;
+  description: string;
+  parameters: {
+    type: string;
+    properties: Record<string, ToolParameter>;
+    required: string[];
+  };
+}
+
+export interface Tool {
+  id: string;
+  name: string;
+  description: string;
+  enabled: boolean;
+  type: string;
+  function: ToolFunction;
+}
+
+export type ToolChoice = "auto" | "none" | "required" | { type: "function"; function: { name: string } };

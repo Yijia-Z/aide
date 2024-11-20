@@ -1,9 +1,10 @@
 "use client";
 
 import * as React from "react";
-import { Check, ChevronsUpDown } from "lucide-react";
+import { Check, ChevronsUpDown, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { ToolSelector } from "./tool-selector";
 import {
   Command,
   CommandEmpty,
@@ -253,12 +254,15 @@ export function SelectBaseModel({
     }
 
     const renderTooltip = (title: string, content: string) => (
-      <TooltipProvider>
+      <TooltipProvider delayDuration={200}>
         <Tooltip>
           <TooltipTrigger asChild>
-            <span className="cursor-help">{title}</span>
+            <div className="flex items-center gap-1 cursor-help">
+              <span>{title}</span>
+              <Info className="hidden md:inline h-4 w-4" />
+            </div>
           </TooltipTrigger>
-          <TooltipContent className="font-serif max-w-[200px] sm:max-w-[250px] md:max-w-[350px] lg:max-w-[400px]">
+          <TooltipContent className="font-serif w-60 mx-4 custom-shadow" side="top">
             <p>{content}</p>
           </TooltipContent>
         </Tooltip>
@@ -343,8 +347,6 @@ export function SelectBaseModel({
       case "logit_bias":
       case "response_format":
       case "stop":
-      case "tools":
-      case "tool_choice":
         return (
           <div key={param} className="flex flex-col space-y-2">
             <Label>{renderTooltip(param, tooltip)}</Label>
@@ -397,6 +399,33 @@ export function SelectBaseModel({
             />
           </div>
         );
+      case "tools":
+      case "tool_choice":
+        if (param === "tools" && parameters?.supported_parameters?.includes("tools")) {
+          return (
+            <div key={param} className="flex flex-col space-y-2">
+              <Label>{renderTooltip(param, tooltip)}</Label>
+              <ToolSelector
+                tools={parameters.available_tools || []}
+                selectedTools={Array.isArray(value) ? value.map((t: any) => t.function.name) : []}
+                toolChoice={parameters.tool_choice || "auto"}
+                onToolsChange={(selectedTools) => {
+                  const toolObjects = selectedTools.map(toolName => {
+                    const tool = parameters.available_tools.find(
+                      (t: any) => t.function.name === toolName
+                    );
+                    return tool;
+                  });
+                  handleParameterChange("tools", toolObjects);
+                }}
+                onToolChoiceChange={(choice) => {
+                  handleParameterChange("tool_choice", choice);
+                }}
+              />
+            </div>
+          );
+        }
+        return null;
       default:
         return null;
     }
@@ -410,23 +439,23 @@ export function SelectBaseModel({
             variant="outline"
             role="combobox"
             aria-expanded={open}
-            className="w-full justify-between"
+            className="w-full h-fit justify-between"
           >
+            <span className="whitespace-break-spaces flex-1 text-left text-foreground">
             {value ? (
-              <span className="truncate">
-                {availableModels.find((model) => model.id === value)?.name ||
-                  value}
-              </span>
+                availableModels.find((model) => model.id === value)?.name ||
+                value
             ) : (
               "Select model..."
             )}
+            </span>
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
         <PopoverContent className="p-0 w-screen sm:w-auto">
-          <Command className="w-full">
+          <Command className="w-full custom-shadow">
             <CommandInput placeholder="Search model..." className="w-full" />
-            <CommandList className="w-full">
+            <CommandList className="w-full bg-transparent">
               <CommandEmpty>No model found.</CommandEmpty>
               <CommandGroup className="w-full">
                 {availableModels.map((model) => (
@@ -475,7 +504,7 @@ export function SelectBaseModel({
           {renderParameter("temperature")}
           <Accordion type="single" collapsible className="w-auto">
             <AccordionItem value="additional-parameters">
-              <AccordionTrigger className="text-sm rounded-md mb-2 h-10">
+              <AccordionTrigger className="text-sm text-foreground rounded-lg h-8">
                 Additional Parameters
               </AccordionTrigger>
               <AccordionContent>

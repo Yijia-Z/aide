@@ -8,6 +8,7 @@ export function useThreads() {
     null
   );
   const [originalThreadTitle, setOriginalThreadTitle] = useState<string>("");
+  const [threadToDelete, setThreadToDelete] = useState<string | null>(null);
 
   return {
     threads,
@@ -18,5 +19,7 @@ export function useThreads() {
     setEditingThreadTitle,
     originalThreadTitle,
     setOriginalThreadTitle,
+    threadToDelete,
+    setThreadToDelete
   };
 }
