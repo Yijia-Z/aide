@@ -282,7 +282,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 20 }}
       className={"mt-2"}
-      style={{ marginLeft: `${indent}px` }}
+      style={{ marginLeft: `${window.innerWidth >= 768 ? indent * 2 : indent}px` }}
       layout={"position"}
       id={`message-${message.id}`}
     >
@@ -937,12 +937,13 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
               <div
                 key={reply.id}
                 className={`${selectedMessage === message.id
-                  ? `relative before:absolute before:left-0 before:-top-2 before:w-4 before:h-10 before:border-b-2 before:rounded-bl-lg before:border-border before:border-l-2 ${getSiblings(message.replies, reply.id).slice(-1)[0].id !==
+                  ? `relative before:absolute before:left-0 before:-top-2 before:w-4 before:h-10 before:border-b-2 before:rounded-bl-lg before:border-border before:border-l-2
+                  ${getSiblings(message.replies, reply.id).slice(-1)[0].id !==
                     reply.id
                     ? "after:absolute after:left-0 after:top-3 after:bottom-0 after:border-l-2 after:border-border"
                     : ""
-                  } ml-4`
-                  : "ml-4"
+                  } ml-4 md:ml-8`
+                  : "ml-4 md:ml-8"
                   }`}
               >
                 <RenderMessage
