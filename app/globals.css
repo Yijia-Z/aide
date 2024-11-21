@@ -81,7 +81,8 @@
 }
 /* Utility classes */
 .top-bar {
-  @apply flex items-center justify-between pb-4 space-x-2 absolute top-0 left-0 right-0 z-10;
+@apply select-none flex items-center justify-between pb-4 space-x-2 absolute top-0 left-0 right-0 z-10;
+
 }
 
 .min-font-size {
@@ -109,7 +110,8 @@
 
 /* Markdown content styles */
 .markdown-content {
-  @apply text-foreground;
+@apply select-none text-foreground;
+
 
   h1 {
     @apply text-2xl font-bold mt-4 mb-2;
@@ -146,7 +148,7 @@
     @apply bg-background rounded px-1 font-mono text-sm text-muted-foreground whitespace-pre-wrap break-words;
   }
   pre {
-    @apply bg-transparent rounded-md overflow-auto pt-4;
+    @apply bg-transparent rounded-b-lg overflow-auto pt-6;
   }
   pre code {
     @apply bg-transparent p-0;

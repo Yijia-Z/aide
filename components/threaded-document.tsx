@@ -564,7 +564,7 @@ export default function ThreadedDocument() {
 
   // Delete a message
   const deleteMessage = useCallback(
-    (threadId: string, messageId: string, deleteChildren: boolean) => {
+    (threadId: string, messageId: string, deleteOption: boolean | 'clear') => {
       setThreads((prev: Thread[]) =>
         prev.map((thread) => {
           if (thread.id !== threadId) return thread;
@@ -576,27 +576,41 @@ export default function ThreadedDocument() {
             );
             if (!messageToDelete) return messages;
 
-            const filterAndMerge = (msgs: Message[]) =>
-              deleteChildren
-                ? msgs.filter((m) => m.id !== messageId)
-                : [
+            const filterAndMerge = (msgs: Message[]) => {
+              if (deleteOption === true) {
+                // Delete with all replies
+                return msgs.filter((m) => m.id !== messageId);
+              } else if (deleteOption === 'clear') {
+                // Clear children but keep message
+                return msgs.map(m =>
+                  m.id === messageId
+                    ? { ...m, replies: [] }
+                    : m
+                );
+              } else {
+                // Keep replies
+                return [
                   ...msgs.filter((m) => m.id !== messageId),
                   ...messageToDelete.replies,
                 ];
+              }
+            };
 
             const updateSelection = (
               newMsgs: Message[],
               parentMsg?: Message
             ) => {
-              if (newMsgs.length > 0) {
-                const index = messages.findIndex((m) => m.id === messageId);
-                const newSelectedId =
-                  index > 0 ? newMsgs[index - 1].id : newMsgs[0].id;
-                setSelectedMessage(newSelectedId);
-              } else if (parentMsg) {
-                setSelectedMessage(parentMsg.id);
-              } else {
-                setSelectedMessage(null);
+              if (deleteOption !== 'clear') {
+                if (newMsgs.length > 0) {
+                  const index = messages.findIndex((m) => m.id === messageId);
+                  const newSelectedId =
+                    index > 0 ? newMsgs[index - 1].id : newMsgs[0].id;
+                  setSelectedMessage(newSelectedId);
+                } else if (parentMsg) {
+                  setSelectedMessage(parentMsg.id);
+                } else {
+                  setSelectedMessage(null);
+                }
               }
             };
 
@@ -671,6 +685,8 @@ export default function ThreadedDocument() {
 
         const [message] = findMessageAndParents(thread.messages, messageId);
         if (!message) return prev;
+
+        navigator.clipboard.writeText(message.content);
 
         setClipboardMessage({
           message: cloneMessageWithNewIds(message),
@@ -895,17 +911,34 @@ export default function ThreadedDocument() {
 
   const pasteMessage = useCallback(
     (threadId: string, parentId: string | null) => {
-      if (!clipboardMessage) return;
+      const messageToPaste = clipboardMessage?.message || {
+        id: Date.now().toString() + Math.random().toString(36).slice(2),
+        content: "", // Initialize with empty string
+        isCollapsed: false,
+        userCollapsed: false,
+        replies: [],
+        publisher: "user"
+      };
+
+      if (!clipboardMessage) {
+        navigator.clipboard.readText().then(text => {
+          updateMessageContent(threadId, messageToPaste.id, text);
+        });
+      }
 
       // Prevent pasting on the original message
-      if (parentId === clipboardMessage.originalMessageId) return;
+      if (
+        clipboardMessage &&
+        parentId === clipboardMessage.originalMessageId
+      )
+        return;
 
       setThreads((prev) => {
         let updatedThreads = [...prev];
 
         // First handle deletion of original message if this was a cut operation
         if (
-          clipboardMessage.operation === "cut" &&
+          clipboardMessage?.operation === "cut" &&
           clipboardMessage.sourceThreadId
         ) {
           updatedThreads = updatedThreads.map((thread) => {
@@ -943,7 +976,7 @@ export default function ThreadedDocument() {
           if (!parentId || thread.messages.length === 0) {
             return {
               ...thread,
-              messages: [...thread.messages, clipboardMessage.message],
+              messages: [...thread.messages, messageToPaste],
             };
           }
 
@@ -953,7 +986,7 @@ export default function ThreadedDocument() {
               if (message.id === parentId) {
                 return {
                   ...message,
-                  replies: [...message.replies, clipboardMessage.message],
+                  replies: [...message.replies, messageToPaste],
                 };
               }
               return {
@@ -970,7 +1003,7 @@ export default function ThreadedDocument() {
         });
       });
 
-      setSelectedMessage(clipboardMessage.message.id);
+      setSelectedMessage(messageToPaste.id);
       setClipboardMessage(null);
     },
     [clipboardMessage, setClipboardMessage, setSelectedMessage, setThreads]
@@ -1468,7 +1501,7 @@ export default function ThreadedDocument() {
             copyOrCutMessage(currentThread, selectedMessage, "cut");
             return;
           }
-          if (key === 'v' && clipboardMessage) {
+          if (key === 'v') {
             event.preventDefault();
             pasteMessage(currentThread, selectedMessage || null);
             return;
@@ -1559,7 +1592,13 @@ export default function ThreadedDocument() {
           case "Delete":
           case "Backspace":
             event.preventDefault();
-            deleteMessage(currentThread, selectedMessage, event.shiftKey);
+            if (event.shiftKey) {
+              deleteMessage(currentThread, selectedMessage, true);
+            } else if (event.altKey) {
+              deleteMessage(currentThread, selectedMessage, 'clear');
+            } else {
+              deleteMessage(currentThread, selectedMessage, false);
+            }
             break;
         }
       }

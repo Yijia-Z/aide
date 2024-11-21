@@ -29,6 +29,7 @@ import {
   LoaderCircle,
   Plus,
   Minus,
+  MessageSquareOff,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -88,7 +89,7 @@ interface RenderMessageProps {
   deleteMessage: (
     threadId: string,
     messageId: string,
-    deleteChildren: boolean
+    deleteChildren: boolean | "clear"
   ) => void;
   findMessageById: (messages: Message[], id: string) => Message | null;
   findMessageAndParents: (
@@ -273,8 +274,8 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-1">
                     <Button
-                      variant="outline"
-                      className="w-6 h-6 p-0 rounded-md"
+                      variant="outline" 
+                      className="w-6 h-6 p-0 rounded-md relative"
                       onClick={(e) => {
                         e.stopPropagation();
                         toggleCollapse(threadId, message.id);
@@ -283,7 +284,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                       {message.isCollapsed ? <Plus /> : <Minus />}
                     </Button>
                     <span
-                      className={`font-bold truncate ${message.publisher === "ai"
+                      className={`font-bold truncate select-none ${message.publisher === "ai"
                         ? "text-blue-800 dark:text-blue-600"
                         : "text-green-800 dark:text-green-600"
                         }`}
@@ -302,7 +303,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                     </span>
                     {modelDetails && (
                       <div className="flex items-center space-x-1">
-                        <Badge variant="secondary">
+                        <Badge variant="outline" className="select-none">
                           {modelDetails.baseModel
                             ?.split("/")
                             .pop()
@@ -444,12 +445,9 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                             }`}
                         </div>
                         {totalReplies > 0 && (
-                          <div className="self-end">
-                            <span className="text-yellow-600">
-                              {`(${totalReplies} ${totalReplies === 1 ? "reply" : "replies"
-                                })`}
+                            <span className="dark:text-yellow-600 text-yellow-800">
+                              {`(${totalReplies} ${totalReplies === 1 ? "reply" : "replies"})`}
                             </span>
-                          </div>
                         )}
                       </div>
                     ) : (
@@ -476,10 +474,10 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                                 }-${codeString.slice(0, 32)}`;
                               return !inline && match ? (
                                 <div className="relative">
-                                  <div className="absolute -top-3 w-full text-muted-foreground flex justify-between items-center p-1 pb-0 pl-3 rounded-md text-xs bg-[#1D2021]">
+                                  <div className="absolute -top-7 w-full flex justify-between items-center p-1 pl-3 rounded-t-lg border-b-[1.5px] text-[14px] font-[Consolas] border-[#A89984]  bg-[#1D2021] text-[#A89984]">
                                     <span>{match[1]}</span>
                                     <Button
-                                      className="rounded-sm w-6 h-6 p-0"
+                                      className="rounded-md w-6 h-6 p-0"
                                       variant="ghost"
                                       size="sm"
                                       onClick={() =>
@@ -753,34 +751,22 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                       </Menubar>
                       <Menubar className="p-0 border-none bg-transparent">
                         <MenubarMenu>
-                          <MenubarTrigger
-                            className="h-10 rounded-lg hover:bg-destructive transition-scale-zoom"
-                          >
+                            <MenubarTrigger className="h-10 rounded-lg hover:bg-destructive transition-scale-zoom">
                             <Trash className="h-4 w-4" />
-                            <span className="hidden md:inline ml-2">
-                              Delete
-                            </span>
+                              <span className="hidden md:inline ml-2">Delete</span>
                           </MenubarTrigger>
                           <MenubarContent className="custom-shadow">
-                            <MenubarItem
-                              onClick={() =>
-                                deleteMessage(threadId, message.id, false)
-                              }
-                            >
+                              <MenubarItem onClick={() => deleteMessage(threadId, message.id, false)}>
                               Keep Replies
-                              <span className="hidden md:inline ml-auto">
-                                <MenubarShortcut>⌫</MenubarShortcut>
-                              </span>
+                                <MenubarShortcut className="hidden md:inline">⌫</MenubarShortcut>
                             </MenubarItem>
-                            <MenubarItem
-                              onClick={() =>
-                                deleteMessage(threadId, message.id, true)
-                              }
-                            >
+                              <MenubarItem onClick={() => deleteMessage(threadId, message.id, true)}>
                               With Replies
-                              <span className="hidden md:inline ml-auto">
-                                <MenubarShortcut>⇧ ⌫</MenubarShortcut>
-                              </span>
+                                <MenubarShortcut className="hidden md:inline">⇧ ⌫</MenubarShortcut>
+                              </MenubarItem>
+                              <MenubarItem onClick={() => deleteMessage(threadId, message.id, 'clear')}>
+                                Only Replies
+                                <MenubarShortcut className="hidden md:inline">⌥ ⌫</MenubarShortcut>
                             </MenubarItem>
                           </MenubarContent>
                         </MenubarMenu>
@@ -870,9 +856,15 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
           >
             <Trash2 className="h-4 w-4 mr-2" />
             With Replies
-            <ContextMenuShortcut className="hidden md:inline ml-2">
-              ⇧ ⌫
-            </ContextMenuShortcut>
+            <ContextMenuShortcut className="hidden md:inline">⇧ ⌫</ContextMenuShortcut>
+          </ContextMenuItem>
+          <ContextMenuItem
+            className="text-red-500"
+            onClick={() => deleteMessage(threadId, message.id, 'clear')}
+          >
+            <MessageSquareOff className="h-4 w-4 mr-2" />
+            Only Replies
+            <ContextMenuShortcut className="hidden md:inline">⌥ ⌫</ContextMenuShortcut>
           </ContextMenuItem>
         </ContextMenuContent>
       </ContextMenu>

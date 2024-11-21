@@ -1,9 +1,17 @@
 import React from 'react';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
-import { MessageSquarePlus } from "lucide-react";
+import { ClipboardPaste, MessageSquarePlus } from "lucide-react";
 import RenderMessage from './render-message';
 import { Thread, Message } from '@/components/types';
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuShortcut,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 
 interface RenderMessagesProps {
   threads: Thread[];
@@ -26,7 +34,7 @@ interface RenderMessagesProps {
   generateAIReply: (threadId: string, messageId: string, count: number) => void;
   copyOrCutMessage: (threadId: string, messageId: string, operation: "copy" | "cut") => void;
   pasteMessage: (threadId: string, parentId: string | null) => void;
-  deleteMessage: (threadId: string, messageId: string, deleteChildren: boolean) => void;
+  deleteMessage: (threadId: string, messageId: string, deleteChildren: boolean | "clear") => void;
   findMessageById: (messages: Message[], id: string) => Message | null;
   findMessageAndParents: (messages: Message[], targetId: string, parents?: Message[]) => [Message | null, Message[]];
   getSiblings: (messages: Message[], messageId: string) => Message[];
@@ -69,6 +77,8 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
   const currentThreadData = threads.find((t) => t.id === currentThread);
 
   return currentThread ? (
+    <ContextMenu>
+      <ContextMenuTrigger>
     <div
       className={`flex flex-col relative sm:h-full h-[calc(97vh)] hide-scrollbar bg-[radial-gradient(hsl(var(--muted))_1px,transparent_1px)] [background-size:16px_16px]`}
     >
@@ -99,46 +109,57 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
           </Button>
         )}
       </div>
-      <ScrollArea className="flex-grow" onClick={() => setSelectedMessage(null)}>
-        <div className="mb-4" onClick={(e) => e.stopPropagation()}>
-          {currentThreadData?.messages.map((message: Message) => (
-            <RenderMessage
-              key={message.id}
-              message={message}
-              threadId={currentThread}
-              threads={threads}
-              currentThread={currentThread}
-              selectedMessage={selectedMessage}
-              editingMessage={editingMessage}
-              editingContent={editingContent}
-              glowingMessageId={glowingMessageId}
-              copiedStates={copiedStates}
-              clipboardMessage={clipboardMessage}
-              isGenerating={isGenerating}
-              setSelectedMessage={setSelectedMessage}
-              toggleCollapse={toggleCollapse}
-              setGlowingMessageId={setGlowingMessageId}
-              setEditingContent={setEditingContent}
-              confirmEditingMessage={confirmEditingMessage}
-              cancelEditingMessage={cancelEditingMessage}
-              startEditingMessage={startEditingMessage}
-              addEmptyReply={addEmptyReply}
-              generateAIReply={generateAIReply}
-              copyOrCutMessage={copyOrCutMessage}
-              pasteMessage={pasteMessage}
-              deleteMessage={deleteMessage}
-              findMessageById={findMessageById}
-              findMessageAndParents={findMessageAndParents}
-              getSiblings={getSiblings}
-              getModelDetails={getModelDetails}
-              setCopiedStates={setCopiedStates}
-              setThreads={setThreads}
-              setClipboardMessage={setClipboardMessage}
-            />
-          ))}
+          <ScrollArea className="flex-grow" onClick={() => setSelectedMessage(null)}>
+            <div onClick={(e) => e.stopPropagation()}>
+              {currentThreadData?.messages.map((message: Message) => (
+                <RenderMessage
+                  key={message.id}
+                  message={message}
+                  threadId={currentThread}
+                  threads={threads}
+                  currentThread={currentThread}
+                  selectedMessage={selectedMessage}
+                  editingMessage={editingMessage}
+                  editingContent={editingContent}
+                  glowingMessageId={glowingMessageId}
+                  copiedStates={copiedStates}
+                  clipboardMessage={clipboardMessage}
+                  isGenerating={isGenerating}
+                  setSelectedMessage={setSelectedMessage}
+                  toggleCollapse={toggleCollapse}
+                  setGlowingMessageId={setGlowingMessageId}
+                  setEditingContent={setEditingContent}
+                  confirmEditingMessage={confirmEditingMessage}
+                  cancelEditingMessage={cancelEditingMessage}
+                  startEditingMessage={startEditingMessage}
+                  addEmptyReply={addEmptyReply}
+                  generateAIReply={generateAIReply}
+                  copyOrCutMessage={copyOrCutMessage}
+                  pasteMessage={pasteMessage}
+                  deleteMessage={deleteMessage}
+                  findMessageById={findMessageById}
+                  findMessageAndParents={findMessageAndParents}
+                  getSiblings={getSiblings}
+                  getModelDetails={getModelDetails}
+                  setCopiedStates={setCopiedStates}
+                  setThreads={setThreads}
+                  setClipboardMessage={setClipboardMessage}
+                />
+              ))}
+            </div>
+          </ScrollArea>
         </div>
-      </ScrollArea>
-    </div>
+      </ContextMenuTrigger>
+      <ContextMenuContent>
+        <ContextMenuItem
+          onClick={() => pasteMessage(currentThread, null)}
+        >
+          <ClipboardPaste className="mr-2 h-4 w-4" />
+          <span>Paste</span>
+          <ContextMenuShortcut className="hidden sm:inline">⌘V</ContextMenuShortcut>
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   ) : (
     <div className="flex items-center justify-center h-full select-none">
       <div className="hidden sm:block">
@@ -153,7 +174,8 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
           <span> Escape               ┃ Cancel edit/copy</span><br />
           <span> Ctrl+C/X/V           ┃ Copy/Cut/Paste</span><br />
           <span> Delete/Backspace     ┃ Delete message</span><br />
-          <span> Shift+Delete         ┃ Delete with replies</span>
+            <span> Shift+Delete         ┃ Delete with replies</span><br />
+            <span> Alt+Delete           ┃ Delete only replies</span>
         </p>
         <div className="mt-4 text-center text-sm text-muted-foreground font-serif">
           <span>Select a thread to view messages.</span>

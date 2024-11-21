@@ -91,6 +91,7 @@ const ThreadList: React.FC<ThreadListProps> = ({
                   y: -2,
                 }}
                 className={`
+                  select-none
                   font-serif
                   pl-1
                   cursor-pointer
