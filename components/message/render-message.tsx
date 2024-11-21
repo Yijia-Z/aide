@@ -239,10 +239,19 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
 
     const maxLength = 500;
     const lines = content.split('\n');
-    const firstThreeLines = lines.slice(0, 3).join('\n');
+    const firstFourLines = lines.slice(0, 4).join('\n');
 
     if (content.length > maxLength || lines.length > 3) {
-      return `${firstThreeLines.slice(0, maxLength)}${content.length > maxLength ? '...' : lines.length > 3 ? '\n...' : ''}`;
+      return `${firstFourLines.slice(0, maxLength)
+        }${lines[3]?.startsWith('```') || lines[3]?.startsWith('$$')
+          ? '\n'
+          : ''
+        }${lines.length > 4
+          ? '...'
+          : content.length > maxLength
+            ? '...'
+            : ''
+        }`;
     }
     return content;
   };
@@ -606,7 +615,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                           <span className="hidden group-hover:inline">
                             <OctagonX className="h-4 w-4" />
                           </span>
-                          <span className="hidden md:inline ml-2 w-[67.2px]">
+                          <span className="hidden md:inline ml-2 w-16">
                             <span className="group-hover:hidden">
                               Working
                             </span>
