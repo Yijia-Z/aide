@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
     let activeTools: any[] = [];
 
     if (apiBaseUrl) {
-      // 获取工具列表
+      // Get the list of tools
       const toolsResponse = await fetch(
         `${apiBaseUrl}/api/load_tools`
       );
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
       const toolsData = await toolsResponse.json();
       console.log("Loaded tools data:", JSON.stringify(toolsData, null, 2));
 
-      // 提取工具列表并规范化 enabled 字段
+      // Extract the tool list and normalize the enabled field
       const allTools = toolsData.tools.map((tool: any) => {
         return {
           ...tool,
@@ -44,17 +44,17 @@ export async function POST(req: NextRequest) {
         };
       });
 
-      // 过滤启用的工具
+      // Filter enabled tools
       activeTools = allTools.filter((tool: any) => tool.enabled == true || tool.enabled == "true");
     }
 
-    // 初始化消息列表
+    // Initialize the message list
     let currentMessages = [...messages];
-    let assistantMessages = ''; // 用于累积助手的回复内容
+    let assistantMessages = ''; // Used to accumulate the assistant's reply content
 
     let shouldContinue = true;
 
-    // 定义 ReadableStream
+    // Define ReadableStream
     const stream = new ReadableStream({
       async start(controller) {
         while (shouldContinue) {
@@ -121,9 +121,9 @@ export async function POST(req: NextRequest) {
           }
 
           // Initialize variables to handle tool calls
-          assistantMessages = ''; // 重置助手的回复内容
-          let toolCalls: any[] = []; // 存储工具调用
-          let currentToolCall: any = null; // 当前处理的工具调用
+          assistantMessages = ''; // Reset the assistant's reply content
+          let toolCalls: any[] = []; // Store tool calls
+          let currentToolCall: any = null; // Currently processed tool call
 
           const reader = response.body?.getReader();
           if (!reader) {
@@ -132,7 +132,7 @@ export async function POST(req: NextRequest) {
           }
 
           const decoder = new TextDecoder();
-          let buffer = ''; // 缓存不完整的行
+          let buffer = ''; // Cache incomplete lines
           let doneReading = false;
 
           while (!doneReading) {
@@ -144,7 +144,7 @@ export async function POST(req: NextRequest) {
 
             buffer += decoder.decode(value, { stream: true });
             const lines = buffer.split('\n');
-            buffer = lines.pop() || ''; // 保留不完整的行
+            buffer = lines.pop() || ''; // Keep incomplete lines
 
             for (const line of lines) {
               if (line.startsWith("data: ")) {
@@ -160,7 +160,7 @@ export async function POST(req: NextRequest) {
                   const delta = parsed.choices[0]?.delta;
                   const finish_reason = parsed.choices[0]?.finish_reason;
 
-                  // 累积助手的内容
+                  // Accumulate the content of the assistant
                   if (delta?.content) {
                     console.log("Delta content detected:", delta.content);
                     assistantMessages += delta.content;
@@ -170,7 +170,7 @@ export async function POST(req: NextRequest) {
                         `data: ${JSON.stringify(parsed)}\n\n`
                       )
                     );
-                    // 将内容发送给客户端
+                    // Send the content to the client
 
                   }
                   if (finish_reason) {
@@ -183,7 +183,7 @@ export async function POST(req: NextRequest) {
                           role: 'assistant',
                           content: assistantMessages,
                         });
-                        assistantMessages = ''; // 重置助手消息
+                        assistantMessages = ''; // Reset assistant message
                       }
                       let parsedArgs;
                       try {
@@ -213,7 +213,7 @@ export async function POST(req: NextRequest) {
                       );
                       currentMessages.push({
                         role: 'assistant',
-                        content: null, // content 必须为 null
+                        content: null, // content must be null
                         tool_calls: [
                           {
                             id: currentToolCall.id,
@@ -226,7 +226,7 @@ export async function POST(req: NextRequest) {
                         ],
                       });
 
-                      // 添加工具的响应消息
+                      // Add the tool's response message
                       currentMessages.push({
                         role: 'tool',
                         name: currentToolCall.function.name,
@@ -234,14 +234,14 @@ export async function POST(req: NextRequest) {
                         content: toolResult.content,
                       });
 
-                    } else if (finish_reason === "end_turn" || "stop") {
+                    } else if (finish_reason === "end_turn" || finish_reason === "stop") {
                       console.log("Finish reason is 'endturn', closing stream.");
                       parsed.choices[0].delta.content = assistantMessages;
 
 
                       shouldContinue = false;
 
-                      /*     // 发送 [DONE] 并关闭流
+                      /*     // Send [DONE] and close the stream
                           controller.enqueue(
                             new TextEncoder().encode("data: [DONE]\n\n")
                           ); */
@@ -250,10 +250,10 @@ export async function POST(req: NextRequest) {
                     }
                   }
 
-                  // 处理工具调用
+                  // Handle tool calls
                   if (delta?.tool_calls) {
 
-                    // 处理多个工具调用
+                    // Handle multiple tool calls
                     for (const toolCall of delta.tool_calls) {
                       const toolCallIndex = toolCall.index;
                       const toolCallId = toolCall.id || `tool_call_${toolCallIndex}_${Date.now()}`;
@@ -261,7 +261,7 @@ export async function POST(req: NextRequest) {
                         !currentToolCall ||
                         currentToolCall.index !== toolCallIndex
                       ) {
-                        // 开始新的工具调用
+                        // Start a new tool call
                         currentToolCall = {
                           index: toolCallIndex,
                           id: toolCallId,
@@ -273,7 +273,7 @@ export async function POST(req: NextRequest) {
                         toolCalls[toolCallIndex] = currentToolCall;
                       }
 
-                      // 累积函数参数
+                      // Accumulate function arguments
                       if (toolCall.function.arguments) {
                         currentToolCall.function.arguments +=
                           toolCall.function.arguments;
@@ -288,29 +288,29 @@ export async function POST(req: NextRequest) {
             }
           }
 
-          /*    // 在流结束后，处理工具调用（如果有）
+          /*    // After the stream ends, handle tool calls (if any)
              if (toolCalls.length > 0) {
                console.log(
                  "Processing tool calls:",
                  JSON.stringify(toolCalls, null, 2)
                );
    
-               // 将助手的回复添加到消息列表
+               // Add the assistant's reply to the message list
                if (assistantMessages) {
                  currentMessages.push({
                    role: 'assistant',
                    content: assistantMessages,
                  });
-                 assistantMessages = ''; // 重置助手消息
+                 assistantMessages = ''; // Reset assistant message
                }
    
-               // 处理每个工具调用
+               // Handle each tool call
                for (const toolCall of toolCalls) {
                  console.log(
                    `Processing tool call: ${JSON.stringify(toolCall, null, 2)}`
                  );
    
-                 // 解析累积的参数
+                 // Parse the accumulated parameters
                  let toolArgs: any;
                  try {
                    toolArgs = JSON.parse(toolCall.function.arguments);
@@ -319,14 +319,14 @@ export async function POST(req: NextRequest) {
                      "Error parsing tool call arguments:",
                      error
                    );
-                   continue; // 如果参数无效，跳过此工具调用
+                   continue; // If the parameters are invalid, skip this tool call
                  }
                  console.log(`Sending to /api/process_tool_use:`, {
                    tool_name: toolCall.function.name,
                    tool_args: toolArgs,
                    tool_call_id: toolCall.id,
                  });
-                 // 调用后端处理工具调用
+                 // Call the backend to handle tool calls
                  const toolUseResponse = await fetch(
                    `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/process_tool_use`,
                    {
@@ -348,7 +348,7 @@ export async function POST(req: NextRequest) {
                      `Failed to process tool use: ${toolUseResponse.status} ${toolUseResponse.statusText}`,
                      errorText
                    );
-                   continue; // 跳过下一个工具调用
+                   continue; // Skip the next tool call
                  }
    
                  const toolResult = await toolUseResponse.json();
@@ -357,11 +357,11 @@ export async function POST(req: NextRequest) {
                    JSON.stringify(toolResult, null, 2)
                  );
    
-                 // 更新消息，添加工具调用和工具结果
-                 // 添加助手的工具调用消息
+                 // Update the message, add tool call and tool result
+                 // Add the assistant's tool call message
                  currentMessages.push({
                    role: 'assistant',
-                   content: null, // content 必须为 null
+                   content: null, // content must be null
                    tool_calls: [
                      {
                        id: toolCall.id,
@@ -374,7 +374,7 @@ export async function POST(req: NextRequest) {
                    ],
                  });
    
-                 // 添加工具的响应消息
+                 // Add the tool's response message
                  currentMessages.push({
                    role: 'tool',
                    name: toolCall.function.name,
@@ -383,17 +383,17 @@ export async function POST(req: NextRequest) {
                  });
                }
    
-               // 重置工具调用列表
+               // Reset the tool call list
                toolCalls = [];
              } else {
-               // 没有工具调用，结束循环
+               // No tool calls, end the loop
                shouldContinue = false;
              } */
         }
       },
     });
 
-    // **立即返回流给客户端**
+    // Immediately return the stream to the client
     return new Response(stream, {
       headers: { 'Content-Type': 'text/event-stream' },
     });

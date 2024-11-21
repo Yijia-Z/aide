@@ -1,5 +1,7 @@
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useEffect, useRef } from "react";
+import { useInView } from "react-intersection-observer";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
@@ -14,7 +16,6 @@ import {
   ArrowDown,
   ArrowLeft,
   ArrowRight,
-  ChevronRight,
   Edit,
   Trash,
   Trash2,
@@ -30,6 +31,9 @@ import {
   Plus,
   Minus,
   MessageSquareOff,
+  ClipboardType,
+  ClipboardCheck,
+  ClipboardX,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -157,6 +161,21 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
 
   // Indentation
   const indent = depth === 0 ? 0 : isSelectedOrParent ? -16 : 0;
+  const [ref, inView] = useInView({
+    triggerOnce: false,
+    threshold: 0,
+    rootMargin: "200px 0px", // Pre-load when within 200px of viewport
+  });
+
+  // Cache rendered content
+  const renderedContentRef = useRef<string | null>(null);
+
+  // Memoize the markdown content
+  useEffect(() => {
+    if (inView && !renderedContentRef.current) {
+      renderedContentRef.current = message.content;
+    }
+  }, [inView, message.content]);
 
   // Helper functions
   const getTotalReplies = (msg: Message): number => {
@@ -248,6 +267,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
 
   return (
     <motion.div
+      ref={ref}
       key={message.id}
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
@@ -274,7 +294,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-1">
                     <Button
-                      variant="outline" 
+                      variant="outline"
                       className="w-6 h-6 p-0 rounded-md relative"
                       onClick={(e) => {
                         e.stopPropagation();
@@ -445,9 +465,9 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                             }`}
                         </div>
                         {totalReplies > 0 && (
-                            <span className="dark:text-yellow-600 text-yellow-800">
-                              {`(${totalReplies} ${totalReplies === 1 ? "reply" : "replies"})`}
-                            </span>
+                          <span className="dark:text-yellow-600 text-yellow-800">
+                            {`(${totalReplies} ${totalReplies === 1 ? "reply" : "replies"})`}
+                          </span>
                         )}
                       </div>
                     ) : (
@@ -474,7 +494,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                                 }-${codeString.slice(0, 32)}`;
                               return !inline && match ? (
                                 <div className="relative">
-                                  <div className="absolute -top-7 w-full flex justify-between items-center p-1 pl-3 rounded-t-lg border-b-[1.5px] text-[14px] font-[Consolas] border-[#A89984]  bg-[#1D2021] text-[#A89984]">
+                                  <div className="absolute -top-7 w-full flex justify-between items-center p-1 pl-3 rounded-t-lg border-b-[1.5px] text-[14px] font-[Consolas] border-[#A8998480]  bg-[#1D2021] text-[#A89984]">
                                     <span>{match[1]}</span>
                                     <Button
                                       className="rounded-md w-6 h-6 p-0"
@@ -616,9 +636,9 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                                 }}
                               >
                                 Once
-                                    <span className="hidden md:inline ml-auto">
-                                      <MenubarShortcut>⎇ G</MenubarShortcut>
-                                    </span>
+                                <span className="hidden md:inline ml-auto">
+                                  <MenubarShortcut>⎇ G</MenubarShortcut>
+                                </span>
                               </MenubarItem>
                               <MenubarItem
                                 onClick={() => {
@@ -684,12 +704,12 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                             className="h-10 rounded-lg hover:bg-background transition-scale-zoom"
                           >
                             {clipboardMessage ? (
-                              <ClipboardPaste className="h-4 w-4" />
+                              <ClipboardCheck className="h-4 w-4" />
                             ) : (
                               <Copy className="h-4 w-4" />
                             )}
                             <span className="hidden md:inline ml-2">
-                              {clipboardMessage ? "Paste" : "Copy"}
+                              {clipboardMessage?.operation === "cut" ? "Cutting" : clipboardMessage ? "Copying" : "Copy"}
                             </span>
                           </MenubarTrigger>
                           <MenubarContent className="custom-shadow">
@@ -700,13 +720,16 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                                     pasteMessage(threadId, message.id)
                                   }
                                 >
-                                  Paste Here
+                                  Paste Message
                                   <span className="hidden md:inline ml-auto">
                                     <MenubarShortcut>⌘ V</MenubarShortcut>
                                   </span>
                                 </MenubarItem>
                                 <MenubarItem
-                                  onClick={() => setClipboardMessage(null)}
+                                  onClick={() => {
+                                    setClipboardMessage(null);
+                                    setGlowingMessageId(null);
+                                  }}
                                 >
                                   Clear Clipboard
                                   <span className="hidden md:inline ml-auto">
@@ -751,23 +774,32 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                       </Menubar>
                       <Menubar className="p-0 border-none bg-transparent">
                         <MenubarMenu>
-                            <MenubarTrigger className="h-10 rounded-lg hover:bg-destructive transition-scale-zoom">
+                          <MenubarTrigger className="h-10 rounded-lg hover:bg-destructive transition-scale-zoom">
                             <Trash className="h-4 w-4" />
-                              <span className="hidden md:inline ml-2">Delete</span>
+                            <span className="hidden md:inline ml-2">Delete</span>
                           </MenubarTrigger>
                           <MenubarContent className="custom-shadow">
+                            {message.replies && message.replies.length > 0 ? (
+                              <>
+                                <MenubarItem onClick={() => deleteMessage(threadId, message.id, false)}>
+                                  Keep Replies
+                                  <MenubarShortcut className="hidden md:inline">⌫</MenubarShortcut>
+                                </MenubarItem>
+                                <MenubarItem onClick={() => deleteMessage(threadId, message.id, true)}>
+                                  With Replies
+                                  <MenubarShortcut className="hidden md:inline">⇧ ⌫</MenubarShortcut>
+                                </MenubarItem>
+                                <MenubarItem onClick={() => deleteMessage(threadId, message.id, 'clear')}>
+                                  Only Replies
+                                  <MenubarShortcut className="hidden md:inline">⌥ ⌫</MenubarShortcut>
+                                </MenubarItem>
+                              </>
+                            ) : (
                               <MenubarItem onClick={() => deleteMessage(threadId, message.id, false)}>
-                              Keep Replies
+                                Delete
                                 <MenubarShortcut className="hidden md:inline">⌫</MenubarShortcut>
-                            </MenubarItem>
-                              <MenubarItem onClick={() => deleteMessage(threadId, message.id, true)}>
-                              With Replies
-                                <MenubarShortcut className="hidden md:inline">⇧ ⌫</MenubarShortcut>
                               </MenubarItem>
-                              <MenubarItem onClick={() => deleteMessage(threadId, message.id, 'clear')}>
-                                Only Replies
-                                <MenubarShortcut className="hidden md:inline">⌥ ⌫</MenubarShortcut>
-                            </MenubarItem>
+                            )}
                           </MenubarContent>
                         </MenubarMenu>
                       </Menubar>
@@ -832,13 +864,27 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
             Cut
             <ContextMenuShortcut className="hidden md:inline">⌘ X</ContextMenuShortcut>
           </ContextMenuItem>
+          <ContextMenuItem
+            onClick={() => pasteMessage(threadId, message.id)}
+          >
+            {clipboardMessage ? (
+              <ClipboardPaste className="mr-2 h-4 w-4" />
+            ) : (
+              <ClipboardType className="mr-2 h-4 w-4" />
+            )}
+            <span>{clipboardMessage ? "Paste Message" : "Paste Clipboard"}</span>
+            <ContextMenuShortcut className="hidden md:inline">⌘ V</ContextMenuShortcut>
+          </ContextMenuItem>
           {clipboardMessage && (
             <ContextMenuItem
-              onClick={() => pasteMessage(threadId, message.id)}
+              onClick={() => {
+                setClipboardMessage(null);
+                setGlowingMessageId(null);
+              }}
             >
-              <ClipboardPaste className="h-4 w-4 mr-2" />
-              Paste
-              <ContextMenuShortcut className="hidden md:inline">⌘ V</ContextMenuShortcut>
+              <ClipboardX className="mr-2 h-4 w-4" />
+              <span>Clear Clipboard</span>
+              <ContextMenuShortcut className="hidden md:inline ml-2">Esc</ContextMenuShortcut>
             </ContextMenuItem>
           )}
           <ContextMenuSeparator />
@@ -850,22 +896,26 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
             Delete
             <ContextMenuShortcut className="hidden md:inline">⌫</ContextMenuShortcut>
           </ContextMenuItem>
-          <ContextMenuItem
-            className="text-red-500"
-            onClick={() => deleteMessage(threadId, message.id, true)}
-          >
-            <Trash2 className="h-4 w-4 mr-2" />
-            With Replies
-            <ContextMenuShortcut className="hidden md:inline">⇧ ⌫</ContextMenuShortcut>
-          </ContextMenuItem>
-          <ContextMenuItem
-            className="text-red-500"
-            onClick={() => deleteMessage(threadId, message.id, 'clear')}
-          >
-            <MessageSquareOff className="h-4 w-4 mr-2" />
-            Only Replies
-            <ContextMenuShortcut className="hidden md:inline">⌥ ⌫</ContextMenuShortcut>
-          </ContextMenuItem>
+          {message.replies?.length > 0 && (
+            <>
+              <ContextMenuItem
+                className="text-red-500"
+                onClick={() => deleteMessage(threadId, message.id, true)}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                With Replies
+                <ContextMenuShortcut className="hidden md:inline">⇧ ⌫</ContextMenuShortcut>
+              </ContextMenuItem>
+              <ContextMenuItem
+                className="text-red-500"
+                onClick={() => deleteMessage(threadId, message.id, 'clear')}
+              >
+                <MessageSquareOff className="h-4 w-4 mr-2" />
+                Only Replies
+                <ContextMenuShortcut className="hidden md:inline">⌥ ⌫</ContextMenuShortcut>
+              </ContextMenuItem>
+            </>
+          )}
         </ContextMenuContent>
       </ContextMenu>
       <AnimatePresence>

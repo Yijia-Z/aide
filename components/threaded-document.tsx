@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useRef, useEffect } from "react";
+import React, { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import debounce from "lodash.debounce";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -284,25 +284,27 @@ export default function ThreadedDocument() {
 
   // useCallback methods
   // Save threads
-  const debouncedSaveThreads = useCallback(
-    debounce(async (threadsToSave: Thread[]) => {
-      try {
-        storage.set("threads", threadsToSave);
-        if (apiBaseUrl) {
-          const savePromises = threadsToSave.map((thread: Thread) =>
-            fetch(`${apiBaseUrl}/api/save_thread`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ threadId: thread.id, thread }),
-            })
-          );
-          await Promise.all(savePromises);
-        }
-      } catch (error) {
-        console.error("Failed to save threads:", error);
+  const saveThreads = useCallback(async (threadsToSave: Thread[]) => {
+    try {
+      storage.set("threads", threadsToSave);
+      if (apiBaseUrl) {
+        const savePromises = threadsToSave.map((thread: Thread) =>
+          fetch(`${apiBaseUrl}/api/save_thread`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ threadId: thread.id, thread }),
+          })
+        );
+        await Promise.all(savePromises);
       }
-    }, 2000),
-    [apiBaseUrl]
+    } catch (error) {
+      console.error("Failed to save threads:", error);
+    }
+  }, []);
+
+  const debouncedSaveThreads = useMemo(
+    () => debounce(saveThreads, 2000),
+    [saveThreads]
   );
 
   // Add new thread
@@ -695,6 +697,8 @@ export default function ThreadedDocument() {
           originalMessageId: messageId,
         });
 
+        setGlowingMessageId(messageId);
+
         return prev;
       });
     },
@@ -702,6 +706,7 @@ export default function ThreadedDocument() {
       cloneMessageWithNewIds,
       findMessageAndParents,
       setClipboardMessage,
+      setGlowingMessageId,
       setThreads,
     ]
   );
@@ -939,28 +944,16 @@ export default function ThreadedDocument() {
         // First handle deletion of original message if this was a cut operation
         if (
           clipboardMessage?.operation === "cut" &&
-          clipboardMessage.sourceThreadId
+          clipboardMessage.sourceThreadId &&
+          clipboardMessage.originalMessageId
         ) {
-          updatedThreads = updatedThreads.map((thread) => {
-            if (thread.id !== clipboardMessage.sourceThreadId) return thread;
-
-            const deleteMessageFromThread = (
-              messages: Message[]
-            ): Message[] => {
-              return messages.filter((msg) => {
-                if (msg.id === clipboardMessage.originalMessageId) {
-                  return false;
-                }
-                msg.replies = deleteMessageFromThread(msg.replies);
-                return true;
-              });
-            };
-
-            return {
-              ...thread,
-              messages: deleteMessageFromThread(thread.messages),
-            };
-          });
+          deleteMessage(
+            clipboardMessage.sourceThreadId,
+            clipboardMessage.originalMessageId,
+            true
+          );
+          updatedThreads = [...prev]; // Get fresh state after deletion
+          setClipboardMessage(null);
         }
 
         // Then handle the paste operation
@@ -986,6 +979,8 @@ export default function ThreadedDocument() {
               if (message.id === parentId) {
                 return {
                   ...message,
+                  isCollapsed: false,
+                  userCollapsed: false,
                   replies: [...message.replies, messageToPaste],
                 };
               }
@@ -1004,9 +999,11 @@ export default function ThreadedDocument() {
       });
 
       setSelectedMessage(messageToPaste.id);
-      setClipboardMessage(null);
+      if (clipboardMessage?.operation === "cut" || clipboardMessage?.operation === "copy") {
+        setClipboardMessage(null); // Set clipboardMessage to null after paste for cut/copy operation
+      }
     },
-    [clipboardMessage, setClipboardMessage, setSelectedMessage, setThreads]
+    [clipboardMessage, setClipboardMessage, setSelectedMessage, deleteMessage, updateMessageContent, setThreads]
   );
 
   // Find message by ID
@@ -1141,7 +1138,18 @@ export default function ThreadedDocument() {
         setAbortController(null);
       }
     },
-    [threads, models, selectedModel, tools, isGenerating, abortController]
+    [
+      threads,
+      models,
+      selectedModel,
+      tools,
+      addMessage,
+      findMessageById,
+      setSelectedMessage,
+      updateMessageContent,
+      isGenerating,
+      abortController
+    ]
   );
 
   // useEffect hooks
@@ -1294,9 +1302,10 @@ export default function ThreadedDocument() {
     */
   // Save threads
   useEffect(() => {
-    debouncedSaveThreads(threads);
-    return debouncedSaveThreads.cancel;
-  }, [threads, debouncedSaveThreads]);
+    return () => {
+      debouncedSaveThreads.cancel();
+    };
+  }, [debouncedSaveThreads]);
 
   // Add new thread
   useEffect(() => {
@@ -1541,6 +1550,9 @@ export default function ThreadedDocument() {
             if (currentMessage.replies.length > 0) {
               event.preventDefault();
               setSelectedMessage(currentMessage.replies[0].id);
+              if (currentMessage.isCollapsed) {
+                toggleCollapse(currentThread, currentMessage.id);
+              }
             }
             break;
           case "ArrowUp":
@@ -1586,6 +1598,7 @@ export default function ThreadedDocument() {
             break;
           case "Escape":
             if (clipboardMessage) {
+              setGlowingMessageId(null);
               setClipboardMessage(null);
             }
             break;
@@ -1632,7 +1645,9 @@ export default function ThreadedDocument() {
     setClipboardMessage,
     setEditingModel,
     setEditingThreadTitle,
-    setSelectedMessage
+    setSelectedMessage,
+    setGlowingMessageId,
+    toggleCollapse
   ]);
 
   return (

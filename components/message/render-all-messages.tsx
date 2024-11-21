@@ -1,7 +1,7 @@
 import React from 'react';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
-import { ClipboardPaste, MessageSquarePlus } from "lucide-react";
+import { ClipboardPaste, ClipboardType, ClipboardX, MessageSquarePlus } from "lucide-react";
 import RenderMessage from './render-message';
 import { Thread, Message } from '@/components/types';
 import {
@@ -154,10 +154,22 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
         <ContextMenuItem
           onClick={() => pasteMessage(currentThread, null)}
         >
-          <ClipboardPaste className="mr-2 h-4 w-4" />
-          <span>Paste</span>
-          <ContextMenuShortcut className="hidden sm:inline">⌘V</ContextMenuShortcut>
+          {clipboardMessage ? (
+            <ClipboardPaste className="mr-2 h-4 w-4" />
+          ) : (
+            <ClipboardType className="mr-2 h-4 w-4" />
+          )}
+          <span>{clipboardMessage ? "Paste Message" : "Paste Clipboard"}</span>
+          <ContextMenuShortcut className="hidden md:inline ml-2">⌘ V</ContextMenuShortcut>
         </ContextMenuItem>
+        {clipboardMessage && (
+          <ContextMenuItem
+            onClick={() => setClipboardMessage(null)}
+          >
+            <ClipboardX className="mr-2 h-4 w-4" />
+            <span>Clear Clipboard</span>
+          </ContextMenuItem>
+        )}
       </ContextMenuContent>
     </ContextMenu>
   ) : (
