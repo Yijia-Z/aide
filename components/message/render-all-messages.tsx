@@ -125,7 +125,7 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
                     <ClipboardType className="mr-2 h-4 w-4" />
                   )}
                   <span>{clipboardMessage ? "Paste Message" : "Paste Clipboard"}</span>
-                  <MenubarShortcut className="hidden md:inline">⌘ V</MenubarShortcut>
+                  <MenubarShortcut className="hidden ml-2 md:inline">⌘ V</MenubarShortcut>
                 </MenubarItem>
                 {clipboardMessage && (
                   <MenubarItem
