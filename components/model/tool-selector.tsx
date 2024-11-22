@@ -15,9 +15,10 @@ import {
 } from "@/components/ui/command";
 import { Badge } from "@/components/ui/badge";
 import { X } from "lucide-react";
+import { Tool } from "../types";
 
 interface ToolSelectorProps {
-  tools: any[];
+  tools: Tool[];
   selectedTools: string[];
   toolChoice: string | { type: string; function: { name: string } };
   onToolsChange: (tools: string[]) => void;
@@ -55,8 +56,8 @@ export function ToolSelector({
               <CommandItem
                 key={tool.function.name}
                 onSelect={() => {
-                  if (!selectedTools.includes(tool.function.name)) {
-                    onToolsChange([...selectedTools, tool.function.name]);
+                  if (!selectedTools.includes(tool.id)) {
+                    onToolsChange([...selectedTools, tool.id]);
                   }
                 }}
               >
@@ -70,9 +71,9 @@ export function ToolSelector({
       <div className="space-y-2">
         <label className="text-sm font-medium">tool_choice</label>
         <Select
-          value={typeof toolChoice === 'string' ? toolChoice : 'specific'}
+          value={typeof toolChoice === 'string' ? toolChoice : 'required'}
           onValueChange={(value) => {
-            if (value === 'specific') {
+            if (value === 'required') {
               onToolChoiceChange({
                 type: "function",
                 function: { name: selectedTools[0] || '' }

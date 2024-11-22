@@ -99,9 +99,8 @@ export default function ThreadedDocument() {
   // Connection and generation states
   const [lastAttemptTime, setLastAttemptTime] = useState<number | null>(null);
   const [isConnected, setIsConnected] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [isGenerating, setIsGenerating] = useState<{ [key: string]: boolean }>({});
   const [copiedStates, setCopiedStates] = useState<{ [key: string]: boolean }>({});
-  const [abortController, setAbortController] = useState<AbortController | null>(null);
 
   // Tool-related states
   const {
@@ -140,6 +139,7 @@ export default function ThreadedDocument() {
       setTools([]);
     }
   }, [selectedModel, checkModelSupportsTools, setModelSupportsTools, setTools]);
+
 
   const loadTools = useCallback(async () => {
     if (apiBaseUrl) {
@@ -1059,12 +1059,16 @@ export default function ThreadedDocument() {
   // Generate AI reply
   const generateAIReply = useCallback(
     async (threadId: string, messageId: string, count: number = 1) => {
-      // If already generating, abort the current generation
-      if (isGenerating && abortController) {
-        abortController.abort();
-        setAbortController(null);
-        setIsGenerating(false);
-        // TODO: close streaming connection
+      // Manage abort controllers on a per-message basis
+      const messageAbortController = new AbortController();
+      const cleanup = () => {
+        messageAbortController.abort();
+        setIsGenerating((prev) => ({ ...prev, [messageId]: false }));
+      };
+
+      // If already generating for this message, abort the current generation
+      if (isGenerating[messageId] && messageAbortController) {
+        cleanup();
         return;
       }
 
@@ -1074,68 +1078,65 @@ export default function ThreadedDocument() {
       const message = findMessageById(thread.messages, messageId);
       if (!message) return;
 
-      setIsGenerating(true);
       try {
         const model =
           models.find((m: { id: any }) => m.id === selectedModel) || models[0];
-
-        const enabledTools = tools
+        const enabledTools = model.parameters?.tool_choice !== "none" && model.parameters?.tool_choice !== undefined ? tools
           .filter((tool) => tool.enabled)
           .map((tool) => ({
             type: tool.type,
             function: tool.function,
-          }));
-
+          })) : [];
+        console.log(enabledTools);
         for (let i = 0; i < count; i++) {
           const newMessageId = Date.now().toString();
           addMessage(threadId, messageId, "", "ai", newMessageId);
           setSelectedMessage(newMessageId);
 
-          const controller = new AbortController();
-          setAbortController(controller);
-
+          setIsGenerating((prev) => ({ ...prev, [newMessageId]: true }));
           let fullResponse = "";
-          await generateAIResponse(
-            message.content,
-            message.publisher,
-            model,
-            threads,
-            threadId,
-            messageId,
-            enabledTools,
-            (chunk) => {
-              const lines = chunk.split("\n");
-              for (const line of lines) {
-                if (line.startsWith("data:")) {
-                  const dataStr = line.replace("data:", "").trim();
-                  if (dataStr === "[DONE]") {
-                    return;
-                  }
-                  try {
-                    const data = JSON.parse(dataStr);
-                    const delta = data.choices[0].delta || {};
-                    if (delta.content) {
-                      fullResponse += delta.content;
-                      updateMessageContent(threadId, newMessageId, fullResponse);
+          try {
+            await generateAIResponse(
+              message.content,
+              message.publisher,
+              model,
+              threads,
+              threadId,
+              messageId,
+              enabledTools,
+              (chunk) => {
+                const lines = chunk.split("\n");
+                for (const line of lines) {
+                  if (line.startsWith("data:")) {
+                    const dataStr = line.replace("data:", "").trim();
+                    if (dataStr === "[DONE]") {
+                      return;
                     }
-                  } catch (error) {
-                    console.error("Error parsing chunk:", error);
+                    try {
+                      const data = JSON.parse(dataStr);
+                      const delta = data.choices[0].delta || {};
+                      if (delta.content) {
+                        fullResponse += delta.content;
+                        updateMessageContent(threadId, newMessageId, fullResponse);
+                      }
+                    } catch (error) {
+                      console.error("Error parsing chunk:", error);
+                    }
                   }
                 }
-              }
-            },
-            controller
-          );
+              },
+              messageAbortController
+            );
+          } finally {
+            setIsGenerating((prev) => ({ ...prev, [newMessageId]: false }));
+          }
         }
       } catch (error) {
-        if (error instanceof Error && error.name === 'AbortError') {
+        if (error instanceof DOMException && error.name === 'AbortError') {
           console.log('Generation aborted');
         } else {
           console.error("Failed to generate AI response:", error);
         }
-      } finally {
-        setIsGenerating(false);
-        setAbortController(null);
       }
     },
     [
@@ -1148,7 +1149,6 @@ export default function ThreadedDocument() {
       setSelectedMessage,
       updateMessageContent,
       isGenerating,
-      abortController
     ]
   );
 
@@ -1815,7 +1815,14 @@ export default function ThreadedDocument() {
       >
         {/* Desktop layout with resizable panels */}
         <ResizablePanelGroup direction="horizontal" className="flex-grow">
-          <ResizablePanel defaultSize={28} minSize={28} maxSize={56}>
+          <ResizablePanel
+            defaultSize={28}
+            collapsible
+            collapsedSize={0}
+            minSize={15}
+            maxSize={56}
+            style={{ transition: 'all 0.15s ease-out' }}
+          >
             <Tabs
               value={activeTab}
               onValueChange={(value) =>
@@ -1901,9 +1908,8 @@ export default function ThreadedDocument() {
                 <SettingsPanel />
               </TabsContent>
             </Tabs>
-
           </ResizablePanel>
-          <ResizableHandle withHandle className="mx-2 w-0 px-px bg-gradient-to-b from-background via-transparent to-background" />
+          <ResizableHandle withHandle hitAreaMargins={{ coarse: 16, fine: 8 }} className="mx-2 w-0 px-px bg-gradient-to-b from-background via-transparent to-background" />
           <ResizablePanel defaultSize={72}>
             <div className="h-full overflow-y-auto">
               <RenderMessages

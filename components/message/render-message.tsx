@@ -74,7 +74,7 @@ interface RenderMessageProps {
     sourceThreadId: string | null;
     originalMessageId: string | null;
   } | null;
-  isGenerating: boolean;
+  isGenerating: { [key: string]: boolean };
   setSelectedMessage: (id: string | null) => void;
   toggleCollapse: (threadId: string, messageId: string) => void;
   setGlowingMessageId: (id: string | null) => void;
@@ -300,7 +300,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
           >
             <div className="flex-grow p-0 overflow-hidden">
               <div className="flex flex-col">
-                <div className="flex items-center justify-between">
+                <div className={`flex items-center justify-between rounded-md ${isGenerating[message.id] ? "opacity-50 glow-effect" : ""}`}>
                   <div className="flex items-center space-x-1">
                     <Button
                       variant="outline"
@@ -597,7 +597,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                           Reply
                         </span>
                       </Button>
-                      {isGenerating ? (
+                      {isGenerating[message.id] ? (
                         <Button
                           size="sm"
                           variant="ghost"
@@ -615,7 +615,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                           <span className="hidden group-hover:inline">
                             <OctagonX className="h-4 w-4" />
                           </span>
-                          <span className="hidden md:inline ml-2 w-16">
+                          <span className="hidden md:inline ml-2 w-[59px]">
                             <span className="group-hover:hidden">
                               Working
                             </span>
@@ -874,7 +874,10 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
             <ContextMenuShortcut className="hidden md:inline">⌘ X</ContextMenuShortcut>
           </ContextMenuItem>
           <ContextMenuItem
-            onClick={() => pasteMessage(threadId, message.id)}
+            onClick={() => {
+              pasteMessage(threadId, message.id)
+              setClipboardMessage(null)
+            }}
           >
             {clipboardMessage ? (
               <ClipboardPaste className="mr-2 h-4 w-4" />
@@ -882,7 +885,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
               <ClipboardType className="mr-2 h-4 w-4" />
             )}
             <span>{clipboardMessage ? "Paste Message" : "Paste Clipboard"}</span>
-            <ContextMenuShortcut className="hidden md:inline">⌘ V</ContextMenuShortcut>
+            <ContextMenuShortcut className="hidden md:inline ml-2">⌘ V</ContextMenuShortcut>
           </ContextMenuItem>
           {clipboardMessage && (
             <ContextMenuItem
@@ -892,8 +895,8 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
               }}
             >
               <ClipboardX className="mr-2 h-4 w-4" />
-              <span>Clear Clipboard</span>
-              <ContextMenuShortcut className="hidden md:inline ml-2">Esc</ContextMenuShortcut>
+              <span>Clear {clipboardMessage?.operation === "cut" ? "Cut" : "Copied"}</span>
+              <ContextMenuShortcut className="hidden md:inline">Esc</ContextMenuShortcut>
             </ContextMenuItem>
           )}
           <ContextMenuSeparator />

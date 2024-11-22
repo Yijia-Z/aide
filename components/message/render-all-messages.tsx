@@ -22,7 +22,7 @@ interface RenderMessagesProps {
   glowingMessageId: string | null;
   copiedStates: { [key: string]: boolean };
   clipboardMessage: { message: Message; operation: "copy" | "cut"; sourceThreadId: string | null; originalMessageId: string | null; } | null;
-  isGenerating: boolean;
+  isGenerating: { [key: string]: boolean };
   setSelectedMessage: (id: string | null) => void;
   toggleCollapse: (threadId: string, messageId: string) => void;
   setGlowingMessageId: (id: string | null) => void;
@@ -117,7 +117,10 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
                   <MenubarShortcut className="hidden md:inline">N</MenubarShortcut>
                 </MenubarItem>
                 <MenubarItem
-                  onClick={() => pasteMessage(currentThread, null)}
+                  onClick={() => {
+                    pasteMessage(currentThread, null)
+                    setGlowingMessageId(null);
+                  }}
                 >
                   {clipboardMessage ? (
                     <ClipboardPaste className="mr-2 h-4 w-4" />
@@ -129,10 +132,13 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
                 </MenubarItem>
                 {clipboardMessage && (
                   <MenubarItem
-                    onClick={() => setClipboardMessage(null)}
+                    onClick={() => {
+                      setClipboardMessage(null);
+                      setGlowingMessageId(null);
+                    }}
                   >
                     <ClipboardX className="mr-2 h-4 w-4" />
-                    <span>Clear Clipboard</span>
+                    <span>Clear {clipboardMessage?.operation === "cut" ? "Cut" : "Copied"}</span>
                   </MenubarItem>
                 )}
               </MenubarContent>

@@ -94,8 +94,16 @@ const ModelConfig: React.FC<ModelConfigProps> = ({
                 }}
                 className="p-2 border rounded-md mb-2 custom-shadow"
               >
-                <div onDoubleClick={() => setEditingModel(model)}>
-                  <div className="flex justify-between items-center mb-2">
+                <div>
+                  <div
+                    className="flex cursor-pointer justify-between items-center pb-2"
+                    onDoubleClick={() => {
+                      if (editingModel?.id === model.id) {
+                        setEditingModel(null);
+                      }
+                      else setEditingModel(model)
+                    }}
+                  >
                     <h3 className="font-bold">{model.name}</h3>
                   </div>
                   {editingModel?.id === model.id ? (
@@ -158,25 +166,33 @@ const ModelConfig: React.FC<ModelConfigProps> = ({
                       </div>
                     </div>
                   ) : (
-                    <div className="text-sm cursor-pointer">
-                        <p>
-                          <span className="text-muted-foreground">
-                            Base Model:
-                          </span>{" "}
-                          {model.baseModel.split("/").pop()}
-                        </p>
-                        <p>
-                          <span className="text-muted-foreground">
-                            Temperature:
-                          </span>{" "}
-                          {model.parameters.temperature}
-                        </p>
-                        <p>
-                          <span className="text-muted-foreground">
-                            Max Tokens:
-                          </span>{" "}
-                          {model.parameters.max_tokens}
-                        </p>
+                    <div
+                      onDoubleClick={() => {
+                        if (editingModel?.id === model.id) {
+                          setEditingModel(null);
+                        }
+                        else setEditingModel(model)
+                      }}
+                      className="text-sm cursor-pointer"
+                    >
+                      <p>
+                        <span className="text-muted-foreground">
+                          Base Model:
+                        </span>{" "}
+                        {model.baseModel.split("/").pop()}
+                      </p>
+                      <p>
+                        <span className="text-muted-foreground">
+                          Temperature:
+                        </span>{" "}
+                        {model.parameters.temperature}
+                      </p>
+                      <p>
+                        <span className="text-muted-foreground">
+                          Max Tokens:
+                        </span>{" "}
+                        {model.parameters.max_tokens}
+                      </p>
                     </div>
                   )}
                 </div>

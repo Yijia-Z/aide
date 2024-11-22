@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
   try {
-    console.log("API route started");
+    // console.log("API route started");
 
     const body = await req.json();
     const { messages, configuration } = body;
@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
       }
 
       const toolsData = await toolsResponse.json();
-      console.log("Loaded tools data:", JSON.stringify(toolsData, null, 2));
+      // console.log("Loaded tools data:", JSON.stringify(toolsData, null, 2));
 
       // Extract the tool list and normalize the enabled field
       const allTools = toolsData.tools.map((tool: any) => {
@@ -80,16 +80,16 @@ export async function POST(req: NextRequest) {
             stop: configuration.stop,
             tools: activeTools,
             tool_choice: configuration.tool_choice,
-/*             ...(activeTools && activeTools.length > 0 && {
-              tool_choice: "auto",
-            }), */
+            /*             ...(activeTools && activeTools.length > 0 && {
+                          tool_choice: "auto",
+                        }), */
             stream: true,
           };
 
           const filteredParams = Object.fromEntries(
             Object.entries(params).filter(([_, value]) => value !== undefined)
           );
-          console.log("Request parameters:", JSON.stringify(filteredParams, null, 2));
+          // console.log("Request parameters:", JSON.stringify(filteredParams, null, 2));
 
           const response = await fetch(
             `${process.env.NEXT_PUBLIC_OPENROUTER_API_URL}/chat/completions`,
@@ -155,16 +155,16 @@ export async function POST(req: NextRequest) {
 
                 try {
                   const parsed = JSON.parse(dataStr);
-                  console.log("Parsed JSON data:", JSON.stringify(parsed, null, 2));
+                  // console.log("Parsed JSON data:", JSON.stringify(parsed, null, 2));
 
                   const delta = parsed.choices[0]?.delta;
                   const finish_reason = parsed.choices[0]?.finish_reason;
 
                   // Accumulate the content of the assistant
                   if (delta?.content) {
-                    console.log("Delta content detected:", delta.content);
+                    // console.log("Delta content detected:", delta.content);
                     assistantMessages += delta.content;
-                    console.log("Accumulated assistantMessages:", assistantMessages);
+                    // console.log("Accumulated assistantMessages:", assistantMessages);
                     controller.enqueue(
                       new TextEncoder().encode(
                         `data: ${JSON.stringify(parsed)}\n\n`
@@ -235,7 +235,7 @@ export async function POST(req: NextRequest) {
                       });
 
                     } else if (finish_reason === "end_turn" || finish_reason === "stop") {
-                      console.log("Finish reason is 'endturn', closing stream.");
+                      // console.log("Finish reason is 'end_turn' or 'stop', closing stream.");
                       parsed.choices[0].delta.content = assistantMessages;
 
 
