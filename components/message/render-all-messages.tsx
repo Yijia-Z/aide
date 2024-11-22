@@ -5,13 +5,13 @@ import { ClipboardPaste, ClipboardType, ClipboardX, MessageSquarePlus } from "lu
 import RenderMessage from './render-message';
 import { Thread, Message } from '@/components/types';
 import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
-  ContextMenuShortcut,
-  ContextMenuTrigger,
-} from "@/components/ui/context-menu";
+  Menubar,
+  MenubarContent,
+  MenubarItem,
+  MenubarMenu,
+  MenubarShortcut,
+  MenubarTrigger,
+} from "@/components/ui/menubar";
 
 interface RenderMessagesProps {
   threads: Thread[];
@@ -77,8 +77,6 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
   const currentThreadData = threads.find((t) => t.id === currentThread);
 
   return currentThread ? (
-    <ContextMenu>
-      <ContextMenuTrigger>
     <div
       className={`flex flex-col relative sm:h-full h-[calc(97vh)] hide-scrollbar bg-[radial-gradient(hsl(var(--muted))_1px,transparent_1px)] [background-size:16px_16px]`}
     >
@@ -95,83 +93,93 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
           </span>
         </h1>
         {currentThread && (
-          <Button
-            className="bg-background hover:bg-secondary custom-shadow transition-scale-zoom text-primary border border-border select-none"
-            size="default"
-            onClick={(e) => {
-              e.stopPropagation();
-              cancelEditingMessage();
-              addEmptyReply(currentThread, null);
-            }}
-          >
-            <MessageSquarePlus className="h-4 w-4" />
-            <span className="ml-2 hidden md:inline">New Message</span>
-          </Button>
+          <Menubar className="p-0 border-none bg-transparent">
+            <MenubarMenu>
+              <MenubarTrigger asChild>
+                <Button
+                  className="px-4 bg-transparent hover:bg-secondary custom-shadow transition-scale-zoom text-primary border border-border"
+                  size="default"
+                >
+                  <MessageSquarePlus className="h-4 w-4" />
+                  <span className="ml-2 hidden md:inline">New Message</span>
+                </Button>
+              </MenubarTrigger>
+              <MenubarContent className="custom-shadow">
+                <MenubarItem
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    cancelEditingMessage();
+                    addEmptyReply(currentThread, null);
+                  }}
+                >
+                  <MessageSquarePlus className="mr-2 h-4 w-4" />
+                  New Message
+                  <MenubarShortcut className="hidden md:inline">N</MenubarShortcut>
+                </MenubarItem>
+                <MenubarItem
+                  onClick={() => pasteMessage(currentThread, null)}
+                >
+                  {clipboardMessage ? (
+                    <ClipboardPaste className="mr-2 h-4 w-4" />
+                  ) : (
+                    <ClipboardType className="mr-2 h-4 w-4" />
+                  )}
+                  <span>{clipboardMessage ? "Paste Message" : "Paste Clipboard"}</span>
+                  <MenubarShortcut className="hidden md:inline">⌘ V</MenubarShortcut>
+                </MenubarItem>
+                {clipboardMessage && (
+                  <MenubarItem
+                    onClick={() => setClipboardMessage(null)}
+                  >
+                    <ClipboardX className="mr-2 h-4 w-4" />
+                    <span>Clear Clipboard</span>
+                  </MenubarItem>
+                )}
+              </MenubarContent>
+            </MenubarMenu>
+          </Menubar>
         )}
       </div>
-          <ScrollArea className="flex-grow" onClick={() => setSelectedMessage(null)}>
-            <div onClick={(e) => e.stopPropagation()}>
-              {currentThreadData?.messages.map((message: Message) => (
-                <RenderMessage
-                  key={message.id}
-                  message={message}
-                  threadId={currentThread}
-                  threads={threads}
-                  currentThread={currentThread}
-                  selectedMessage={selectedMessage}
-                  editingMessage={editingMessage}
-                  editingContent={editingContent}
-                  glowingMessageId={glowingMessageId}
-                  copiedStates={copiedStates}
-                  clipboardMessage={clipboardMessage}
-                  isGenerating={isGenerating}
-                  setSelectedMessage={setSelectedMessage}
-                  toggleCollapse={toggleCollapse}
-                  setGlowingMessageId={setGlowingMessageId}
-                  setEditingContent={setEditingContent}
-                  confirmEditingMessage={confirmEditingMessage}
-                  cancelEditingMessage={cancelEditingMessage}
-                  startEditingMessage={startEditingMessage}
-                  addEmptyReply={addEmptyReply}
-                  generateAIReply={generateAIReply}
-                  copyOrCutMessage={copyOrCutMessage}
-                  pasteMessage={pasteMessage}
-                  deleteMessage={deleteMessage}
-                  findMessageById={findMessageById}
-                  findMessageAndParents={findMessageAndParents}
-                  getSiblings={getSiblings}
-                  getModelDetails={getModelDetails}
-                  setCopiedStates={setCopiedStates}
-                  setThreads={setThreads}
-                  setClipboardMessage={setClipboardMessage}
-                />
-              ))}
-            </div>
-          </ScrollArea>
+      <ScrollArea className="flex-grow" onClick={() => setSelectedMessage(null)}>
+        <div onClick={(e) => e.stopPropagation()}>
+          {currentThreadData?.messages.map((message: Message) => (
+            <RenderMessage
+              key={message.id}
+              message={message}
+              threadId={currentThread}
+              threads={threads}
+              currentThread={currentThread}
+              selectedMessage={selectedMessage}
+              editingMessage={editingMessage}
+              editingContent={editingContent}
+              glowingMessageId={glowingMessageId}
+              copiedStates={copiedStates}
+              clipboardMessage={clipboardMessage}
+              isGenerating={isGenerating}
+              setSelectedMessage={setSelectedMessage}
+              toggleCollapse={toggleCollapse}
+              setGlowingMessageId={setGlowingMessageId}
+              setEditingContent={setEditingContent}
+              confirmEditingMessage={confirmEditingMessage}
+              cancelEditingMessage={cancelEditingMessage}
+              startEditingMessage={startEditingMessage}
+              addEmptyReply={addEmptyReply}
+              generateAIReply={generateAIReply}
+              copyOrCutMessage={copyOrCutMessage}
+              pasteMessage={pasteMessage}
+              deleteMessage={deleteMessage}
+              findMessageById={findMessageById}
+              findMessageAndParents={findMessageAndParents}
+              getSiblings={getSiblings}
+              getModelDetails={getModelDetails}
+              setCopiedStates={setCopiedStates}
+              setThreads={setThreads}
+              setClipboardMessage={setClipboardMessage}
+            />
+          ))}
         </div>
-      </ContextMenuTrigger>
-      <ContextMenuContent>
-        <ContextMenuItem
-          onClick={() => pasteMessage(currentThread, null)}
-        >
-          {clipboardMessage ? (
-            <ClipboardPaste className="mr-2 h-4 w-4" />
-          ) : (
-            <ClipboardType className="mr-2 h-4 w-4" />
-          )}
-          <span>{clipboardMessage ? "Paste Message" : "Paste Clipboard"}</span>
-          <ContextMenuShortcut className="hidden md:inline ml-2">⌘ V</ContextMenuShortcut>
-        </ContextMenuItem>
-        {clipboardMessage && (
-          <ContextMenuItem
-            onClick={() => setClipboardMessage(null)}
-          >
-            <ClipboardX className="mr-2 h-4 w-4" />
-            <span>Clear Clipboard</span>
-          </ContextMenuItem>
-        )}
-      </ContextMenuContent>
-    </ContextMenu>
+      </ScrollArea>
+    </div>
   ) : (
     <div className="flex items-center justify-center h-full select-none">
       <div className="hidden sm:block">
@@ -186,8 +194,8 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
           <span> Escape               ┃ Cancel edit/copy</span><br />
           <span> Ctrl+C/X/V           ┃ Copy/Cut/Paste</span><br />
           <span> Delete/Backspace     ┃ Delete message</span><br />
-            <span> Shift+Delete         ┃ Delete with replies</span><br />
-            <span> Alt+Delete           ┃ Delete only replies</span>
+          <span> Shift+Delete         ┃ Delete with replies</span><br />
+          <span> Alt+Delete           ┃ Delete only replies</span>
         </p>
         <div className="mt-4 text-center text-sm text-muted-foreground font-serif">
           <span>Select a thread to view messages.</span>
