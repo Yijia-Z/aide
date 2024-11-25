@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { SelectBaseModel } from "@/components/model/model-selector";
-import { Model, ModelParameters } from "@/components/types";
+import { Model, ModelParameters, Tool } from "@/components/types";
 
 interface ModelConfigProps {
   models: Model[];
@@ -25,12 +25,13 @@ interface ModelConfigProps {
   addNewModel: () => void;
   handleModelChange: (
     field: keyof Model,
-    value: string | number | Partial<ModelParameters>
+    value: string | number | Partial<ModelParameters> | Tool[]
   ) => void;
   saveModelChanges: () => void;
   deleteModel: (modelId: string) => void;
   fetchAvailableModels: () => Promise<any>;
   fetchModelParameters: (modelId: string) => Promise<any>;
+  availableTools: Tool[];
 }
 
 const ModelConfig: React.FC<ModelConfigProps> = ({
@@ -45,7 +46,9 @@ const ModelConfig: React.FC<ModelConfigProps> = ({
   deleteModel,
   fetchAvailableModels,
   fetchModelParameters,
+  availableTools,
 }) => {
+
   return (
     <div className="flex flex-col relative  h-[calc(97vh)] overflow-clip select-none">
       <div
@@ -107,8 +110,10 @@ const ModelConfig: React.FC<ModelConfigProps> = ({
                     <h3 className="font-bold">{model.name}</h3>
                   </div>
                   {editingModel?.id === model.id ? (
-                    <div className="space-y-2 text-muted-foreground">
-                      <Label>Name</Label>
+                    <div className="text-muted-foreground">
+                      <div className="pb-1">
+                        <Label>Name</Label>
+                      </div>
                       <Input
                         className="min-font-size text-foreground"
                         value={editingModel?.name}
@@ -116,7 +121,9 @@ const ModelConfig: React.FC<ModelConfigProps> = ({
                           handleModelChange("name", e.target.value)
                         }
                       />
-                      <Label>Base Model</Label>
+                      <div className="py-1">
+                        <Label>Base Model</Label>
+                      </div>
                       <SelectBaseModel
                         value={editingModel.baseModel}
                         onValueChange={(value, parameters) => {
@@ -126,11 +133,14 @@ const ModelConfig: React.FC<ModelConfigProps> = ({
                             parameters as Partial<ModelParameters>
                           );
                         }}
+                        availableTools={availableTools}
                         fetchAvailableModels={fetchAvailableModels}
                         fetchModelParameters={fetchModelParameters}
                         existingParameters={editingModel.parameters}
                       />
-                      <Label>System Prompt</Label>
+                      <div className="py-1">
+                        <Label>System Prompt</Label>
+                      </div>
                       <Textarea
                         className="min-font-size text-foreground"
                         value={editingModel?.systemPrompt}

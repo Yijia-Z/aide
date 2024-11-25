@@ -34,6 +34,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { Tool } from "../types";
 
 interface ModelParameters {
   model: string;
@@ -50,6 +51,7 @@ interface Model {
 
 interface SelectBaseModelProps {
   value: string;
+  availableTools: Tool[];
   onValueChange: (value: string, parameters: Partial<ModelParameters>) => void;
   fetchAvailableModels: () => Promise<Model[]>;
   existingParameters?: Partial<ModelParameters>;
@@ -62,6 +64,7 @@ export function SelectBaseModel({
   fetchAvailableModels,
   existingParameters,
   fetchModelParameters,
+  availableTools
 }: SelectBaseModelProps) {
   const [open, setOpen] = React.useState(false);
   const [parameters, setParameters] = React.useState<ModelParameters | null>(
@@ -127,6 +130,19 @@ export function SelectBaseModel({
   const handleParameterChange = (param: string, newValue: any) => {
     if (parameters) {
       const updatedParameters = { ...parameters, [param]: newValue };
+
+      // Special handling for tools and tool_choice
+      if (param === 'tools') {
+        updatedParameters.tools = newValue.map((tool: Tool) => ({
+          type: "function",
+          function: {
+            name: tool.function.name,
+            description: tool.description,
+            parameters: tool.function.parameters
+          }
+        }));
+      }
+
       setParameters(updatedParameters);
       onValueChange(value, updatedParameters);
     }
@@ -401,22 +417,16 @@ export function SelectBaseModel({
         );
       case "tools":
       case "tool_choice":
-        if (param === "tools" && parameters?.supported_parameters?.includes("tools")) {
+        if (param === "tool_choice" && parameters?.supported_parameters?.includes("tools")) {
           return (
             <div key={param} className="flex flex-col space-y-2">
-              <Label>{renderTooltip(param, tooltip)}</Label>
+              <Label>{renderTooltip("tool_choice", tooltip)}</Label>
               <ToolSelector
-                tools={parameters.available_tools || []}
-                selectedTools={Array.isArray(value) ? value.map((t: any) => t.function.name) : []}
-                toolChoice={parameters.tool_choice || "auto"}
+                availableTools={availableTools}
+                selectedTools={parameters.tools || []}
+                toolChoice={parameters.tool_choice || "none"}
                 onToolsChange={(selectedTools) => {
-                  const toolObjects = selectedTools.map(toolName => {
-                    const tool = parameters.available_tools.find(
-                      (t: any) => t.function.name === toolName
-                    );
-                    return tool;
-                  });
-                  handleParameterChange("tools", toolObjects);
+                  handleParameterChange("tools", selectedTools);
                 }}
                 onToolChoiceChange={(choice) => {
                   handleParameterChange("tool_choice", choice);
@@ -432,7 +442,7 @@ export function SelectBaseModel({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2">
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
@@ -442,12 +452,12 @@ export function SelectBaseModel({
             className="w-full h-fit justify-between"
           >
             <span className="whitespace-break-spaces flex-1 text-left text-foreground">
-            {value ? (
+              {value ? (
                 availableModels.find((model) => model.id === value)?.name ||
                 value
-            ) : (
-              "Select model..."
-            )}
+              ) : (
+                "Select model..."
+              )}
             </span>
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
@@ -499,26 +509,30 @@ export function SelectBaseModel({
 
       {parameters && (
         <div className="space-y-4">
-          {renderParameter("max_tokens")}
-          {renderParameter("top_p")}
-          {renderParameter("temperature")}
-          <Accordion type="single" collapsible className="w-auto">
-            <AccordionItem value="additional-parameters">
-              <AccordionTrigger className="text-sm text-foreground rounded-lg h-8">
-                Additional Parameters
-              </AccordionTrigger>
-              <AccordionContent>
-                <div className="space-y-4">
-                  {parameters.supported_parameters
-                    ?.filter(
-                      (param) =>
-                        !["max_tokens", "top_p", "temperature"].includes(param)
-                    )
-                    .map(renderParameter)}
-                </div>
-              </AccordionContent>
-            </AccordionItem>
-          </Accordion>
+          {parameters.supported_parameters.includes("max_tokens") && renderParameter("max_tokens")}
+          {parameters.supported_parameters.includes("top_p") && renderParameter("top_p")}
+          {parameters.supported_parameters.includes("temperature") && renderParameter("temperature")}
+          {parameters.supported_parameters.includes("tools") && renderParameter("tools")}
+          {parameters.supported_parameters.includes("tool_choice") && renderParameter("tool_choice")}
+          {parameters.supported_parameters?.length > 0 && (
+            <Accordion type="single" collapsible className="w-auto">
+              <AccordionItem value="additional-parameters">
+                <AccordionTrigger className="text-sm text-foreground rounded-lg h-8">
+                  Additional Parameters
+                </AccordionTrigger>
+                <AccordionContent>
+                  <div className="space-y-4">
+                    {parameters.supported_parameters
+                      ?.filter(
+                        (param) =>
+                          !["max_tokens", "top_p", "temperature", "tools", "tool_choice"].includes(param)
+                      )
+                      .map(renderParameter)}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+          )}
         </div>
       )}
     </div>

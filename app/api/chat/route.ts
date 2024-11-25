@@ -7,45 +7,9 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { messages, configuration } = body;
 
-    const apiBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
-
     if (!process.env.OPENROUTER_API_KEY) {
       console.error("OPENROUTER_API_KEY is not set");
       throw new Error("OPENROUTER_API_KEY is not set");
-    }
-
-    let activeTools: any[] = [];
-
-    if (apiBaseUrl) {
-      // Get the list of tools
-      const toolsResponse = await fetch(
-        `${apiBaseUrl}/api/load_tools`
-      );
-
-      if (!toolsResponse.ok) {
-        const errorText = await toolsResponse.text();
-        console.error(
-          `Failed to load tools: ${toolsResponse.status} ${toolsResponse.statusText}`,
-          errorText
-        );
-        throw new Error(
-          `Failed to load tools: ${toolsResponse.status} ${toolsResponse.statusText}`
-        );
-      }
-
-      const toolsData = await toolsResponse.json();
-      // console.log("Loaded tools data:", JSON.stringify(toolsData, null, 2));
-
-      // Extract the tool list and normalize the enabled field
-      const allTools = toolsData.tools.map((tool: any) => {
-        return {
-          ...tool,
-          enabled: tool.enabled === true || tool.enabled === "true",
-        };
-      });
-
-      // Filter enabled tools
-      activeTools = allTools.filter((tool: any) => tool.enabled == true || tool.enabled == "true");
     }
 
     // Initialize the message list
@@ -78,18 +42,15 @@ export async function POST(req: NextRequest) {
             top_logprobs: configuration.top_logprobs,
             response_format: configuration.response_format,
             stop: configuration.stop,
-            tools: activeTools,
+            tools: configuration.tools,
             tool_choice: configuration.tool_choice,
-            /*             ...(activeTools && activeTools.length > 0 && {
-                          tool_choice: "auto",
-                        }), */
             stream: true,
           };
 
           const filteredParams = Object.fromEntries(
             Object.entries(params).filter(([_, value]) => value !== undefined)
           );
-          // console.log("Request parameters:", JSON.stringify(filteredParams, null, 2));
+          console.log("Request parameters:", JSON.stringify(filteredParams, null, 2));
 
           const response = await fetch(
             `${process.env.NEXT_PUBLIC_OPENROUTER_API_URL}/chat/completions`,
@@ -287,108 +248,6 @@ export async function POST(req: NextRequest) {
               }
             }
           }
-
-          /*    // After the stream ends, handle tool calls (if any)
-             if (toolCalls.length > 0) {
-               console.log(
-                 "Processing tool calls:",
-                 JSON.stringify(toolCalls, null, 2)
-               );
-   
-               // Add the assistant's reply to the message list
-               if (assistantMessages) {
-                 currentMessages.push({
-                   role: 'assistant',
-                   content: assistantMessages,
-                 });
-                 assistantMessages = ''; // Reset assistant message
-               }
-   
-               // Handle each tool call
-               for (const toolCall of toolCalls) {
-                 console.log(
-                   `Processing tool call: ${JSON.stringify(toolCall, null, 2)}`
-                 );
-   
-                 // Parse the accumulated parameters
-                 let toolArgs: any;
-                 try {
-                   toolArgs = JSON.parse(toolCall.function.arguments);
-                 } catch (error) {
-                   console.error(
-                     "Error parsing tool call arguments:",
-                     error
-                   );
-                   continue; // If the parameters are invalid, skip this tool call
-                 }
-                 console.log(`Sending to /api/process_tool_use:`, {
-                   tool_name: toolCall.function.name,
-                   tool_args: toolArgs,
-                   tool_call_id: toolCall.id,
-                 });
-                 // Call the backend to handle tool calls
-                 const toolUseResponse = await fetch(
-                   `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/process_tool_use`,
-                   {
-                     method: 'POST',
-                     headers: {
-                       'Content-Type': 'application/json',
-                     },
-                     body: JSON.stringify({
-                       tool_name: toolCall.function.name,
-                       tool_args: toolArgs,
-                       tool_call_id: toolCall.id,
-                     }),
-                   }
-                 );
-   
-                 if (!toolUseResponse.ok) {
-                   const errorText = await toolUseResponse.text();
-                   console.error(
-                     `Failed to process tool use: ${toolUseResponse.status} ${toolUseResponse.statusText}`,
-                     errorText
-                   );
-                   continue; // Skip the next tool call
-                 }
-   
-                 const toolResult = await toolUseResponse.json();
-                 console.log(
-                   "Tool result:",
-                   JSON.stringify(toolResult, null, 2)
-                 );
-   
-                 // Update the message, add tool call and tool result
-                 // Add the assistant's tool call message
-                 currentMessages.push({
-                   role: 'assistant',
-                   content: null, // content must be null
-                   tool_calls: [
-                     {
-                       id: toolCall.id,
-                       type: 'function',
-                       function: {
-                         name: toolCall.function.name,
-                         arguments: toolCall.function.arguments,
-                       },
-                     },
-                   ],
-                 });
-   
-                 // Add the tool's response message
-                 currentMessages.push({
-                   role: 'tool',
-                   name: toolCall.function.name,
-                   tool_call_id: toolCall.id,
-                   content: toolResult.content,
-                 });
-               }
-   
-               // Reset the tool call list
-               toolCalls = [];
-             } else {
-               // No tool calls, end the loop
-               shouldContinue = false;
-             } */
         }
       },
     });

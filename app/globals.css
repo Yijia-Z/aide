@@ -124,7 +124,7 @@
   }
   ul,
   ol {
-    @apply mb-1 pl-5;
+    @apply mb-1 pl-7;
   }
   ul {
     @apply list-disc;

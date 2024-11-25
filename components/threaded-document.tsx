@@ -110,36 +110,9 @@ export default function ThreadedDocument() {
     setToolsLoading,
     toolsError,
     setToolsError,
-    modelSupportsTools,
-    setModelSupportsTools,
+    availableTools,
+    setAvailableTools,
   } = useTools();
-
-  const checkModelSupportsTools = useCallback(async (modelId: string) => {
-    try {
-      console.log(`Checking model tool support, modelId: ${modelId}`);
-      const response = await fetch(
-        apiBaseUrl ? `${apiBaseUrl}/api/check_model_tools_support/${encodeURIComponent(modelId)}` : `/api/check_model_tools_support/${encodeURIComponent(modelId)}`,
-      );
-      console.log(`Received response status from backend: ${response.status}`);
-      const data = await response.json();
-      console.log(`Data returned from backend:`, data);
-      setModelSupportsTools(data.supportsTools);
-    } catch (error) {
-      console.error("Error checking model capabilities:", error);
-      setModelSupportsTools(false);
-    }
-  }, [setModelSupportsTools]);
-
-  useEffect(() => {
-    if (selectedModel) {
-      checkModelSupportsTools(selectedModel);
-    } else {
-      // If no model is selected, reset tool state
-      setModelSupportsTools(null);
-      setTools([]);
-    }
-  }, [selectedModel, checkModelSupportsTools, setModelSupportsTools, setTools]);
-
 
   const loadTools = useCallback(async () => {
     if (apiBaseUrl) {
@@ -159,13 +132,8 @@ export default function ThreadedDocument() {
   }, [setToolsLoading, setTools, setToolsError]);
 
   useEffect(() => {
-    if (modelSupportsTools) {
-      loadTools();
-    } else {
-      // If model does not support tools, clear tool list
-      setTools([]);
-    }
-  }, [modelSupportsTools, setTools, loadTools]);
+    loadTools();
+  }, [loadTools]);
 
   // Helper methods
   const getModelDetails = (modelId: string | undefined) => {
@@ -376,7 +344,7 @@ export default function ThreadedDocument() {
 
   // Change the model
   const handleModelChange = useCallback(
-    (field: keyof Model, value: string | number | Partial<ModelParameters>) => {
+    (field: keyof Model, value: string | number | Partial<ModelParameters> | Tool[]) => {
       if (editingModel) {
         setEditingModel((prevModel) => {
           if (!prevModel) return prevModel;
@@ -774,13 +742,16 @@ export default function ThreadedDocument() {
 
   const saveModelChanges = useCallback(() => {
     if (editingModel) {
-      setModels((prev: Model[]) =>
-        prev.map((model: Model) => {
-          if (model.id === editingModel.id) {
-            return { ...editingModel };
-          }
-          return model;
-        })
+      const updatedModel = {
+        ...editingModel,
+        parameters: {
+          ...editingModel.parameters,
+          tools: editingModel.parameters?.tools || [],
+          tool_choice: editingModel.parameters?.tool_choice || "none"
+        }
+      };
+      setModels((prev) =>
+        prev.map((model) => model.id === editingModel.id ? updatedModel : model)
       );
       setEditingModel(null);
     }
@@ -827,27 +798,6 @@ export default function ThreadedDocument() {
     },
     [setThreads]
   );
-
-  const saveTools = async (updatedTools: Tool[]) => {
-    try {
-      const response = await fetch("/api/save_tools", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ tools: updatedTools }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to save tools");
-      }
-
-      setTools(updatedTools);
-    } catch (error) {
-      console.error("Error saving tools:", error);
-      setToolsError("Failed to save tools");
-    }
-  };
 
   const deleteThread = useCallback(
     (threadId: string) => {
@@ -1081,13 +1031,8 @@ export default function ThreadedDocument() {
       try {
         const model =
           models.find((m: { id: any }) => m.id === selectedModel) || models[0];
-        const enabledTools = model.parameters?.tool_choice !== "none" && model.parameters?.tool_choice !== undefined ? tools
-          .filter((tool) => tool.enabled)
-          .map((tool) => ({
-            type: tool.type,
-            function: tool.function,
-          })) : [];
-        console.log(enabledTools);
+        const enabledTools = (model.parameters?.tool_choice !== "none" && model.parameters?.tool_choice !== undefined ? model.parameters?.tools ?? [] : []) as Tool[];
+        window.alert(JSON.stringify(enabledTools));
         for (let i = 0; i < count; i++) {
           const newMessageId = Date.now().toString();
           addMessage(threadId, messageId, "", "ai", newMessageId);
@@ -1143,7 +1088,7 @@ export default function ThreadedDocument() {
       threads,
       models,
       selectedModel,
-      tools,
+      availableTools,
       addMessage,
       findMessageById,
       setSelectedMessage,
@@ -1302,10 +1247,11 @@ export default function ThreadedDocument() {
     */
   // Save threads
   useEffect(() => {
+    debouncedSaveThreads(threads);
     return () => {
       debouncedSaveThreads.cancel();
     };
-  }, [debouncedSaveThreads]);
+  }, [threads, debouncedSaveThreads]);
 
   // Add new thread
   useEffect(() => {
@@ -1736,6 +1682,7 @@ export default function ThreadedDocument() {
               editingModel={editingModel}
               setEditingModel={setEditingModel}
               handleModelChange={handleModelChange}
+              availableTools={availableTools}
             />
           </TabsContent>
           <TabsContent
@@ -1745,9 +1692,11 @@ export default function ThreadedDocument() {
           >
             <ToolManager
               tools={tools}
-              setTools={(tools: Tool[]) => void saveTools(tools)}
+              setTools={setTools}
               isLoading={toolsLoading}
               error={toolsError}
+              availableTools={availableTools}
+              setAvailableTools={setAvailableTools}
             />
           </TabsContent>
           <TabsContent
@@ -1821,7 +1770,7 @@ export default function ThreadedDocument() {
             collapsedSize={0}
             minSize={15}
             maxSize={56}
-            style={{ transition: 'all 0.15s ease-out' }}
+            style={{ transition: 'all 0.1s ease-out' }}
           >
             <Tabs
               value={activeTab}
@@ -1894,14 +1843,17 @@ export default function ThreadedDocument() {
                   editingModel={editingModel}
                   setEditingModel={setEditingModel}
                   handleModelChange={handleModelChange}
+                  availableTools={availableTools}
                 />
               </TabsContent>
               <TabsContent value="tools" className="flex-grow overflow-y-clip">
                 <ToolManager
                   tools={tools}
-                  setTools={(tools: Tool[]) => void saveTools(tools)}
+                  setTools={setTools}
                   isLoading={toolsLoading}
                   error={toolsError}
+                  availableTools={availableTools}
+                  setAvailableTools={setAvailableTools}
                 />
               </TabsContent>
               <TabsContent value="settings" className="flex-grow overflow-y-clip">

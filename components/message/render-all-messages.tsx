@@ -139,6 +139,7 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
                   >
                     <ClipboardX className="mr-2 h-4 w-4" />
                     <span>Clear {clipboardMessage?.operation === "cut" ? "Cut" : "Copied"}</span>
+                    <MenubarShortcut className="hidden md:inline">Esc</MenubarShortcut>
                   </MenubarItem>
                 )}
               </MenubarContent>
