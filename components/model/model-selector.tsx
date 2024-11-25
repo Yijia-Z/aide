@@ -1,8 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Check, ChevronsUpDown, Info } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { ChevronsUpDown, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ToolSelector } from "./tool-selector";
 import {

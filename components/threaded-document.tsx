@@ -1088,7 +1088,6 @@ export default function ThreadedDocument() {
       threads,
       models,
       selectedModel,
-      availableTools,
       addMessage,
       findMessageById,
       setSelectedMessage,

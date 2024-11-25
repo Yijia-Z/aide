@@ -49,7 +49,7 @@ export function ToolManager({ tools, setTools, availableTools, setAvailableTools
     const handleAddTool = useCallback((tool: Tool) => {
         setAvailableTools([...availableTools, tool]);
         setIsDialogOpen(false);
-    }, [availableTools, setAvailableTools, setIsDialogOpen, tools]);
+    }, [availableTools, setAvailableTools, setIsDialogOpen]);
 
     const handleRemoveTool = useCallback((tool: Tool) => {
         setAvailableTools(availableTools.filter(t => t.function.name !== tool.function.name));

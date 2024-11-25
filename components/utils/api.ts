@@ -1,8 +1,6 @@
 import { Thread, Model, Tool } from "../types";
 import { findAllParentMessages } from "./helpers";
 
-
-
 export async function generateAIResponse(
   prompt: string,
   role: string,

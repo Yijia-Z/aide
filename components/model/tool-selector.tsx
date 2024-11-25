@@ -14,9 +14,7 @@ import {
   CommandItem,
 } from "@/components/ui/command";
 import { Badge } from "@/components/ui/badge";
-import { X } from "lucide-react";
 import { Tool } from "../types";
-import { Button } from "@/components/ui/button";
 
 interface ToolSelectorProps {
   availableTools: Tool[];
