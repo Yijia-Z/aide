@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from "react";
 import { Message } from "../types";
 
 export function useMessages() {
-  const [selectedMessage, setSelectedMessage] = useState<string | null>(null);
+  const [selectedMessages, setSelectedMessages] = useState<{ [key: string]: string | null }>({});
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [editingMessage, setEditingMessage] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState("");
@@ -15,8 +15,8 @@ export function useMessages() {
   const [glowingMessageId, setGlowingMessageId] = useState<string | null>(null);
 
   return {
-    selectedMessage,
-    setSelectedMessage,
+    selectedMessages,
+    setSelectedMessages,
     replyingTo,
     setReplyingTo,
     editingMessage,

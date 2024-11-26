@@ -12,7 +12,7 @@ interface ThreadListProps {
   editingThreadTitle: string | null;
   addThread: () => void;
   setCurrentThread: (id: string | null) => void;
-  setSelectedMessage: (id: string | null) => void;
+  setSelectedMessages: React.Dispatch<React.SetStateAction<{ [key: string]: string | null }>>;
   cancelEditThreadTitle: () => void;
   setThreads: React.Dispatch<React.SetStateAction<Thread[]>>;
   confirmEditThreadTitle: (id: string, title: string) => void;
@@ -29,7 +29,7 @@ const ThreadList: React.FC<ThreadListProps> = ({
   editingThreadTitle,
   addThread,
   setCurrentThread,
-  setSelectedMessage,
+  setSelectedMessages,
   cancelEditThreadTitle,
   setThreads,
   confirmEditThreadTitle,
@@ -63,7 +63,7 @@ const ThreadList: React.FC<ThreadListProps> = ({
           size="default"
           onClick={() => {
             addThread();
-            setSelectedMessage(null);
+            setSelectedMessages((prev) => ({ ...prev, [String(currentThread)]: null }));
           }}
         >
           <ListPlus className="h-4 w-4" />
@@ -99,8 +99,7 @@ const ThreadList: React.FC<ThreadListProps> = ({
                   mb-2
                   md:hover:shadow-[inset_0_0_10px_10px_rgba(128,128,128,0.2)]
                   active:shadow-[inset_0px_0px_10px_rgba(0,0,0,0.7)]
-                  ${
-                  currentThread === thread.id
+                  ${currentThread === thread.id
                     ? "bg-background custom-shadow"
                     : "bg-transparent text-muted-foreground"
                   }
@@ -139,26 +138,26 @@ const ThreadList: React.FC<ThreadListProps> = ({
                         }}
                       />
                       <div className="flex items-center">
-                      <Button
+                        <Button
                           size="icon"
-                        variant="ghost"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          confirmEditThreadTitle(thread.id, thread.title);
-                        }}
-                      >
-                        <Check className="h-4 w-4" />
-                      </Button>
-                      <Button
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            confirmEditThreadTitle(thread.id, thread.title);
+                          }}
+                        >
+                          <Check className="h-4 w-4" />
+                        </Button>
+                        <Button
                           size="icon"
-                        variant="ghost"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          cancelEditThreadTitle();
-                        }}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
+                          variant="ghost"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            cancelEditThreadTitle();
+                          }}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
                   ) : (
@@ -170,65 +169,65 @@ const ThreadList: React.FC<ThreadListProps> = ({
                       }}
                     >
                       <span className="pl-1 flex-grow">{thread.title}</span>
-                        <div className="flex items-center">
-                          <div className="group/pin">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleThreadPin(thread.id);
-                              }}
-                            >
-                              {thread.isPinned ? (
-                                <>
-                                  <Pin className="h-4 w-4 hidden md:block md:group-hover/pin:hidden" />
-                                  <PinOff className="h-4 w-4 md:hidden md:group-hover/pin:block" />
-                                </>
-                              ) : (
-                                  <Pin className="h-4 w-4 md:opacity-0 md:group-hover:opacity-100 transition-opacity" />
-                              )}
-                            </Button>
-                          </div>
-                          <div className="md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                            {threadToDelete === thread.id ? (
+                      <div className="flex items-center">
+                        <div className="group/pin">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleThreadPin(thread.id);
+                            }}
+                          >
+                            {thread.isPinned ? (
                               <>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    deleteThread(thread.id);
-                                    setThreadToDelete(null);
-                                  }}
-                                >
-                                  <Check className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setThreadToDelete(null);
-                                  }}
-                                >
-                                  <X className="h-4 w-4" />
-                                </Button>
+                                <Pin className="h-4 w-4 hidden md:block md:group-hover/pin:hidden" />
+                                <PinOff className="h-4 w-4 md:hidden md:group-hover/pin:block" />
                               </>
                             ) : (
+                              <Pin className="h-4 w-4 md:opacity-0 md:group-hover:opacity-100 transition-opacity" />
+                            )}
+                          </Button>
+                        </div>
+                        <div className="md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                          {threadToDelete === thread.id ? (
+                            <>
                               <Button
                                 variant="ghost"
                                 size="icon"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  setThreadToDelete(thread.id);
-                                  }}
-                                >
-                                  <Trash className="h-4 w-4" />
-                                </Button>
-                            )}
-                          </div>
+                                  deleteThread(thread.id);
+                                  setThreadToDelete(null);
+                                }}
+                              >
+                                <Check className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setThreadToDelete(null);
+                                }}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </>
+                          ) : (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setThreadToDelete(thread.id);
+                              }}
+                            >
+                              <Trash className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
+                      </div>
                     </div>
                   )}
                 </div>

@@ -16,14 +16,14 @@ import {
 interface RenderMessagesProps {
   threads: Thread[];
   currentThread: string | null;
-  selectedMessage: string | null;
+  selectedMessages: { [key: string]: string | null };
   editingMessage: string | null;
   editingContent: string;
   glowingMessageId: string | null;
   copiedStates: { [key: string]: boolean };
   clipboardMessage: { message: Message; operation: "copy" | "cut"; sourceThreadId: string | null; originalMessageId: string | null; } | null;
   isGenerating: { [key: string]: boolean };
-  setSelectedMessage: (id: string | null) => void;
+  setSelectedMessages: React.Dispatch<React.SetStateAction<{ [key: string]: string | null }>>;
   toggleCollapse: (threadId: string, messageId: string) => void;
   setGlowingMessageId: (id: string | null) => void;
   setEditingContent: (content: string) => void;
@@ -47,14 +47,14 @@ interface RenderMessagesProps {
 const RenderMessages: React.FC<RenderMessagesProps> = ({
   threads,
   currentThread,
-  selectedMessage,
+  selectedMessages,
   editingMessage,
   editingContent,
   glowingMessageId,
   copiedStates,
   clipboardMessage,
   isGenerating,
-  setSelectedMessage,
+  setSelectedMessages,
   toggleCollapse,
   setGlowingMessageId,
   setEditingContent,
@@ -147,7 +147,7 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
           </Menubar>
         )}
       </div>
-      <ScrollArea className="flex-grow" onClick={() => setSelectedMessage(null)}>
+      <ScrollArea className="flex-grow" onClick={() => setSelectedMessages((prev) => ({ ...prev, [String(currentThread)]: null }))}>
         <div onClick={(e) => e.stopPropagation()}>
           {currentThreadData?.messages.map((message: Message) => (
             <RenderMessage
@@ -156,14 +156,14 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
               threadId={currentThread}
               threads={threads}
               currentThread={currentThread}
-              selectedMessage={selectedMessage}
+              selectedMessages={selectedMessages}
               editingMessage={editingMessage}
               editingContent={editingContent}
               glowingMessageId={glowingMessageId}
               copiedStates={copiedStates}
               clipboardMessage={clipboardMessage}
               isGenerating={isGenerating}
-              setSelectedMessage={setSelectedMessage}
+              setSelectedMessages={setSelectedMessages}
               toggleCollapse={toggleCollapse}
               setGlowingMessageId={setGlowingMessageId}
               setEditingContent={setEditingContent}

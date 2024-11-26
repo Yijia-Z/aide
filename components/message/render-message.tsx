@@ -63,7 +63,7 @@ interface RenderMessageProps {
   parentId?: string | null;
   threads: Thread[];
   currentThread: string | null;
-  selectedMessage: string | null;
+  selectedMessages: { [key: string]: string | null };
   editingMessage: string | null;
   editingContent: string;
   glowingMessageId: string | null;
@@ -75,7 +75,7 @@ interface RenderMessageProps {
     originalMessageId: string | null;
   } | null;
   isGenerating: { [key: string]: boolean };
-  setSelectedMessage: (id: string | null) => void;
+  setSelectedMessages: React.Dispatch<React.SetStateAction<{ [key: string]: string | null }>>;
   toggleCollapse: (threadId: string, messageId: string) => void;
   setGlowingMessageId: (id: string | null) => void;
   setEditingContent: (content: string) => void;
@@ -124,14 +124,14 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
   parentId = null,
   threads,
   currentThread,
-  selectedMessage,
+  selectedMessages,
   editingMessage,
   editingContent,
   glowingMessageId,
   copiedStates,
   clipboardMessage,
   isGenerating,
-  setSelectedMessage,
+  setSelectedMessages,
   toggleCollapse,
   setGlowingMessageId,
   setEditingContent,
@@ -152,6 +152,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
   setClipboardMessage,
 }) => {
   // Message selection and hierarchy
+  const selectedMessage = currentThread !== null ? selectedMessages[currentThread] : null;
   const isSelected = selectedMessage === message.id;
   const isParentOfSelected =
     selectedMessage !== null &&
@@ -289,13 +290,13 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
       <ContextMenu>
         <ContextMenuTrigger
           disabled={editingMessage === message.id}
-          onContextMenu={() => setSelectedMessage(message.id)}
+          onContextMenu={() => setSelectedMessages((prev) => ({ ...prev, [String(currentThread)]: message.id }))}
         >
           <div
             className={`flex items-start space-x-1 p-1 rounded-lg ${isSelectedOrParent ? "custom-shadow" : "text-muted-foreground"
               } ${glowingMessageId === message.id ? "glow-effect" : ""}`}
             onClick={() => {
-              setSelectedMessage(message.id);
+              setSelectedMessages((prev) => ({ ...prev, [String(currentThread)]: message.id }));
             }}
           >
             <div className="flex-grow p-0 overflow-hidden">
@@ -354,7 +355,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                         className="w-6 h-6 p-0"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setSelectedMessage(parentMessage.id);
+                          setSelectedMessages((prev) => ({ ...prev, [String(currentThread)]: parentMessage.id }));
                         }}
                         onMouseEnter={() =>
                           setGlowingMessageId(parentMessage.id)
@@ -372,7 +373,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                           className="w-6 h-6 p-0"
                           onClick={(e) => {
                             e.stopPropagation();
-                            setSelectedMessage(currentMessage.replies[0].id);
+                            setSelectedMessages((prev) => ({ ...prev, [String(currentThread)]: currentMessage.replies[0].id }));
                           }}
                           onMouseEnter={() =>
                             setGlowingMessageId(currentMessage.replies[0].id)
@@ -389,7 +390,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                         className="w-6 h-6 p-0"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setSelectedMessage(siblings[currentIndex - 1].id);
+                          setSelectedMessages((prev) => ({ ...prev, [String(currentThread)]: siblings[currentIndex - 1].id }));
                         }}
                         onMouseEnter={() =>
                           setGlowingMessageId(siblings[currentIndex - 1].id)
@@ -406,7 +407,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                         className="w-6 h-6 p-0"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setSelectedMessage(siblings[currentIndex + 1].id);
+                          setSelectedMessages((prev) => ({ ...prev, [String(currentThread)]: siblings[currentIndex + 1].id }));
                         }}
                         onMouseEnter={() =>
                           setGlowingMessageId(siblings[currentIndex + 1].id)
@@ -588,7 +589,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                             toggleCollapse(threadId, message.id);
                           }
                           cancelEditingMessage();
-                          setSelectedMessage(null);
+                          setSelectedMessages((prev) => ({ ...prev, [String(threadId)]: null }));
                           addEmptyReply(threadId, message.id);
                         }}
                       >
@@ -957,14 +958,14 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                   parentId={message.id}
                   threads={threads}
                   currentThread={currentThread}
-                  selectedMessage={selectedMessage}
+                  selectedMessages={selectedMessages}
                   editingMessage={editingMessage}
                   editingContent={editingContent}
                   glowingMessageId={glowingMessageId}
                   copiedStates={copiedStates}
                   clipboardMessage={clipboardMessage}
                   isGenerating={isGenerating}
-                  setSelectedMessage={setSelectedMessage}
+                  setSelectedMessages={setSelectedMessages}
                   toggleCollapse={toggleCollapse}
                   setGlowingMessageId={setGlowingMessageId}
                   setEditingContent={setEditingContent}
