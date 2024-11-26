@@ -40,7 +40,7 @@ const apiBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 export default function ThreadedDocument() {
   const { data: session, status } = useSession()
   const [activeTab, setActiveTab] = useState<"threads" | "messages" | "models" | "tools" | "settings">(
-    localStorage.getItem('activeTab') as "threads" | "messages" | "models" | "tools" | "settings" ?? "threads"
+    storage.get('activeTab') as "threads" | "messages" | "models" | "tools" | "settings" ?? "threads"
     //!session ? "settings" : "threads"
   )
   const user = session?.user
@@ -100,6 +100,7 @@ export default function ThreadedDocument() {
   const [isConnected, setIsConnected] = useState(false);
   const [isGenerating, setIsGenerating] = useState<{ [key: string]: boolean }>({});
   const [copiedStates, setCopiedStates] = useState<{ [key: string]: boolean }>({});
+  // const [scrollPosition, setScrollPosition] = useState<number>(0);
 
   // Tool-related states
   const {
@@ -131,7 +132,7 @@ export default function ThreadedDocument() {
   }, [setToolsLoading, setTools, setToolsError]);
 
   useEffect(() => {
-    const savedTab = localStorage.getItem('activeTab');
+    const savedTab = storage.get('activeTab');
     if (savedTab) {
       setActiveTab(savedTab as "threads" | "messages" | "models" | "tools" | "settings");
     }
@@ -139,7 +140,7 @@ export default function ThreadedDocument() {
   }, [loadTools]);
 
   useEffect(() => {
-    localStorage.setItem('activeTab', activeTab);
+    storage.set('activeTab', activeTab);
   }, [activeTab]);
 
   // Helper methods
@@ -181,9 +182,8 @@ export default function ThreadedDocument() {
 
   const fetchAvailableModels = useCallback(async () => {
     try {
-      // Check if models are already cached in localStorage
-      const cachedModels = localStorage.getItem("availableModels");
-      const lastFetchTime = localStorage.getItem("lastFetchTime");
+      const cachedModels = storage.get("availableModels");
+      const lastFetchTime = storage.get("lastFetchTime");
       const currentTime = Date.now();
 
       // If cached models exist and were fetched less than an hour ago, use them
@@ -246,8 +246,8 @@ export default function ThreadedDocument() {
       });
 
       // Cache the fetched models and update the fetch time
-      localStorage.setItem("availableModels", JSON.stringify(modelData));
-      localStorage.setItem("lastFetchTime", currentTime.toString());
+      storage.set("availableModels", modelData);
+      storage.set("lastFetchTime", currentTime.toString());
 
       setAvailableModels(modelData);
       return modelData;
@@ -346,7 +346,7 @@ export default function ThreadedDocument() {
         })
       );
     },
-    [models, selectedModel, setSelectedMessages, setThreads]
+    [models, selectedModel, setSelectedMessages, currentThread, setThreads]
   );
 
   // Change the model
@@ -428,17 +428,17 @@ export default function ThreadedDocument() {
       try {
         // Cache the thread data to local storage
         const cachedThreads = JSON.parse(
-          localStorage.getItem("threads") || "[]"
+          storage.get("threads") || "[]"
         );
         const updatedThreads = cachedThreads.map((thread: Thread) =>
           thread.id === threadId ? { ...thread, ...updatedData } : thread
         );
-        localStorage.setItem("threads", JSON.stringify(updatedThreads));
+        storage.set("threads", JSON.stringify(updatedThreads));
 
         // Only update the backend if apiBaseUrl is available
         if (apiBaseUrl) {
           const lastUpdateTime = parseInt(
-            localStorage.getItem("lastThreadUpdateTime") || "0"
+            storage.get("lastThreadUpdateTime") || "0"
           );
           const currentTime = Date.now();
           if (currentTime - lastUpdateTime > 60000) {
@@ -451,7 +451,7 @@ export default function ThreadedDocument() {
             if (!response.ok) {
               throw new Error(`editthread ${threadId} fail`);
             }
-            localStorage.setItem(
+            storage.set(
               "lastThreadUpdateTime",
               currentTime.toString()
             );
@@ -615,7 +615,7 @@ export default function ThreadedDocument() {
         })
       );
     },
-    [setSelectedMessages, findMessageAndParents, setThreads]
+    [setSelectedMessages, findMessageAndParents, currentThread, setThreads]
   );
 
   // Toggle message collapse state
@@ -960,7 +960,7 @@ export default function ThreadedDocument() {
         setClipboardMessage(null); // Set clipboardMessage to null after paste for cut/copy operation
       }
     },
-    [clipboardMessage, setClipboardMessage, setSelectedMessages, deleteMessage, updateMessageContent, setThreads]
+    [clipboardMessage, setClipboardMessage, setSelectedMessages, deleteMessage, updateMessageContent, currentThread, setThreads]
   );
 
   // Find message by ID
@@ -1093,6 +1093,7 @@ export default function ThreadedDocument() {
     },
     [
       threads,
+      currentThread,
       models,
       selectedModel,
       addMessage,
@@ -1259,31 +1260,31 @@ export default function ThreadedDocument() {
     };
   }, [threads, debouncedSaveThreads]);
 
-  useEffect(() => {
-    const savedThread = localStorage.getItem('currentThread');
-    if (savedThread) {
-      setCurrentThread(savedThread);
-    }
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem('currentThread', currentThread || '');
-  }, [currentThread]);
-
+  /*   useEffect(() => {
+      const savedScroll = storage.get('scrollPosition');
+      if (savedScroll) {
+        setScrollPosition(Number(savedScroll));
+      }
+    }, []);
+  
+    useEffect(() => {
+      storage.set('scrollPosition', scrollPosition.toString());
+    }, [scrollPosition]);
+   */
   // Load selected message for the current thread
   useEffect(() => {
     if (currentThread) {
-      const savedSelectedMessage = localStorage.getItem(`selectedMessage-${currentThread}`);
+      const savedSelectedMessage = storage.get(`selectedMessage-${currentThread}`);
       if (savedSelectedMessage) {
         setSelectedMessages((prev) => ({ ...prev, [currentThread]: savedSelectedMessage }));
       }
     }
-  }, [currentThread]);
+  }, [currentThread, setCurrentThread, setSelectedMessages]);
 
   // Save selected message for the current thread
   useEffect(() => {
     if (currentThread) {
-      localStorage.setItem(`selectedMessage-${currentThread}`, selectedMessages[currentThread] || '');
+      storage.set(`selectedMessage-${currentThread}`, selectedMessages[currentThread] || '');
     }
   }, [selectedMessages, currentThread]);
 
