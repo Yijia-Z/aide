@@ -508,11 +508,11 @@ export function SelectBaseModel({
 
       {parameters && (
         <div className="space-y-4">
-          {parameters.supported_parameters.includes("max_tokens") && renderParameter("max_tokens")}
-          {parameters.supported_parameters.includes("top_p") && renderParameter("top_p")}
-          {parameters.supported_parameters.includes("temperature") && renderParameter("temperature")}
-          {parameters.supported_parameters.includes("tools") && renderParameter("tools")}
-          {parameters.supported_parameters.includes("tool_choice") && renderParameter("tool_choice")}
+          {parameters.supported_parameters?.includes("max_tokens") && renderParameter("max_tokens")}
+          {parameters.supported_parameters?.includes("top_p") && renderParameter("top_p")}
+          {parameters.supported_parameters?.includes("temperature") && renderParameter("temperature")}
+          {parameters.supported_parameters?.includes("tools") && renderParameter("tools")}
+          {parameters.supported_parameters?.includes("tool_choice") && renderParameter("tool_choice")}
           {parameters.supported_parameters?.length > 0 && (
             <Accordion type="single" collapsible className="w-auto">
               <AccordionItem value="additional-parameters">
