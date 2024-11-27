@@ -1,7 +1,7 @@
 import React from 'react';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
-import { ClipboardPaste, ClipboardType, ClipboardX, MessageSquarePlus } from "lucide-react";
+import { CheckCheck, Clipboard, ClipboardPaste, ClipboardType, ClipboardX, Diff, Pencil, MessageSquareOff, MessageSquarePlus, MessageSquareReply, MoveHorizontal, MoveVertical, Trash, Trash2, WandSparkles, X } from "lucide-react";
 import RenderMessage from './render-message';
 import { Thread, Message } from '@/components/types';
 import {
@@ -42,6 +42,8 @@ interface RenderMessagesProps {
   setCopiedStates: React.Dispatch<React.SetStateAction<{ [key: string]: boolean }>>;
   setThreads: React.Dispatch<React.SetStateAction<Thread[]>>;
   setClipboardMessage: React.Dispatch<React.SetStateAction<{ message: Message; operation: "copy" | "cut"; sourceThreadId: string | null; originalMessageId: string | null; } | null>>;
+  lastGenerateCount: number;
+  setLastGenerateCount: React.Dispatch<React.SetStateAction<number>>;
 }
 
 const RenderMessages: React.FC<RenderMessagesProps> = ({
@@ -73,6 +75,8 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
   setCopiedStates,
   setThreads,
   setClipboardMessage,
+  lastGenerateCount,
+  setLastGenerateCount,
 }) => {
   const currentThreadData = threads.find((t) => t.id === currentThread);
 
@@ -182,6 +186,8 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
               setCopiedStates={setCopiedStates}
               setThreads={setThreads}
               setClipboardMessage={setClipboardMessage}
+              lastGenerateCount={lastGenerateCount}
+              setLastGenerateCount={setLastGenerateCount}
             />
           ))}
         </div>
@@ -190,18 +196,20 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
   ) : (
     <div className="flex items-center justify-center h-full select-none">
       <div className="hidden sm:block">
-        <p className="text-sm text-muted-foreground whitespace-pre">
-          <span> C                    ┃ Toggle collapse</span><br />
-          <span> ←/→                  ┃ Navigate parent/child</span><br />
-          <span> ↑/↓                  ┃ Navigate siblings</span><br /><br />
-          <span> R                    ┃ Reply</span><br />
-          <span> E/Double-click       ┃ Edit</span><br />
-          <span> Enter                ┃ Generate | Confirm</span><br />
-          <span> Escape               ┃ Cancel edit/copy</span><br />
-          <span> Ctrl/Cmd + C | X | V ┃ Copy | Cut | Paste</span><br /><br />
-          <span> Delete/Backspace     ┃ Delete single message</span><br />
-          <span> Shift + Delete       ┃ Delete with replies</span><br />
-          <span> Alt/Option + Delete  ┃ Delete only replies</span>
+        <p className="text-sm text-muted-foreground whitespace-pre pl-8">
+          <span> <Diff className="inline-block mr-1" /> C                    ┃ Toggle Collapse</span><br />
+          <span> <MoveHorizontal className="inline-block mr-1" /> ←/→                  ┃ Navigate Parent/Child</span><br />
+          <span> <MoveVertical className="inline-block mr-1" /> ↑/↓                  ┃ Navigate Siblings</span><br /><br />
+          <span> <MessageSquarePlus className="inline-block mr-1" /> N                    ┃ New Message</span><br />
+          <span> <MessageSquareReply className="inline-block mr-1" /> R                    ┃ Reply</span><br />
+          <span> <Pencil className="inline-block mr-1" /> E/Double-click       ┃ Edit</span><br />
+          <span> <WandSparkles className="inline-block mr-1" /> Enter                ┃ Generate Single Reply</span><br />
+          <span> <CheckCheck className="inline-block mr-1" /> Ctrl/Cmd + Enter     ┃ Confirm Edit | Multi-Generate</span><br />
+          <span> <X className="inline-block mr-1" /> Escape               ┃ Cancel Edit | Clear Clipboard</span><br />
+          <span> <Clipboard className="inline-block mr-1" /> Ctrl/Cmd + C | X | V ┃ Copy | Cut | Paste</span><br /><br />
+          <span> <Trash className="inline-block mr-1" /> Delete/Backspace     ┃ Delete Single Message</span><br />
+          <span> <Trash2 className="inline-block mr-1" /> Shift + Delete       ┃ Delete with Replies</span><br />
+          <span> <MessageSquareOff className="inline-block mr-1" /> Alt/Option + Delete  ┃ Delete only Replies</span>
         </p>
         <div className="mt-4 text-center text-sm text-muted-foreground font-serif">
           <span>Select a thread to view messages.</span>
@@ -210,7 +218,7 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
             href="https://github.com/yijia-z/aide"
             target="_blank"
             rel="noopener noreferrer"
-            className="hover:underline pl-2"
+            className="hover:underline pl-0.5"
           >
             GitHub
           </a>
@@ -227,7 +235,7 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
           href="https://github.com/yijia-z/aide"
           target="_blank"
           rel="noopener noreferrer"
-          className="hover:underline"
+          className="hover:underline pl-3"
         >
           GitHub
         </a>

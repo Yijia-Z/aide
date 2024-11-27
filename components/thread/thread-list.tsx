@@ -1,4 +1,3 @@
-import React, { useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,7 +42,6 @@ const ThreadList: React.FC<ThreadListProps> = ({
   newThreadId,
   setNewThreadId,
 }) => {
-  const threadTitleInputRef = useRef<HTMLInputElement>(null);
 
   // Sort threads with newer threads (higher id) at the top, and pinned threads taking precedence
   const sortedThreads = threads.sort((a, b) => {
@@ -117,7 +115,8 @@ const ThreadList: React.FC<ThreadListProps> = ({
                   {editingThreadTitle === thread.id ? (
                     <div className="flex items-center justify-between">
                       <Input
-                        ref={threadTitleInputRef}
+                        id={`thread-title-${thread.id}`}
+                        autoFocus
                         value={thread.title}
                         placeholder="Input title..."
                         onChange={(e) =>
@@ -132,22 +131,6 @@ const ThreadList: React.FC<ThreadListProps> = ({
                         className="min-font-size flex-grow h-8 p-1 my-1"
                         onClick={(e) => e.stopPropagation()}
                         maxLength={64}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            confirmEditThreadTitle(thread.id, thread.title);
-                            if (thread.id === newThreadId) {
-                              setNewThreadId(null);
-                            }
-                          } else if (e.key === "Escape") {
-                            e.preventDefault();
-                            if (thread.id === newThreadId) {
-                              deleteThread(newThreadId);
-                              setNewThreadId(null);
-                            }
-                            cancelEditThreadTitle();
-                          }
-                        }}
                       />
                       <div className="flex items-center">
                         <Button

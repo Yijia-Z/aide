@@ -13,6 +13,7 @@ export function useMessages() {
     originalMessageId: string | null;
   } | null>(null);
   const [glowingMessageId, setGlowingMessageId] = useState<string | null>(null);
+  const [lastGenerateCount, setLastGenerateCount] = useState<number>(3); // Add this line
 
   return {
     selectedMessages,
@@ -27,5 +28,7 @@ export function useMessages() {
     setClipboardMessage,
     glowingMessageId,
     setGlowingMessageId,
+    lastGenerateCount,
+    setLastGenerateCount,
   };
 }

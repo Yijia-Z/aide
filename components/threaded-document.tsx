@@ -80,6 +80,8 @@ export default function ThreadedDocument() {
     setClipboardMessage,
     glowingMessageId,
     setGlowingMessageId,
+    lastGenerateCount,
+    setLastGenerateCount,
   } = useMessages();
   const replyBoxRef = useRef<HTMLDivElement>(null);
 
@@ -1042,6 +1044,7 @@ export default function ThreadedDocument() {
           models.find((m: { id: any }) => m.id === selectedModel) || models[0];
         const enabledTools = (model.parameters?.tool_choice !== "none" && model.parameters?.tool_choice !== undefined ? model.parameters?.tools ?? [] : []) as Tool[];
         // window.alert(JSON.stringify(enabledTools));
+        // window.alert(count)
         for (let i = 0; i < count; i++) {
           const newMessageId = Date.now().toString();
           addMessage(threadId, messageId, "", "ai", newMessageId);
@@ -1435,7 +1438,7 @@ export default function ThreadedDocument() {
       // Handle special input cases first
       if (isInputFocused) {
         // Thread title editing
-        if (editingThreadTitle) {
+        if (editingThreadTitle && activeElement.id === `thread-title-${editingThreadTitle}`) {
           if (event.key === 'Enter') {
             event.preventDefault();
             setEditingThreadTitle(null);
@@ -1448,7 +1451,7 @@ export default function ThreadedDocument() {
         }
 
         // Message editing
-        if (editingMessage) {
+        if (editingMessage && activeElement.id === `message-edit-${editingMessage}`) {
           if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
             event.preventDefault();
             if (currentThread) {
@@ -1462,7 +1465,7 @@ export default function ThreadedDocument() {
         }
 
         // Model editing
-        if (editingModel) {
+        if (editingModel && (activeElement.id === `model-textarea-${editingModel.id}` || activeElement.id === `model-title-${editingModel.id}`)) {
           if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
             event.preventDefault();
             saveModelChanges();
@@ -1472,17 +1475,16 @@ export default function ThreadedDocument() {
           }
           return;
         }
-
-        // Any other input focused - ignore hotkeys
         return;
       }
 
       // Handle thread-level operations
       if (currentThread) {
         const key = event.key.toLowerCase();
+        const selectedMessage = selectedMessages[currentThread];
 
         // Copy/Cut/Paste operations
-        if (event.metaKey || event.ctrlKey) {
+        if ((event.metaKey || event.ctrlKey) && selectedMessage) {
           if (selectedMessages[currentThread] && key === 'c') {
             event.preventDefault();
             copyOrCutMessage(currentThread, selectedMessages[currentThread], "copy");
@@ -1509,7 +1511,7 @@ export default function ThreadedDocument() {
       }
 
       // Handle message-level operations
-      if (currentThread && selectedMessages[currentThread]) {
+      if (currentThread && selectedMessages[currentThread] && !isInputFocused) {
         const selectedMessage = selectedMessages[currentThread]
         const currentThreadData = threads.find((t) => t.id === currentThread);
         if (!currentThreadData) return;
@@ -1560,12 +1562,20 @@ export default function ThreadedDocument() {
             }
             addEmptyReply(currentThread, selectedMessage);
             break;
-          case "":
-            event.preventDefault();
-            if (message && message.isCollapsed) {
-              toggleCollapse(currentThread, selectedMessage);
+          case "Enter":
+            if (event.ctrlKey || event.metaKey) {
+              event.preventDefault();
+              if (message && message.isCollapsed) {
+                toggleCollapse(currentThread, selectedMessage);
+              }
+              generateAIReply(currentThread, selectedMessage, lastGenerateCount);
+            } else {
+              event.preventDefault();
+              if (message && message.isCollapsed) {
+                toggleCollapse(currentThread, selectedMessage);
+              }
+              generateAIReply(currentThread, selectedMessage);
             }
-            generateAIReply(currentThread, selectedMessage);
             break;
           case "c":
             event.preventDefault();
@@ -1589,13 +1599,16 @@ export default function ThreadedDocument() {
           case "Delete":
           case "Backspace":
             event.preventDefault();
-            if (event.shiftKey) {
+            if (event.ctrlKey || event.metaKey) {
               deleteMessage(currentThread, selectedMessage, true);
             } else if (event.altKey) {
               deleteMessage(currentThread, selectedMessage, 'clear');
             } else {
               deleteMessage(currentThread, selectedMessage, false);
             }
+            break;
+          case "Tab":
+            event.preventDefault();
             break;
         }
       }
@@ -1703,6 +1716,8 @@ export default function ThreadedDocument() {
               setCopiedStates={setCopiedStates}
               setThreads={setThreads}
               setClipboardMessage={setClipboardMessage}
+              lastGenerateCount={lastGenerateCount}
+              setLastGenerateCount={setLastGenerateCount}
             />
           </TabsContent>
           <TabsContent
@@ -1935,6 +1950,8 @@ export default function ThreadedDocument() {
                 setCopiedStates={setCopiedStates}
                 setThreads={setThreads}
                 setClipboardMessage={setClipboardMessage}
+                lastGenerateCount={lastGenerateCount}
+                setLastGenerateCount={setLastGenerateCount}
               />
             </div>
           </ResizablePanel>

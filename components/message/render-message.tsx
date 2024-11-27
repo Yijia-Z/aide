@@ -50,6 +50,7 @@ import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
+  ContextMenuLabel,
   ContextMenuSeparator,
   ContextMenuShortcut,
   ContextMenuTrigger,
@@ -115,6 +116,8 @@ interface RenderMessageProps {
       originalMessageId: string | null;
     } | null>
   >;
+  lastGenerateCount: number;
+  setLastGenerateCount: React.Dispatch<React.SetStateAction<number>>;
 }
 
 const RenderMessage: React.FC<RenderMessageProps> = ({
@@ -150,6 +153,8 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
   setCopiedStates,
   setThreads,
   setClipboardMessage,
+  lastGenerateCount,
+  setLastGenerateCount,
 }) => {
   // Message selection and hierarchy
   const selectedMessage = currentThread !== null ? selectedMessages[currentThread] : null;
@@ -291,7 +296,6 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
         <ContextMenuTrigger
           disabled={editingMessage === message.id}
           onContextMenu={(e) => {
-            e.preventDefault();
             if (currentThread) {
               setSelectedMessages((prev) => ({ ...prev, [currentThread]: message.id }));
             }
@@ -429,6 +433,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                 </div>
                 {editingMessage === message.id ? (
                   <Textarea
+                    id={`message-edit-${message.id}`}
                     value={editingContent}
                     onChange={(e) => setEditingContent(e.target.value)}
                     className="min-font-size font-serif flex-grow w-auto m-1 p-0 bg-inherit"
@@ -458,13 +463,6 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                       maxHeight: "50vh",
                     }}
                     autoFocus
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
-                        confirmEditingMessage(threadId, message.id);
-                      } else if (e.key === "Escape") {
-                        cancelEditingMessage();
-                      }
-                    }}
                   />
                 ) : (
                   <div
@@ -663,42 +661,34 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                                   if (message.isCollapsed) {
                                     toggleCollapse(threadId, message.id);
                                   }
-                                  generateAIReply(threadId, message.id, 3);
+                                  generateAIReply(threadId, message.id, lastGenerateCount);
                                 }}
                               >
-                                Thrice
+                                {lastGenerateCount} times
+                                <MenubarShortcut>{lastGenerateCount}×</MenubarShortcut>
                               </MenubarItem>
+
                               <MenubarItem
                                 onClick={() => {
                                   if (message.isCollapsed) {
                                     toggleCollapse(threadId, message.id);
                                   }
                                   const times = prompt(
-                                    "How many times do you want to generate?",
-                                    "5"
+                                    "How many times do you want to generate? Type between 1-10",
+                                    lastGenerateCount.toString()
                                   );
-                                  const numTimes = parseInt(
-                                    times || "0",
-                                    10
-                                  );
-                                  if (
-                                    !isNaN(numTimes) &&
-                                    numTimes > 0 &&
-                                    numTimes <= 10
-                                  ) {
-                                    generateAIReply(
-                                      threadId,
-                                      message.id,
-                                      numTimes
-                                    );
+                                  const numTimes = parseInt(times || "0", 10);
+                                  if (!isNaN(numTimes) && numTimes > 0 && numTimes <= 10) {
+                                    setLastGenerateCount(numTimes);
+                                    generateAIReply(threadId, message.id, numTimes);
                                   } else if (numTimes > 10) {
+                                    setLastGenerateCount(10);
                                     generateAIReply(threadId, message.id, 10);
                                   }
                                 }}
                               >
                                 Custom
-                              </MenubarItem>
-                            </MenubarContent>
+                              </MenubarItem>                            </MenubarContent>
                           </MenubarMenu>
                         </Menubar>
                       )}
@@ -805,7 +795,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                                 </MenubarItem>
                                 <MenubarItem onClick={() => deleteMessage(threadId, message.id, true)}>
                                   With Replies
-                                  <MenubarShortcut className="hidden md:inline">⇧ ⌫</MenubarShortcut>
+                                  <MenubarShortcut className="hidden md:inline">⌘ ⌫</MenubarShortcut>
                                 </MenubarItem>
                                 <MenubarItem onClick={() => deleteMessage(threadId, message.id, 'clear')}>
                                   Only Replies
@@ -851,7 +841,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
           >
             <WandSparkles className="h-4 w-4 mr-2" />
             Generate
-            <ContextMenuShortcut className="hidden md:inline">G</ContextMenuShortcut>
+            <ContextMenuShortcut className="hidden md:inline">Enter</ContextMenuShortcut>
           </ContextMenuItem>
           <ContextMenuItem
             onClick={() => {
@@ -909,12 +899,13 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
             </ContextMenuItem>
           )}
           <ContextMenuSeparator />
+          <ContextMenuLabel>Delete</ContextMenuLabel>
           <ContextMenuItem
             className="text-red-500"
             onClick={() => deleteMessage(threadId, message.id, false)}
           >
             <Trash className="h-4 w-4 mr-2" />
-            Delete
+            Keep Replies
             <ContextMenuShortcut className="hidden md:inline">⌫</ContextMenuShortcut>
           </ContextMenuItem>
           {message.replies?.length > 0 && (
@@ -925,7 +916,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
               >
                 <Trash2 className="h-4 w-4 mr-2" />
                 With Replies
-                <ContextMenuShortcut className="hidden md:inline">⇧ ⌫</ContextMenuShortcut>
+                <ContextMenuShortcut className="hidden md:inline">⌘ ⌫</ContextMenuShortcut>
               </ContextMenuItem>
               <ContextMenuItem
                 className="text-red-500"
@@ -992,6 +983,8 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                   setCopiedStates={setCopiedStates}
                   setThreads={setThreads}
                   setClipboardMessage={setClipboardMessage}
+                  lastGenerateCount={lastGenerateCount}
+                  setLastGenerateCount={setLastGenerateCount}
                 />
               </div>
             ))}

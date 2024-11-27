@@ -101,7 +101,7 @@ const ModelConfig: React.FC<ModelConfigProps> = ({
                   ${editingModel?.id !== model.id ? 'md:hover:shadow-[inset_0_0_10px_10px_rgba(128,128,128,0.2)] bg-background cursor-pointer' : 'custom-shadow'}
                 `}
               >
-                <div className="flex justify-between items-start">
+                <div className={`${editingModel?.id !== model.id ? 'flex justify-between items-start' : ''}`}>
                   <div>
                     <div
                       className="flex cursor-pointer justify-between items-center pb-2"
@@ -119,6 +119,7 @@ const ModelConfig: React.FC<ModelConfigProps> = ({
                           <Label>Name</Label>
                         </div>
                         <Input
+                          id={`model-title-${model.id}`}
                           className="min-font-size text-foreground"
                           value={editingModel?.name}
                           onChange={(e) =>
@@ -146,6 +147,7 @@ const ModelConfig: React.FC<ModelConfigProps> = ({
                           <Label>System Prompt</Label>
                         </div>
                         <Textarea
+                          id={`model-textarea-${model.id}`}
                           className="min-font-size text-foreground"
                           value={editingModel?.systemPrompt}
                           onChange={(e) =>
@@ -202,7 +204,7 @@ const ModelConfig: React.FC<ModelConfigProps> = ({
                       </div>
                     )}
                   </div>
-                  {!editingModel?.id && (
+                  {editingModel?.id !== model.id && (
                     <Button
                       variant="ghost"
                       className="transition-scale-zoom md:opacity-0 md:group-hover:opacity-100 transition-opacity"
