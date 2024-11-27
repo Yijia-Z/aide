@@ -1,6 +1,6 @@
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Check, X, Trash, Sparkles } from "lucide-react";
+import { Check, X, Trash, Sparkles, Edit } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -91,119 +91,126 @@ const ModelConfig: React.FC<ModelConfigProps> = ({
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
-                whileHover={{
-                  boxShadow: "inset 0px 0px 10px rgba(128, 128, 128, 0.2)",
-                  transition: { duration: 0.2 },
+                whileHover={editingModel?.id !== model.id ? { y: -2 } : undefined}
+                onDoubleClick={() => {
+                  if (editingModel?.id != model.id) {
+                    setEditingModel(model);
+                  }
                 }}
-                className="p-2 border rounded-md mb-2 custom-shadow"
+                className={`group p-2 rounded-md mb-2
+                  ${editingModel?.id !== model.id ? 'md:hover:shadow-[inset_0_0_10px_10px_rgba(128,128,128,0.2)] bg-background cursor-pointer' : 'custom-shadow'}
+                `}
               >
-                <div>
-                  <div
-                    className="flex cursor-pointer justify-between items-center pb-2"
-                    onDoubleClick={() => {
-                      if (editingModel?.id === model.id) {
-                        setEditingModel(null);
-                      }
-                      else setEditingModel(model)
-                    }}
-                  >
-                    <h3 className="font-bold">{model.name}</h3>
-                  </div>
-                  {editingModel?.id === model.id ? (
-                    <div className="text-muted-foreground">
-                      <div className="pb-1">
-                        <Label>Name</Label>
-                      </div>
-                      <Input
-                        className="min-font-size text-foreground"
-                        value={editingModel?.name}
-                        onChange={(e) =>
-                          handleModelChange("name", e.target.value)
-                        }
-                      />
-                      <div className="py-1">
-                        <Label>Base Model</Label>
-                      </div>
-                      <SelectBaseModel
-                        value={editingModel.baseModel}
-                        onValueChange={(value, parameters) => {
-                          handleModelChange("baseModel", value);
-                          handleModelChange(
-                            "parameters",
-                            parameters as Partial<ModelParameters>
-                          );
-                        }}
-                        availableTools={availableTools}
-                        fetchAvailableModels={fetchAvailableModels}
-                        fetchModelParameters={fetchModelParameters}
-                        existingParameters={editingModel.parameters}
-                      />
-                      <div className="py-1">
-                        <Label>System Prompt</Label>
-                      </div>
-                      <Textarea
-                        className="min-font-size text-foreground"
-                        value={editingModel?.systemPrompt}
-                        onChange={(e) =>
-                          handleModelChange("systemPrompt", e.target.value)
-                        }
-                      />
-                      <div className="flex justify-between items-center mt-2">
-                        <div className="space-x-2 text-foreground">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={saveModelChanges}
-                          >
-                            <Check className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setEditingModel(null)}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => deleteModel(model.id)}
-                          disabled={models.length === 1}
-                        >
-                          <Trash className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
+                <div className="flex justify-between items-start">
+                  <div>
                     <div
+                      className="flex cursor-pointer justify-between items-center pb-2"
                       onDoubleClick={() => {
                         if (editingModel?.id === model.id) {
                           setEditingModel(null);
                         }
-                        else setEditingModel(model)
                       }}
-                      className="text-sm cursor-pointer"
                     >
-                      <p>
-                        <span className="text-muted-foreground">
-                          Base Model:
-                        </span>{" "}
-                        {model.baseModel.split("/").pop()}
-                      </p>
-                      <p>
-                        <span className="text-muted-foreground">
-                          Temperature:
-                        </span>{" "}
-                        {model.parameters.temperature}
-                      </p>
-                      <p>
-                        <span className="text-muted-foreground">
-                          Max Tokens:
-                        </span>{" "}
-                        {model.parameters.max_tokens}
-                      </p>
+                      <h3 className="font-bold">{model.name}</h3>
                     </div>
+                    {editingModel?.id === model.id ? (
+                      <div className="text-muted-foreground">
+                        <div className="pb-1">
+                          <Label>Name</Label>
+                        </div>
+                        <Input
+                          className="min-font-size text-foreground"
+                          value={editingModel?.name}
+                          onChange={(e) =>
+                            handleModelChange("name", e.target.value)
+                          }
+                        />
+                        <div className="py-1">
+                          <Label>Base Model</Label>
+                        </div>
+                        <SelectBaseModel
+                          value={editingModel.baseModel}
+                          onValueChange={(value, parameters) => {
+                            handleModelChange("baseModel", value);
+                            handleModelChange(
+                              "parameters",
+                              parameters as Partial<ModelParameters>
+                            );
+                          }}
+                          availableTools={availableTools}
+                          fetchAvailableModels={fetchAvailableModels}
+                          fetchModelParameters={fetchModelParameters}
+                          existingParameters={editingModel.parameters}
+                        />
+                        <div className="py-1">
+                          <Label>System Prompt</Label>
+                        </div>
+                        <Textarea
+                          className="min-font-size text-foreground"
+                          value={editingModel?.systemPrompt}
+                          onChange={(e) =>
+                            handleModelChange("systemPrompt", e.target.value)
+                          }
+                        />
+                        <div className="flex justify-between items-center mt-2">
+                          <div className="space-x-2 text-foreground">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={saveModelChanges}
+                            >
+                              <Check className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setEditingModel(null)}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => deleteModel(model.id)}
+                            disabled={models.length === 1}
+                          >
+                            <Trash className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-sm" >
+                        <p>
+                          <span className="text-muted-foreground">
+                            Base Model:
+                          </span>{" "}
+                          {model.baseModel.split("/").pop()}
+                        </p>
+                        <p>
+                          <span className="text-muted-foreground">
+                            Temperature:
+                          </span>{" "}
+                          {model.parameters.temperature}
+                        </p>
+                        <p>
+                          <span className="text-muted-foreground">
+                            Max Tokens:
+                          </span>{" "}
+                          {model.parameters.max_tokens}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                  {!editingModel?.id && (
+                    <Button
+                      variant="ghost"
+                      className="transition-scale-zoom md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+                      size="default"
+                      onClick={() => setEditingModel(model)}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
                   )}
                 </div>
               </motion.div>

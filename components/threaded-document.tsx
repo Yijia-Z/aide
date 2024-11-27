@@ -40,7 +40,7 @@ const apiBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 export default function ThreadedDocument() {
   const { data: session, status } = useSession()
   const [activeTab, setActiveTab] = useState<"threads" | "messages" | "models" | "tools" | "settings">(
-    storage.get('activeTab') as "threads" | "messages" | "models" | "tools" | "settings" ?? "threads"
+    (storage.get('activeTab') || "threads") as "threads" | "messages" | "models" | "tools" | "settings"
     //!session ? "settings" : "threads"
   )
   const user = session?.user
@@ -60,7 +60,9 @@ export default function ThreadedDocument() {
     originalThreadTitle,
     setOriginalThreadTitle,
     threadToDelete,
-    setThreadToDelete
+    setThreadToDelete,
+    newThreadId,
+    setNewThreadId
   } = useThreads();
   const threadTitleInputRef = useRef<HTMLInputElement>(null);
 
@@ -120,7 +122,7 @@ export default function ThreadedDocument() {
       try {
         const response = await fetch(`${apiBaseUrl}/api/load_tools`);
         const data = await response.json();
-        console.log("Loaded tools:", data);
+        // console.log("Loaded tools:", data);
         setTools(data.tools || []);
       } catch (error) {
         console.error("Error loading tools:", error);
@@ -192,7 +194,7 @@ export default function ThreadedDocument() {
         lastFetchTime &&
         currentTime - parseInt(lastFetchTime) < 3600000
       ) {
-        const modelData = JSON.parse(cachedModels);
+        const modelData = cachedModels;
         setAvailableModels(modelData);
         return modelData;
       }
@@ -216,7 +218,7 @@ export default function ThreadedDocument() {
       }
 
       const data = await response.json();
-      console.log("Received data from OpenRouter:", data);
+      // console.log("Received data from OpenRouter:", data);
 
       if (!data.data) {
         console.error('Response data does not contain "data" key.');
@@ -286,19 +288,21 @@ export default function ThreadedDocument() {
   const addThread = useCallback(() => {
     const newThread: Thread = {
       id: Date.now().toString(),
-      title: "New Thread",
+      title: "",
       messages: [],
       isPinned: false,
     };
     setThreads((prev) => [...prev, newThread]);
     setCurrentThread(newThread.id);
     setEditingThreadTitle(newThread.id);
-    setOriginalThreadTitle("New Thread");
+    setOriginalThreadTitle("");
+    setNewThreadId(newThread.id);
   }, [
     setCurrentThread,
     setEditingThreadTitle,
     setOriginalThreadTitle,
     setThreads,
+    setNewThreadId,
   ]);
 
   // Add message
@@ -427,13 +431,11 @@ export default function ThreadedDocument() {
     async (threadId: string, updatedData: Partial<Thread>) => {
       try {
         // Cache the thread data to local storage
-        const cachedThreads = JSON.parse(
-          storage.get("threads") || "[]"
-        );
+        const cachedThreads = storage.get("threads") || "[]"
         const updatedThreads = cachedThreads.map((thread: Thread) =>
           thread.id === threadId ? { ...thread, ...updatedData } : thread
         );
-        storage.set("threads", JSON.stringify(updatedThreads));
+        storage.set("threads", updatedThreads);
 
         // Only update the backend if apiBaseUrl is available
         if (apiBaseUrl) {
@@ -720,7 +722,7 @@ export default function ThreadedDocument() {
   ]);
 
   const fetchModelParameters = async (modelId: string) => {
-    console.log(`Fetching parameters for model ID: ${modelId}`);
+    // console.log(`Fetching parameters for model ID: ${modelId}`);
     try {
       const response = await fetch(
         `/api/model-parameters?modelId=${encodeURIComponent(modelId)}`
@@ -839,7 +841,7 @@ export default function ThreadedDocument() {
           if (!response.ok) {
             throw new Error(`Failed to delete thread ${threadId}`);
           }
-          console.log(`Thread ${threadId} has been successfully deleted.`);
+          // console.log(`Thread ${threadId} has been successfully deleted.`);
         } catch (error) {
           console.error(`Failed to delete thread ${threadId} data:`, error);
         }
@@ -1085,7 +1087,7 @@ export default function ThreadedDocument() {
         }
       } catch (error) {
         if (error instanceof DOMException && error.name === 'AbortError') {
-          console.log('Generation aborted');
+          // console.log('Generation aborted');
         } else {
           console.error("Failed to generate AI response:", error);
         }
@@ -1315,7 +1317,7 @@ export default function ThreadedDocument() {
         });
         if (response.ok) {
           const data = await response.json();
-          console.log("Loaded models:", data.models);
+          // console.log("Loaded models:", data.models);
           let loadedModels = data.models || [];
 
           // If no models are loaded, add the default model
@@ -1558,7 +1560,7 @@ export default function ThreadedDocument() {
             }
             addEmptyReply(currentThread, selectedMessage);
             break;
-          case "g":
+          case "":
             event.preventDefault();
             if (message && message.isCollapsed) {
               toggleCollapse(currentThread, selectedMessage);
@@ -1663,6 +1665,8 @@ export default function ThreadedDocument() {
               setThreads={setThreads}
               threadToDelete={threadToDelete}
               setThreadToDelete={setThreadToDelete}
+              newThreadId={newThreadId}
+              setNewThreadId={setNewThreadId}
             />
           </TabsContent>
           <TabsContent
@@ -1864,6 +1868,8 @@ export default function ThreadedDocument() {
                   addThread={addThread}
                   setSelectedMessages={setSelectedMessages}
                   setThreads={setThreads}
+                  newThreadId={newThreadId}
+                  setNewThreadId={setNewThreadId}
                 />
               </TabsContent>
               <TabsContent value="models" className="flex-grow overflow-y-clip">

@@ -89,11 +89,12 @@ export function SelectBaseModel({
         return cachedParameters[modelId];
       }
       if (cachedParameters[modelId]) {
-        console.log(
+/*         console.log(
           "Using cached parameters for model:",
           modelId,
           cachedParameters[modelId]
-        );
+        ); */
+
         setParameters(cachedParameters[modelId]);
         return cachedParameters[modelId];
       }
@@ -461,7 +462,7 @@ export function SelectBaseModel({
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="p-0 w-screen sm:w-auto">
+        <PopoverContent className="p-0 w-screen sm:w-auto border-none">
           <Command className="w-full custom-shadow">
             <CommandInput placeholder="Search model..." className="w-full" />
             <CommandList className="w-full bg-transparent">

@@ -21,6 +21,8 @@ interface ThreadListProps {
   deleteThread: (id: string) => void;
   threadToDelete: string | null;
   setThreadToDelete: React.Dispatch<React.SetStateAction<string | null>>;
+  newThreadId: string | null;
+  setNewThreadId: React.Dispatch<React.SetStateAction<string | null>>;
 }
 
 const ThreadList: React.FC<ThreadListProps> = ({
@@ -38,6 +40,8 @@ const ThreadList: React.FC<ThreadListProps> = ({
   threadToDelete,
   setThreadToDelete,
   deleteThread,
+  newThreadId,
+  setNewThreadId,
 }) => {
   const threadTitleInputRef = useRef<HTMLInputElement>(null);
 
@@ -115,6 +119,7 @@ const ThreadList: React.FC<ThreadListProps> = ({
                       <Input
                         ref={threadTitleInputRef}
                         value={thread.title}
+                        placeholder="Input title..."
                         onChange={(e) =>
                           setThreads((prev) =>
                             prev.map((t) =>
@@ -131,8 +136,15 @@ const ThreadList: React.FC<ThreadListProps> = ({
                           if (e.key === "Enter") {
                             e.preventDefault();
                             confirmEditThreadTitle(thread.id, thread.title);
+                            if (thread.id === newThreadId) {
+                              setNewThreadId(null);
+                            }
                           } else if (e.key === "Escape") {
                             e.preventDefault();
+                            if (thread.id === newThreadId) {
+                              deleteThread(newThreadId);
+                              setNewThreadId(null);
+                            }
                             cancelEditThreadTitle();
                           }
                         }}
@@ -144,6 +156,9 @@ const ThreadList: React.FC<ThreadListProps> = ({
                           onClick={(e) => {
                             e.stopPropagation();
                             confirmEditThreadTitle(thread.id, thread.title);
+                            if (thread.id === newThreadId) {
+                              setNewThreadId(null);
+                            }
                           }}
                         >
                           <Check className="h-4 w-4" />
@@ -153,6 +168,11 @@ const ThreadList: React.FC<ThreadListProps> = ({
                           variant="ghost"
                           onClick={(e) => {
                             e.stopPropagation();
+                            console.log(thread.id, newThreadId)
+                            if (thread.id === newThreadId) {
+                              deleteThread(newThreadId);
+                              setNewThreadId(null);
+                            }
                             cancelEditThreadTitle();
                           }}
                         >
@@ -168,7 +188,7 @@ const ThreadList: React.FC<ThreadListProps> = ({
                         startEditingThreadTitle(thread.id, thread.title);
                       }}
                     >
-                      <span className="pl-1 flex-grow">{thread.title}</span>
+                      <span className="pl-1 flex-grow">{thread.title || <span className="text-muted-foreground">Unamed Thread</span>}</span>
                       <div className="flex items-center">
                         <div className="group/pin">
                           <Button

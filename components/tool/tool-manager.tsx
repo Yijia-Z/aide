@@ -77,7 +77,8 @@ export function ToolManager({ tools, setTools, availableTools, setAvailableTools
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -20 }}
-                                className="p-2 border custom-shadow rounded-md bg-background/50"
+                                whileHover={{ y: -2 }}
+                                className="group p-2 rounded-md md:hover:shadow-[inset_0_0_10px_10px_rgba(128,128,128,0.2)]"
                             >
                                 <div className="flex justify-between items-start">
                                     <div>
@@ -86,6 +87,7 @@ export function ToolManager({ tools, setTools, availableTools, setAvailableTools
                                     </div>
                                     <Button
                                         variant="ghost"
+                                        className="transition-scale-zoom md:opacity-0 md:group-hover:opacity-100 transition-opacity"
                                         size="default"
                                         onClick={() => handleRemoveTool(tool)}
                                     >
@@ -103,7 +105,7 @@ export function ToolManager({ tools, setTools, availableTools, setAvailableTools
                     <DialogHeader>
                         <DialogTitle>Add Tool</DialogTitle>
                     </DialogHeader>
-                    <Command className="rounded-lg border shadow-md">
+                    <Command className="custom-shadow rounded-lg">
                         <CommandInput placeholder="Search tools to add..." />
                         {tools.filter(tool => !availableTools.some(availableTool => availableTool.function?.name === tool.function?.name)).length === 0 ? (
                             <CommandEmpty>No tools found.</CommandEmpty>

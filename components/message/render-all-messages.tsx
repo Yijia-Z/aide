@@ -192,17 +192,16 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
       <div className="hidden sm:block">
         <p className="text-sm text-muted-foreground whitespace-pre">
           <span> C                    ┃ Toggle collapse</span><br />
-          <span> ←/→ Arrow keys       ┃ Navigate parent/child</span><br />
-          <span> ↑/↓ Arrow keys       ┃ Navigate siblings</span><br />
+          <span> ←/→                  ┃ Navigate parent/child</span><br />
+          <span> ↑/↓                  ┃ Navigate siblings</span><br /><br />
           <span> R                    ┃ Reply</span><br />
-          <span> G                    ┃ Generate AI reply</span><br />
-          <span> E/Double-click       ┃ Edit message</span><br />
-          <span> Enter                ┃ Confirm edit</span><br />
+          <span> E/Double-click       ┃ Edit</span><br />
+          <span> Enter                ┃ Generate | Confirm</span><br />
           <span> Escape               ┃ Cancel edit/copy</span><br />
-          <span> Ctrl+C/X/V           ┃ Copy/Cut/Paste</span><br />
-          <span> Delete/Backspace     ┃ Delete message</span><br />
-          <span> Shift+Delete         ┃ Delete with replies</span><br />
-          <span> Alt+Delete           ┃ Delete only replies</span>
+          <span> Ctrl/Cmd + C | X | V ┃ Copy | Cut | Paste</span><br /><br />
+          <span> Delete/Backspace     ┃ Delete single message</span><br />
+          <span> Shift + Delete       ┃ Delete with replies</span><br />
+          <span> Alt/Option + Delete  ┃ Delete only replies</span>
         </p>
         <div className="mt-4 text-center text-sm text-muted-foreground font-serif">
           <span>Select a thread to view messages.</span>
@@ -211,7 +210,7 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
             href="https://github.com/yijia-z/aide"
             target="_blank"
             rel="noopener noreferrer"
-            className="hover:underline pl-1"
+            className="hover:underline pl-2"
           >
             GitHub
           </a>

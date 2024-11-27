@@ -11,11 +11,11 @@ export async function GET(request: Request) {
     );
   }
 
-  console.log(`Fetching parameters for model ID: ${modelId}`);
+  // console.log(`Fetching parameters for model ID: ${modelId}`);
   try {
     const decodedModelId = decodeURIComponent(modelId);
     const url = `https://openrouter.ai/api/v1/parameters/${decodedModelId}`;
-    console.log(`Fetching from: ${url}`);
+    // console.log(`Fetching from: ${url}`);
 
     // Check if the API key is set
     if (!process.env.OPENROUTER_API_KEY) {

@@ -290,13 +290,21 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
       <ContextMenu>
         <ContextMenuTrigger
           disabled={editingMessage === message.id}
-          onContextMenu={() => setSelectedMessages((prev) => ({ ...prev, [String(currentThread)]: message.id }))}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            if (currentThread) {
+              setSelectedMessages((prev) => ({ ...prev, [currentThread]: message.id }));
+            }
+          }}
         >
           <div
             className={`flex items-start space-x-1 p-1 rounded-lg ${isSelectedOrParent ? "custom-shadow" : "text-muted-foreground"
               } ${glowingMessageId === message.id ? "glow-effect" : ""}`}
-            onClick={() => {
-              setSelectedMessages((prev) => ({ ...prev, [String(currentThread)]: message.id }));
+            onClick={(e) => {
+              e.stopPropagation();
+              if (currentThread) {
+                setSelectedMessages((prev) => ({ ...prev, [currentThread]: message.id }));
+              }
             }}
           >
             <div className="flex-grow p-0 overflow-hidden">
@@ -542,7 +550,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                             },
                           }}
                         >
-                          {truncateContent(message.content, isSelected)}
+                          {message.content ? truncateContent(message.content, isSelected) : "(empty)"}
                         </Markdown>
                       </div>
                     )}
@@ -647,7 +655,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                               >
                                 Once
                                 <span className="hidden md:inline ml-auto">
-                                  <MenubarShortcut>⎇ G</MenubarShortcut>
+                                  <MenubarShortcut>Enter</MenubarShortcut>
                                 </span>
                               </MenubarItem>
                               <MenubarItem

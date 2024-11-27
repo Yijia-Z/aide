@@ -63,7 +63,7 @@ export function ToolSelector({
           <SelectTrigger>
             <SelectValue placeholder="Select tool choice" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="custom-shadow">
             <SelectItem value="none">None</SelectItem>
             <SelectItem value="auto">Auto</SelectItem>
             <SelectItem value="required">Required</SelectItem>
@@ -86,7 +86,7 @@ export function ToolSelector({
             ))}
           </div>
           {availableTools.filter(tool => !selectedTools.some(selected => selected.function.name === tool.function.name)).length > 0 && (
-            <Command className="rounded-lg border shadow-md">
+            <Command className="custom-shadow rounded-lg">
               <CommandInput placeholder="Search available tools..." />
               <CommandEmpty>No tools found.</CommandEmpty>
               <CommandGroup>
