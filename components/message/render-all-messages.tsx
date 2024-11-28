@@ -82,10 +82,10 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
 
   return currentThread ? (
     <div
-      className={`flex flex-col relative sm:h-full h-[calc(97vh)] hide-scrollbar bg-[radial-gradient(hsl(var(--muted))_1px,transparent_1px)] [background-size:16px_16px]`}
+      className={`flex flex-col relative sm:h-full h-[calc(97vh)] hide-scrollbar bg-[radial-gradient(hsl(var(--muted))_1px,transparent_1px)] [background-size:16px_16px] [background-position:9px_0]`}
     >
       <div
-        className="top-bar bg-gradient-to-b from-background/100 to-background/00"
+        className="top-bar md:pr-2 bg-gradient-to-b from-background/100 to-background/00"
         style={{
           mask: "linear-gradient(black, black, transparent)",
           backdropFilter: "blur(1px)",
@@ -151,7 +151,7 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
           </Menubar>
         )}
       </div>
-      <ScrollArea className="flex-grow" onClick={() => setSelectedMessages((prev) => ({ ...prev, [String(currentThread)]: null }))}>
+      <ScrollArea className="flex-gro md:pr-2" onClick={() => setSelectedMessages((prev) => ({ ...prev, [String(currentThread)]: null }))}>
         <div onClick={(e) => e.stopPropagation()}>
           {currentThreadData?.messages.map((message: Message) => (
             <RenderMessage

@@ -280,7 +280,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
   }
 
   // Indentation
-  const indent = depth === 0 ? 0 : (isSelectedOrParent || (siblings.some(s => s.id === selectedMessage))) ? -16 : 0;
+  const indent = depth === 0 ? 0 : (isSelectedOrParent || (siblings.some(s => s.id === selectedMessage))) ? -16 : -1;
 
   return (
     <motion.div
@@ -305,8 +305,8 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
         >
           <div
             className={cn(
-              "flex items-start space-x-1 px-1 pt-1 rounded-lg",
-              isSelectedOrParent ? "custom-shadow" : "text-muted-foreground",
+              "flex items-start space-x-1 p-1 rounded-lg",
+              isSelectedOrParent ? "custom-shadow ml-[1px]" : "text-muted-foreground pl-1 pb-0",
               siblings.some(s => s.id === selectedMessage) && "border-2",
               !selectedMessage && parentId === null && "border-2",
               glowingMessageId === message.id && "glow-effect"
@@ -324,7 +324,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                   <div className="flex items-center space-x-1">
                     <Button
                       variant="outline"
-                      className="w-6 h-6 p-0 rounded-md relative"
+                      className="w-6 h-6 p-0 ml-[1px] rounded-md relative"
                       onClick={(e) => {
                         e.stopPropagation();
                         toggleCollapse(threadId, message.id);
@@ -484,7 +484,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                   />
                 ) : (
                   <div
-                    className={`whitespace-normal break-words markdown-content font-serif overflow-hidden pt-0.5 px-1 ${!selectedMessage && parentId === null || isSelectedOrParent || (siblings.some(s => s.id === selectedMessage)) ? '' : message.replies.length > 0 ? `${message.isCollapsed ? 'border-l-2 border-dotted' : 'border-l-2'} mt-[2.25px] mx-3` : ''}`}
+                    className={`whitespace-normal break-words markdown-content font-serif overflow-hidden pt-0.5 px-1 ${!selectedMessage && parentId === null || isSelectedOrParent || (siblings.some(s => s.id === selectedMessage)) ? '' : message.replies.length > 0 ? `${message.isCollapsed ? 'border-l-2 rounded-bl-lg border-b-2 border-dotted' : 'border-l-2'} mt-1 ml-3` : 'ml-3'}`}
                     onDoubleClick={() => {
                       cancelEditingMessage();
                       startEditingMessage(message);
@@ -958,15 +958,15 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
               <div
                 key={reply.id}
                 className={cn(
-                  "ml-4",
+                  "ml-[17px]",
                   !isParentOfSelected && cn(
                     "relative",
                     // Add connecting line from parent to child
-                    "before:absolute before:left-0 before:-top-2 before:w-4 before:h-10",
+                    "before:absolute before:-left-[1px] before:-top-2 before:w-[18px] before:h-[41px]",
                     "before:border-b-2 before:border-l-2 before:border-border before:rounded-bl-lg",
                     // Add vertical line for non-last replies
                     getSiblings(message.replies, reply.id).slice(-1)[0].id !== reply.id &&
-                    "after:absolute after:left-0 after:top-3 after:bottom-0 after:border-l-2 after:border-border"
+                    "after:absolute after:-left-[1px] after:top-0 after:-bottom-0 after:border-l-2 after:border-border"
                   )
                 )}
               >
