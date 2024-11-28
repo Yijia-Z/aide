@@ -1595,6 +1595,7 @@ export default function ThreadedDocument() {
               setGlowingMessageId(null);
               setClipboardMessage(null);
             }
+            else setSelectedMessages((prev) => ({ ...prev, [String(currentThread)]: null }))
             break;
           case "Delete":
           case "Backspace":
@@ -1644,7 +1645,8 @@ export default function ThreadedDocument() {
     setEditingThreadTitle,
     setSelectedMessages,
     setGlowingMessageId,
-    toggleCollapse
+    toggleCollapse,
+    lastGenerateCount
   ]);
 
   return (

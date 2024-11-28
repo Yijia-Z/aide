@@ -165,10 +165,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
   const isSelectedOrParent =
     isSelected || isParentOfSelected || parentId === message.id;
 
-  // Indentation
-  const indent = depth === 0 ? 0 : isSelectedOrParent ? -16 : 0;
   const [ref, inView] = useInView({
-    triggerOnce: false,
     threshold: 0,
     rootMargin: "200px 0px", // Pre-load when within 200px of viewport
   });
@@ -280,6 +277,9 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
     );
   }
 
+  // Indentation
+  const indent = depth === 0 ? 0 : (isSelectedOrParent || (siblings.some(s => s.id === selectedMessage))) ? -16 : 0;
+
   return (
     <motion.div
       ref={ref}
@@ -288,7 +288,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 20 }}
       className={"mt-2"}
-      style={{ marginLeft: `${window.innerWidth >= 768 ? indent * 2 : indent}px` }}
+      style={{ marginLeft: `${indent}px` }}
       layout={"position"}
       id={`message-${message.id}`}
     >
@@ -302,8 +302,13 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
           }}
         >
           <div
-            className={`flex items-start space-x-1 p-1 rounded-lg ${isSelectedOrParent ? "custom-shadow" : "text-muted-foreground"
-              } ${glowingMessageId === message.id ? "glow-effect" : ""}`}
+            className={cn(
+              "flex items-start space-x-1 px-1 pt-1 rounded-lg",
+              isSelectedOrParent ? "custom-shadow" : "text-muted-foreground",
+              siblings.some(s => s.id === selectedMessage) && "border-2",
+              !selectedMessage && parentId === null && "border-2",
+              glowingMessageId === message.id && "glow-effect"
+            )}
             onClick={(e) => {
               e.stopPropagation();
               if (currentThread) {
@@ -355,7 +360,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                     )}
                   </div>
                   <div
-                    className={`flex space-x-1 ${isSelectedOrParent || isSelected
+                    className={`flex space-x-1 ${isSelected
                       ? "opacity-100"
                       : "opacity-0 hover:opacity-100"
                       } transition-opacity duration-200`}
@@ -466,7 +471,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                   />
                 ) : (
                   <div
-                    className="whitespace-normal break-words markdown-content font-serif overflow-hidden pt-0.5 px-1"
+                    className={`whitespace-normal break-words markdown-content font-serif overflow-hidden pt-0.5 px-1 ${!selectedMessage && parentId === null || isSelectedOrParent || (siblings.some(s => s.id === selectedMessage)) ? '' : message.replies.length > 0 ? `${message.isCollapsed ? 'border-l-2 border-dotted' : 'border-l-2'} mt-[2.25px] mx-3` : ''}`}
                     onDoubleClick={() => {
                       cancelEditingMessage();
                       startEditingMessage(message);
@@ -939,15 +944,18 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
             {message.replies.map((reply) => (
               <div
                 key={reply.id}
-                className={`${selectedMessage === message.id
-                  ? `relative before:absolute before:left-0 before:-top-2 before:w-4 before:h-10 before:border-b-2 before:rounded-bl-lg before:border-border before:border-l-2
-                  ${getSiblings(message.replies, reply.id).slice(-1)[0].id !==
-                    reply.id
-                    ? "after:absolute after:left-0 after:top-3 after:bottom-0 after:border-l-2 after:border-border"
-                    : ""
-                  } ml-4 md:ml-8`
-                  : "ml-4 md:ml-8"
-                  }`}
+                className={cn(
+                  "ml-4",
+                  !isParentOfSelected && cn(
+                    "relative",
+                    // Add connecting line from parent to child
+                    "before:absolute before:left-0 before:-top-2 before:w-4 before:h-10",
+                    "before:border-b-2 before:border-l-2 before:border-border before:rounded-bl-lg",
+                    // Add vertical line for non-last replies
+                    getSiblings(message.replies, reply.id).slice(-1)[0].id !== reply.id &&
+                    "after:absolute after:left-0 after:top-3 after:bottom-0 after:border-l-2 after:border-border"
+                  )
+                )}
               >
                 <RenderMessage
                   key={reply.id}
