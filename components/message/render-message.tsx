@@ -34,6 +34,8 @@ import {
   ClipboardType,
   ClipboardCheck,
   ClipboardX,
+  Box,
+  Bot,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -55,7 +57,7 @@ import {
   ContextMenuShortcut,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import { Message, Thread } from "@/components/types";
+import { Message, Thread, Tool } from "@/components/types";
 
 interface RenderMessageProps {
   message: Message;
@@ -351,11 +353,22 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                     {modelDetails && (
                       <div className="flex items-center space-x-1">
                         <Badge variant="outline" className="select-none">
+                          <Bot className="w-3 h-3 mr-1" />
                           {modelDetails.baseModel
                             ?.split("/")
                             .pop()
                             ?.split("-")[0]}
                         </Badge>
+                        {modelDetails.parameters?.tools && modelDetails.parameters.tools.length > 0 && modelDetails.parameters.tool_choice !== "none" && (
+                          <div className="flex gap-1">
+                            {modelDetails.parameters.tools.map((tool: Tool) => (
+                              <Badge key={tool.id} variant={modelDetails?.parameters?.tool_choice === "auto" ? "outline" : "secondary"} className="select-none">
+                                <Box className="w-3 h-3 mr-1" />
+                                {tool.function.name}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

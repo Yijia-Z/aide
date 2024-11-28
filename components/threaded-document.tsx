@@ -158,6 +158,7 @@ export default function ThreadedDocument() {
       temperature: model.parameters.temperature,
       maxTokens: model.parameters.max_tokens,
       systemPrompt: model.systemPrompt,
+      tools: model.parameters.tools
     };
   };
 
@@ -582,12 +583,7 @@ export default function ThreadedDocument() {
               parentMsg?: Message
             ) => {
               if (deleteOption !== 'clear') {
-                if (newMsgs.length > 0) {
-                  const index = messages.findIndex((m) => m.id === messageId);
-                  const newSelectedId =
-                    index > 0 ? newMsgs[index - 1].id : newMsgs[0].id;
-                  setSelectedMessages((prev) => ({ ...prev, [String(currentThread)]: newSelectedId }));
-                } else if (parentMsg) {
+                if (parentMsg) {
                   setSelectedMessages((prev) => ({ ...prev, [String(currentThread)]: parentMsg.id }));
                 } else {
                   setSelectedMessages((prev) => ({ ...prev, [String(currentThread)]: null }));

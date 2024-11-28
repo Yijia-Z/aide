@@ -60,7 +60,7 @@ export function ToolSelector({
             }
           }}
         >
-          <SelectTrigger>
+          <SelectTrigger className="text-primary" >
             <SelectValue placeholder="Select tool choice" />
           </SelectTrigger>
           <SelectContent className="custom-shadow">
@@ -77,7 +77,7 @@ export function ToolSelector({
             {selectedTools.map((tool) => (
               <Badge
                 key={tool.function.name}
-                variant="secondary"
+                variant={toolChoice === 'auto' ? 'outline' : toolChoice === 'none' ? 'outline' : 'secondary'}
                 className="flex items-center gap-2 cursor-pointer hover:text-destructive active:bg-background"
                 onClick={() => handleToolsChange(selectedTools.filter(t => t.function.name !== tool.function.name))}
               >

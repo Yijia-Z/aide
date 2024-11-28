@@ -15,6 +15,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { SelectBaseModel } from "@/components/model/model-selector";
 import { Model, ModelParameters, Tool } from "@/components/types";
+import { Badge } from "@/components/ui/badge";
 
 interface ModelConfigProps {
   models: Model[];
@@ -189,18 +190,39 @@ const ModelConfig: React.FC<ModelConfigProps> = ({
                           </span>{" "}
                           {model.baseModel.split("/").pop()}
                         </p>
-                        <p>
-                          <span className="text-muted-foreground">
-                            Temperature:
-                          </span>{" "}
-                          {model.parameters.temperature}
-                        </p>
-                        <p>
-                          <span className="text-muted-foreground">
-                            Max Tokens:
-                          </span>{" "}
-                          {model.parameters.max_tokens}
-                        </p>
+                        {model.parameters?.supported_parameters?.includes("temperature") && (
+                          <p>
+                            <span className="text-muted-foreground">
+                              Temperature:
+                            </span>{" "}
+                            {model.parameters.temperature}
+                          </p>
+                        )}
+                        {model.parameters?.supported_parameters?.includes("max_tokens") && (
+                          <p>
+                            <span className="text-muted-foreground">
+                              Max Tokens:
+                            </span>{" "}
+                            {model.parameters.max_tokens}
+                          </p>
+                        )}
+                        {model.parameters?.tools && model.parameters.tools.length > 0 && (
+                          <p>
+                            {(
+                              <span className="flex flex-wrap gap-1">
+                                {model.parameters.tools.map((tool) => (
+                                  <Badge
+                                    key={tool.function.name}
+                                    variant={model.parameters.tool_choice === 'auto' ? 'outline' : model.parameters.tool_choice === 'none' ? 'outline' : 'secondary'}
+                                    className={`flex items-center gap-2 ${model.parameters.tool_choice === 'none' ? 'text-muted-foreground line-through' : ''}`}
+                                  >
+                                    {tool.function.name}
+                                  </Badge>
+                                ))}
+                              </span>
+                            )}
+                          </p>
+                        )}
                       </div>
                     )}
                   </div>

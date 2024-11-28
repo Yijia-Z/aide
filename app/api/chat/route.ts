@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
             response_format: configuration.response_format,
             stop: configuration.stop,
             tools: configuration.tools,
-            tool_choice: configuration.tool_choice,
+            tool_choice: configuration.tools?.length ? configuration.tool_choice : "none",
             stream: true,
           };
 
@@ -138,7 +138,9 @@ export async function POST(req: NextRequest) {
 
                     if (finish_reason === "tool_calls") {
                       console.log("Finish reason is 'tool_calls', preparing to process tool calls.");
-
+                      if (configuration.tool_choice !== "auto" && configuration.tool_choice !== "none") {
+                        configuration.tool_choice = "auto";
+                      }
                       if (assistantMessages) {
                         currentMessages.push({
                           role: 'assistant',
