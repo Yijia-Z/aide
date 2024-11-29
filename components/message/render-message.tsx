@@ -329,7 +329,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                   <div className="flex items-center space-x-1">
                     <Button
                       variant="secondary"
-                      className="w-6 h-6 p-0 ml-[1px] rounded-md relative"
+                      className="w-6 h-6 p-0 mb-[2px] rounded-md relative"
                       onClick={(e) => {
                         e.stopPropagation();
                         toggleCollapse(threadId, message.id);
