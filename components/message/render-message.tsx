@@ -69,7 +69,10 @@ interface RenderMessageProps {
   selectedMessages: { [key: string]: string | null };
   editingMessage: string | null;
   editingContent: string;
-  glowingMessageId: string | null;
+  glowingMessageIds: string[];
+  addGlowingMessage: (id: string) => void;
+  removeGlowingMessage: (id: string) => void;
+  clearGlowingMessages: () => void;
   copiedStates: { [key: string]: boolean };
   clipboardMessage: {
     message: Message;
@@ -80,7 +83,6 @@ interface RenderMessageProps {
   isGenerating: { [key: string]: boolean };
   setSelectedMessages: React.Dispatch<React.SetStateAction<{ [key: string]: string | null }>>;
   toggleCollapse: (threadId: string, messageId: string) => void;
-  setGlowingMessageId: (id: string | null) => void;
   setEditingContent: (content: string) => void;
   confirmEditingMessage: (threadId: string, messageId: string) => void;
   cancelEditingMessage: () => void;
@@ -132,13 +134,15 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
   selectedMessages,
   editingMessage,
   editingContent,
-  glowingMessageId,
+  glowingMessageIds,
+  addGlowingMessage,
+  removeGlowingMessage,
+  clearGlowingMessages,
   copiedStates,
   clipboardMessage,
   isGenerating,
   setSelectedMessages,
   toggleCollapse,
-  setGlowingMessageId,
   setEditingContent,
   confirmEditingMessage,
   cancelEditingMessage,
@@ -281,6 +285,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
 
   // Indentation
   const indent = depth === 0 ? 0 : (isSelectedOrParent || (siblings.some(s => s.id === selectedMessage))) ? -16 : -1;
+  const isGlowing = glowingMessageIds.includes(message.id);
 
   return (
     <motion.div
@@ -309,7 +314,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
               isSelectedOrParent ? "custom-shadow ml-[1px]" : "text-muted-foreground pl-1 pb-0",
               siblings.some(s => s.id === selectedMessage) && "border-2",
               !selectedMessage && parentId === null && "border-2",
-              glowingMessageId === message.id && "glow-effect"
+              isGlowing && "glow-effect"
             )}
             onClick={(e) => {
               e.stopPropagation();
@@ -387,10 +392,8 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                           e.stopPropagation();
                           setSelectedMessages((prev) => ({ ...prev, [String(currentThread)]: parentMessage.id }));
                         }}
-                        onMouseEnter={() =>
-                          setGlowingMessageId(parentMessage.id)
-                        }
-                        onMouseLeave={() => setGlowingMessageId(null)}
+                        onMouseEnter={() => addGlowingMessage(parentMessage.id)}
+                        onMouseLeave={() => removeGlowingMessage(parentMessage.id)}
                       >
                         <ArrowLeft className="h-4 w-4" />
                       </Button>
@@ -405,10 +408,8 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                             e.stopPropagation();
                             setSelectedMessages((prev) => ({ ...prev, [String(currentThread)]: currentMessage.replies[0].id }));
                           }}
-                          onMouseEnter={() =>
-                            setGlowingMessageId(currentMessage.replies[0].id)
-                          }
-                          onMouseLeave={() => setGlowingMessageId(null)}
+                          onMouseEnter={() => addGlowingMessage(currentMessage.replies[0].id)}
+                          onMouseLeave={() => removeGlowingMessage(currentMessage.replies[0].id)}
                         >
                           <ArrowRight className="h-4 w-4" />
                         </Button>
@@ -422,10 +423,8 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                           e.stopPropagation();
                           setSelectedMessages((prev) => ({ ...prev, [String(currentThread)]: siblings[currentIndex - 1].id }));
                         }}
-                        onMouseEnter={() =>
-                          setGlowingMessageId(siblings[currentIndex - 1].id)
-                        }
-                        onMouseLeave={() => setGlowingMessageId(null)}
+                        onMouseEnter={() => addGlowingMessage(siblings[currentIndex - 1].id)}
+                        onMouseLeave={() => removeGlowingMessage(siblings[currentIndex - 1].id)}
                       >
                         <ArrowUp className="h-4 w-4" />
                       </Button>
@@ -439,10 +438,8 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                           e.stopPropagation();
                           setSelectedMessages((prev) => ({ ...prev, [String(currentThread)]: siblings[currentIndex + 1].id }));
                         }}
-                        onMouseEnter={() =>
-                          setGlowingMessageId(siblings[currentIndex + 1].id)
-                        }
-                        onMouseLeave={() => setGlowingMessageId(null)}
+                        onMouseEnter={() => addGlowingMessage(siblings[currentIndex + 1].id)}
+                        onMouseLeave={() => removeGlowingMessage(siblings[currentIndex + 1].id)}
                       >
                         <ArrowDown className="h-4 w-4" />
                       </Button>
@@ -685,7 +682,6 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                                 {lastGenerateCount} times
                                 <MenubarShortcut>{lastGenerateCount}×</MenubarShortcut>
                               </MenubarItem>
-
                               <MenubarItem
                                 onClick={() => {
                                   if (message.isCollapsed) {
@@ -706,7 +702,8 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                                 }}
                               >
                                 Custom
-                              </MenubarItem>                            </MenubarContent>
+                              </MenubarItem>
+                            </MenubarContent>
                           </MenubarMenu>
                         </Menubar>
                       )}
@@ -753,8 +750,8 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                                 </MenubarItem>
                                 <MenubarItem
                                   onClick={() => {
+                                    clearGlowingMessages();
                                     setClipboardMessage(null);
-                                    setGlowingMessageId(null);
                                   }}
                                 >
                                   Clear Clipboard
@@ -907,8 +904,8 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
           {clipboardMessage && (
             <ContextMenuItem
               onClick={() => {
+                clearGlowingMessages();
                 setClipboardMessage(null);
-                setGlowingMessageId(null);
               }}
             >
               <ClipboardX className="mr-2 h-4 w-4" />
@@ -981,13 +978,15 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                   selectedMessages={selectedMessages}
                   editingMessage={editingMessage}
                   editingContent={editingContent}
-                  glowingMessageId={glowingMessageId}
+                  glowingMessageIds={glowingMessageIds}
+                  addGlowingMessage={addGlowingMessage}
+                  removeGlowingMessage={removeGlowingMessage}
+                  clearGlowingMessages={clearGlowingMessages}
                   copiedStates={copiedStates}
                   clipboardMessage={clipboardMessage}
                   isGenerating={isGenerating}
                   setSelectedMessages={setSelectedMessages}
                   toggleCollapse={toggleCollapse}
-                  setGlowingMessageId={setGlowingMessageId}
                   setEditingContent={setEditingContent}
                   confirmEditingMessage={confirmEditingMessage}
                   cancelEditingMessage={cancelEditingMessage}

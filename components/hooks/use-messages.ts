@@ -12,8 +12,22 @@ export function useMessages() {
     sourceThreadId: string | null;
     originalMessageId: string | null;
   } | null>(null);
-  const [glowingMessageId, setGlowingMessageId] = useState<string | null>(null);
-  const [lastGenerateCount, setLastGenerateCount] = useState<number>(3); // Add this line
+  const [glowingMessageIds, setGlowingMessageIds] = useState<string[]>([]);
+  const [lastGenerateCount, setLastGenerateCount] = useState<number>(3);
+
+  const addGlowingMessage = useCallback((id: string) => {
+    setGlowingMessageIds((prev) => Array.from(new Set([...prev, id])));
+  }, []);
+
+  const removeGlowingMessage = useCallback((id: string) => {
+    setGlowingMessageIds((prev) => prev.filter((messageId) =>
+      messageId !== id || (clipboardMessage?.originalMessageId === id)
+    ));
+  }, [clipboardMessage]);
+
+  const clearGlowingMessages = useCallback(() => {
+    setGlowingMessageIds([]);
+  }, []);
 
   return {
     selectedMessages,
@@ -26,8 +40,11 @@ export function useMessages() {
     setEditingContent,
     clipboardMessage,
     setClipboardMessage,
-    glowingMessageId,
-    setGlowingMessageId,
+    glowingMessageIds,
+    setGlowingMessageIds,
+    addGlowingMessage,
+    removeGlowingMessage,
+    clearGlowingMessages,
     lastGenerateCount,
     setLastGenerateCount,
   };

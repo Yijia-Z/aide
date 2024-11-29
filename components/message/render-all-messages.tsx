@@ -19,13 +19,15 @@ interface RenderMessagesProps {
   selectedMessages: { [key: string]: string | null };
   editingMessage: string | null;
   editingContent: string;
-  glowingMessageId: string | null;
+  glowingMessageIds: string[];
+  addGlowingMessage: (id: string) => void;
+  removeGlowingMessage: (id: string) => void;
+  clearGlowingMessages: () => void;
   copiedStates: { [key: string]: boolean };
   clipboardMessage: { message: Message; operation: "copy" | "cut"; sourceThreadId: string | null; originalMessageId: string | null; } | null;
   isGenerating: { [key: string]: boolean };
   setSelectedMessages: React.Dispatch<React.SetStateAction<{ [key: string]: string | null }>>;
   toggleCollapse: (threadId: string, messageId: string) => void;
-  setGlowingMessageId: (id: string | null) => void;
   setEditingContent: (content: string) => void;
   confirmEditingMessage: (threadId: string, messageId: string) => void;
   cancelEditingMessage: () => void;
@@ -52,13 +54,15 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
   selectedMessages,
   editingMessage,
   editingContent,
-  glowingMessageId,
+  glowingMessageIds,
+  addGlowingMessage,
+  removeGlowingMessage,
+  clearGlowingMessages,
   copiedStates,
   clipboardMessage,
   isGenerating,
   setSelectedMessages,
   toggleCollapse,
-  setGlowingMessageId,
   setEditingContent,
   confirmEditingMessage,
   cancelEditingMessage,
@@ -123,7 +127,6 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
                 <MenubarItem
                   onClick={() => {
                     pasteMessage(currentThread, null)
-                    setGlowingMessageId(null);
                   }}
                 >
                   {clipboardMessage ? (
@@ -138,7 +141,7 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
                   <MenubarItem
                     onClick={() => {
                       setClipboardMessage(null);
-                      setGlowingMessageId(null);
+                      clearGlowingMessages();
                     }}
                   >
                     <ClipboardX className="mr-2 h-4 w-4" />
@@ -163,13 +166,15 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
               selectedMessages={selectedMessages}
               editingMessage={editingMessage}
               editingContent={editingContent}
-              glowingMessageId={glowingMessageId}
+              glowingMessageIds={glowingMessageIds}
+              addGlowingMessage={addGlowingMessage}
+              removeGlowingMessage={removeGlowingMessage}
+              clearGlowingMessages={clearGlowingMessages}
               copiedStates={copiedStates}
               clipboardMessage={clipboardMessage}
               isGenerating={isGenerating}
               setSelectedMessages={setSelectedMessages}
               toggleCollapse={toggleCollapse}
-              setGlowingMessageId={setGlowingMessageId}
               setEditingContent={setEditingContent}
               confirmEditingMessage={confirmEditingMessage}
               cancelEditingMessage={cancelEditingMessage}

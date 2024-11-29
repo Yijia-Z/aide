@@ -78,8 +78,10 @@ export default function ThreadedDocument() {
     setEditingContent,
     clipboardMessage,
     setClipboardMessage,
-    glowingMessageId,
-    setGlowingMessageId,
+    glowingMessageIds,
+    addGlowingMessage,
+    removeGlowingMessage,
+    clearGlowingMessages,
     lastGenerateCount,
     setLastGenerateCount,
   } = useMessages();
@@ -671,8 +673,8 @@ export default function ThreadedDocument() {
           sourceThreadId: threadId,
           originalMessageId: messageId,
         });
-
-        setGlowingMessageId(messageId);
+        clearGlowingMessages();
+        addGlowingMessage(messageId);
 
         return prev;
       });
@@ -681,7 +683,7 @@ export default function ThreadedDocument() {
       cloneMessageWithNewIds,
       findMessageAndParents,
       setClipboardMessage,
-      setGlowingMessageId,
+      addGlowingMessage,
       setThreads,
     ]
   );
@@ -955,12 +957,19 @@ export default function ThreadedDocument() {
         });
       });
 
-      setSelectedMessages((prev) => ({ ...prev, [String(currentThread)]: messageToPaste.id }));
+      if (currentThread) {
+        setSelectedMessages((prev) => ({
+          ...prev,
+          [currentThread]: messageToPaste.id
+        }));
+      }
+
       if (clipboardMessage?.operation === "cut" || clipboardMessage?.operation === "copy") {
         setClipboardMessage(null); // Set clipboardMessage to null after paste for cut/copy operation
+        clearGlowingMessages();
       }
     },
-    [clipboardMessage, setClipboardMessage, setSelectedMessages, deleteMessage, updateMessageContent, currentThread, setThreads]
+    [clipboardMessage, setClipboardMessage, clearGlowingMessages, setSelectedMessages, deleteMessage, updateMessageContent, currentThread, setThreads]
   );
 
   // Find message by ID
@@ -1480,20 +1489,20 @@ export default function ThreadedDocument() {
         const selectedMessage = selectedMessages[currentThread];
 
         // Copy/Cut/Paste operations
-        if ((event.metaKey || event.ctrlKey) && selectedMessage) {
-          if (selectedMessages[currentThread] && key === 'c') {
+        if ((event.metaKey || event.ctrlKey)) {
+          if (selectedMessage && key === 'c') {
             event.preventDefault();
-            copyOrCutMessage(currentThread, selectedMessages[currentThread], "copy");
+            copyOrCutMessage(currentThread, selectedMessage, "copy");
             return;
           }
-          if (selectedMessages[currentThread] && key === 'x') {
+          if (selectedMessage && key === 'x') {
             event.preventDefault();
-            copyOrCutMessage(currentThread, selectedMessages[currentThread], "cut");
+            copyOrCutMessage(currentThread, selectedMessage, "cut");
             return;
           }
           if (key === 'v') {
             event.preventDefault();
-            pasteMessage(currentThread, selectedMessages[currentThread] || null);
+            pasteMessage(currentThread, selectedMessage || null);
             return;
           }
         }
@@ -1588,7 +1597,7 @@ export default function ThreadedDocument() {
             break;
           case "Escape":
             if (clipboardMessage) {
-              setGlowingMessageId(null);
+              clearGlowingMessages();
               setClipboardMessage(null);
             }
             else setSelectedMessages((prev) => ({ ...prev, [String(currentThread)]: null }))
@@ -1640,7 +1649,7 @@ export default function ThreadedDocument() {
     setEditingModel,
     setEditingThreadTitle,
     setSelectedMessages,
-    setGlowingMessageId,
+    clearGlowingMessages,
     toggleCollapse,
     lastGenerateCount
   ]);
@@ -1691,13 +1700,15 @@ export default function ThreadedDocument() {
               selectedMessages={selectedMessages}
               editingMessage={editingMessage}
               editingContent={editingContent}
-              glowingMessageId={glowingMessageId}
+              glowingMessageIds={glowingMessageIds}
+              addGlowingMessage={addGlowingMessage}
+              removeGlowingMessage={removeGlowingMessage}
+              clearGlowingMessages={clearGlowingMessages}
               copiedStates={copiedStates}
               clipboardMessage={clipboardMessage}
               isGenerating={isGenerating}
               setSelectedMessages={setSelectedMessages}
               toggleCollapse={toggleCollapse}
-              setGlowingMessageId={setGlowingMessageId}
               setEditingContent={setEditingContent}
               confirmEditingMessage={confirmEditingMessage}
               cancelEditingMessage={cancelEditingMessage}
@@ -1925,13 +1936,15 @@ export default function ThreadedDocument() {
                 selectedMessages={selectedMessages}
                 editingMessage={editingMessage}
                 editingContent={editingContent}
-                glowingMessageId={glowingMessageId}
+                glowingMessageIds={glowingMessageIds}
+                addGlowingMessage={addGlowingMessage}
+                removeGlowingMessage={removeGlowingMessage}
+                clearGlowingMessages={clearGlowingMessages}
                 copiedStates={copiedStates}
                 clipboardMessage={clipboardMessage}
                 isGenerating={isGenerating}
                 setSelectedMessages={setSelectedMessages}
                 toggleCollapse={toggleCollapse}
-                setGlowingMessageId={setGlowingMessageId}
                 setEditingContent={setEditingContent}
                 confirmEditingMessage={confirmEditingMessage}
                 cancelEditingMessage={cancelEditingMessage}
