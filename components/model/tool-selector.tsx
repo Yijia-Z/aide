@@ -74,7 +74,7 @@ export function ToolSelector({
       {isToolChoiceVisible && (
         <div>
           <div className="flex flex-wrap gap-1 mb-2">
-            {selectedTools.map((tool) => (
+            {availableTools.filter(tool => selectedTools.some(selected => selected.function.name === tool.function.name)).map((tool) => (
               <Badge
                 key={tool.function.name}
                 variant={toolChoice === 'auto' ? 'outline' : toolChoice === 'none' ? 'outline' : 'secondary'}

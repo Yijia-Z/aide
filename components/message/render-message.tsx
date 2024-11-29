@@ -311,9 +311,9 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
           <div
             className={cn(
               "flex items-start space-x-1 p-1 rounded-lg",
-              isSelectedOrParent ? "custom-shadow ml-[1px]" : "text-muted-foreground pl-1 pb-0",
-              siblings.some(s => s.id === selectedMessage) && "border-2",
-              !selectedMessage && parentId === null && "border-2",
+              isSelectedOrParent ? "custom-shadow ml-[1px]" : "text-muted-foreground pb-0",
+              siblings.some(s => s.id === selectedMessage) && "border-2 pl-[3px] pt-[3px]",
+              !selectedMessage && parentId === null && "border-2 pl-[3px] pt-[3px]",
               isGlowing && "glow-effect"
             )}
             onClick={(e) => {
