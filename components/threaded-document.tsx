@@ -1655,7 +1655,7 @@ export default function ThreadedDocument() {
   ]);
 
   return (
-    <div className="h-screen flex flex-col md:flex-row p-2 overflow-ellipsis ">
+    <div className="h-screen flex flex-col md:flex-row p-2 md:pr-0 overflow-ellipsis ">
       <div className="sm:hidden bg-transparent">
         {/* Mobile layout with tabs for threads, messages, and models */}
         <Tabs
@@ -1772,6 +1772,7 @@ export default function ThreadedDocument() {
           </TabsContent>
           <TabsList
             className="grid 
+              rounded-lg
               bg-background/80
               custom-shadow
               w-full 

@@ -105,7 +105,7 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
             <MenubarMenu>
               <MenubarTrigger asChild>
                 <Button
-                  className="px-4 bg-transparent hover:bg-secondary custom-shadow transition-scale-zoom text-primary border border-border"
+                  className="rounded-md px-4 bg-transparent hover:bg-secondary custom-shadow transition-scale-zoom text-primary border border-border"
                   size="default"
                 >
                   <MessageSquarePlus className="h-4 w-4" />

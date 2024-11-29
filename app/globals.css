@@ -93,7 +93,24 @@
 }
 
 .custom-shadow {
-  @apply transform-gpu backdrop-blur-[1px] [border:1px_solid_rgba(255,255,255,.4)] [box-shadow:0_-20px_80px_-20px_#ffffff9f_inset] dark:[border:1px_solid_rgba(255,255,255,.1)] dark:[box-shadow:0_-20px_80px_-20px_#ffffff1f_inset];
+  @apply transform-gpu backdrop-blur-[1px] rounded-lg;
+  box-shadow: 0 -20px 80px -20px #ffffff9f inset;
+  &::after {
+    content: '';
+    @apply absolute inset-[0px] border-2 border-border/30 pointer-events-none rounded-xl;
+  }
+}
+
+.dark .custom-shadow {
+  box-shadow: 0 -20px 80px -20px #ffffff1f inset;
+}
+
+.inside-border {
+  @apply relative;
+  &::after {
+    content: '';
+    @apply absolute inset-[0px] border-2 border-border/30 rounded-lg pointer-events-none;
+  }
 }
 
 /* Hide scrollbar */
