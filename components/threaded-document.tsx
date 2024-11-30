@@ -891,12 +891,25 @@ export default function ThreadedDocument() {
         });
       }
 
-      // Prevent pasting on the original message
-      if (
-        clipboardMessage &&
-        parentId === clipboardMessage.originalMessageId
-      )
-        return;
+      // Prevent pasting on the original message or its children
+      if (clipboardMessage && clipboardMessage.originalMessageId) {
+        const originalMessage = findMessageById(
+          threads.find(t => t.id === clipboardMessage.sourceThreadId)?.messages || [],
+          clipboardMessage.originalMessageId
+        );
+
+        // Check if parentId matches original message or any of its descendants
+        const isDescendant = (message: Message | null): boolean => {
+          if (!message) return false;
+          if (message.id === parentId) return true;
+          return message.replies.some(reply => isDescendant(reply));
+        };
+
+        if (originalMessage && clipboardMessage.operation === "cut" && (parentId === clipboardMessage.originalMessageId || isDescendant(originalMessage))) {
+          window.alert("Cut and paste on children is now allowed!")
+          return;
+        }
+      }
 
       setThreads((prev) => {
         let updatedThreads = [...prev];
@@ -913,7 +926,6 @@ export default function ThreadedDocument() {
             true
           );
           updatedThreads = [...prev]; // Get fresh state after deletion
-          setClipboardMessage(null);
         }
 
         // Then handle the paste operation
