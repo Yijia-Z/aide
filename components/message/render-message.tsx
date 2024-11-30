@@ -352,7 +352,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                         )?.publisher
                         ? message.publisher === "ai"
                           ? modelDetails?.name || "AI"
-                          : "User"
+                          : "user"
                         : null}
                     </span>
                     {modelDetails && (

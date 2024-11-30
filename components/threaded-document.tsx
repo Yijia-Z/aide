@@ -914,20 +914,6 @@ export default function ThreadedDocument() {
       setThreads((prev) => {
         let updatedThreads = [...prev];
 
-        // First handle deletion of original message if this was a cut operation
-        if (
-          clipboardMessage?.operation === "cut" &&
-          clipboardMessage.sourceThreadId &&
-          clipboardMessage.originalMessageId
-        ) {
-          deleteMessage(
-            clipboardMessage.sourceThreadId,
-            clipboardMessage.originalMessageId,
-            true
-          );
-          updatedThreads = [...prev]; // Get fresh state after deletion
-        }
-
         // Then handle the paste operation
         return updatedThreads.map((thread) => {
           if (thread.id !== threadId) return thread;
@@ -981,6 +967,19 @@ export default function ThreadedDocument() {
         setClipboardMessage(null); // Set clipboardMessage to null after paste for cut/copy operation
         clearGlowingMessages();
       }
+
+      if (
+        clipboardMessage?.operation === "cut" &&
+        clipboardMessage.sourceThreadId &&
+        clipboardMessage.originalMessageId
+      ) {
+        deleteMessage(
+          clipboardMessage.sourceThreadId,
+          clipboardMessage.originalMessageId,
+          true
+        );
+      }
+
     },
     [clipboardMessage, setClipboardMessage, clearGlowingMessages, setSelectedMessages, deleteMessage, updateMessageContent, currentThread, setThreads]
   );
