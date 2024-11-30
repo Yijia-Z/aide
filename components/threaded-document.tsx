@@ -683,6 +683,7 @@ export default function ThreadedDocument() {
       cloneMessageWithNewIds,
       findMessageAndParents,
       setClipboardMessage,
+      clearGlowingMessages,
       addGlowingMessage,
       setThreads,
     ]
@@ -1766,13 +1767,15 @@ export default function ThreadedDocument() {
           <TabsContent
             value="settings"
             className="overflow-y-clip fixed top-0 left-2 right-2 pb-20"
-            style={{ paddingTop: "env(safe-area-inset-top)" }}
+            style={{
+              paddingTop: "env(safe-area-inset-top)",
+              paddingBottom: "env(safe-area-inset-bottom)"
+            }}
           >
             <SettingsPanel />
           </TabsContent>
           <TabsList
             className="grid 
-              rounded-lg
               bg-background/80
               custom-shadow
               w-full 
@@ -1780,7 +1783,7 @@ export default function ThreadedDocument() {
               bottom-0 
               left-0 
               right-0 
-              pb-14 
+              pb-10
               space-x-1
               grid-cols-5
               select-none"

@@ -326,10 +326,10 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
             <div className="flex-grow p-0 overflow-hidden">
               <div className="flex flex-col">
                 <div className={`flex items-center justify-between rounded-md ${isGenerating[message.id] ? "opacity-50 glow-effect" : ""}`}>
-                  <div className="flex items-center space-x-1">
+                  <div className="flex items-center space-x-1 mb-0.5">
                     <Button
                       variant="secondary"
-                      className="w-6 h-6 p-0 mb-[2px] rounded-md relative"
+                      className="w-6 h-6 p-0 rounded-md relative"
                       onClick={(e) => {
                         e.stopPropagation();
                         toggleCollapse(threadId, message.id);
@@ -357,7 +357,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                     </span>
                     {modelDetails && (
                       <div className="flex items-center space-x-1">
-                        <Badge variant="outline" className="select-none custom-shadow">
+                        <Badge variant="outline" className="select-none text-muted-foreground">
                           <Bot className="w-3 h-3 mr-1" />
                           {modelDetails.baseModel
                             ?.split("/")
@@ -481,7 +481,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                   />
                 ) : (
                   <div
-                    className={`whitespace-normal break-words markdown-content font-serif overflow-hidden px-1 ${!selectedMessage && parentId === null || isSelectedOrParent || (siblings.some(s => s.id === selectedMessage)) ? '' : message.replies.length > 0 ? `${message.isCollapsed ? 'border-l-2 rounded-bl-lg border-b-2 border-dashed' : 'border-l-2'} ml-3` : 'ml-3'}`}
+                    className={`whitespace-normal break-words markdown-content font-serif overflow-hidden px-1 ${!selectedMessage && parentId === null || isSelectedOrParent || (siblings.some(s => s.id === selectedMessage)) ? '' : message.replies.length > 0 ? `${message.isCollapsed ? 'border-l-2 rounded-bl-lg border-b-2 border-dashed' : 'border-l-2'} ml-3` : 'ml-3.5'}`}
                     onDoubleClick={() => {
                       cancelEditingMessage();
                       startEditingMessage(message);
@@ -963,7 +963,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                     "before:border-b-2 before:border-l-2 before:border-border before:rounded-bl-lg",
                     // Add vertical line for non-last replies
                     getSiblings(message.replies, reply.id).slice(-1)[0].id !== reply.id &&
-                    "after:absolute after:left-0 after:top-0 after:-bottom-0 after:border-l-2 after:border-border"
+                    "after:absolute after:left-0 after:top-5 after:-bottom-0 after:border-l-2 after:border-border"
                   )
                 )}
               >
