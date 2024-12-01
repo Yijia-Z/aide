@@ -1,10 +1,10 @@
-'use client';
+'use client'; // Translate Chinese to English
 
-import { zodResolver } from "@hookform/resolvers/zod"
-import { useForm } from "react-hook-form"
-import { z } from "zod"
-import { signIn } from "next-auth/react"
-import { Button } from "@/components/ui/button"
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { signIn } from "next-auth/react";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent, 
@@ -12,7 +12,7 @@ import {
   CardHeader,
   CardTitle,
   CardFooter,
-} from "@/components/ui/card"
+} from "@/components/ui/card";
 import {
   Form,
   FormControl,
@@ -20,11 +20,12 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form"
-import { Input } from "@/components/ui/input"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { useState } from "react"
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useState } from "react";
 
+// Define Zod validation schemas
 const loginSchema = z.object({
   email: z.string().email({
     message: "Please enter a valid email address.",
@@ -32,81 +33,122 @@ const loginSchema = z.object({
   password: z.string().min(8, {
     message: "Password must be at least 8 characters.",
   }),
-})
+});
 
 const registerSchema = loginSchema.extend({
-  confirmPassword: z.string()
+  confirmPassword: z.string(),
+  username: z.string().min(2, { message: "Username must be at least 2 characters." }),
 }).refine((data) => data.password === data.confirmPassword, {
-  message: "Passwords do not match",
+  message: "Passwords do not match.",
   path: ["confirmPassword"],
-})
+});
 
 export function LoginForm() {
-  const [isLoading, setIsLoading] = useState(false)
-  const [mode, setMode] = useState<'login' | 'register'>('login')
+  const [isLoading, setIsLoading] = useState(false);
+  const [mode, setMode] = useState<'login' | 'register'>('login');
 
+  // Initialize login form
   const loginForm = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
       email: "",
       password: "",
     },
-  })
+  });
 
+  // Initialize registration form
   const registerForm = useForm<z.infer<typeof registerSchema>>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
       email: "",
       password: "",
       confirmPassword: "",
+      username: "",
     },
-  })
+  });
 
-  const handleCredentials = async (data: z.infer<typeof loginSchema> | z.infer<typeof registerSchema>) => {
-    setIsLoading(true)
+  // Login handler
+  const handleLogin = async (data: z.infer<typeof loginSchema>) => {
+    setIsLoading(true);
     try {
       const result = await signIn("credentials", {
         email: data.email,
         password: data.password,
-        mode,
         redirect: false,
-      })
+      });
 
       if (result?.error) {
-        const errorMessage = mode === 'login' ? "Invalid credentials" : "Registration failed"
-        if (mode === 'login') {
-          loginForm.setError("root", { message: errorMessage })
-        } else {
-          registerForm.setError("root", { message: errorMessage })
-        }
+        loginForm.setError("root", { message: "Login failed, please check your email and password." });
+      } else {
+        // Login successful, redirect to home or user dashboard
+        window.location.href = "/";
       }
     } catch (err) {
-      const errorMessage = `An error occurred during ${mode}`
-      if (mode === 'login') {
-        loginForm.setError("root", { message: errorMessage })
-      } else {
-        registerForm.setError("root", { message: errorMessage })
-      }
+      loginForm.setError("root", { message: "An error occurred during login." });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
+  // Registration handler
+  const handleRegister = async (data: z.infer<typeof registerSchema>) => {
+    setIsLoading(true);
+    try {
+      const res = await fetch('http://localhost:8000/api/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: data.email,
+          password: data.password,
+          username: data.username,
+        }),
+      });
+
+      if (res.ok) {
+        // Registration successful, auto-login or prompt user to login
+        const loginResult = await signIn("credentials", {
+          email: data.email,
+          password: data.password,
+          redirect: false,
+        });
+
+        if (loginResult?.error) {
+          registerForm.setError("root", { message: "Registration successful, but automatic login failed. Please login manually." });
+        } else {
+          // Auto-login successful, redirect to home or user dashboard
+          window.location.href = "/";
+        }
+      } else {
+        const errorData = await res.json();
+        registerForm.setError("root", { message: errorData.detail || "Registration failed, please try again." });
+      }
+    } catch (err) {
+      registerForm.setError("root", { message: "An error occurred during registration." });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Google sign-in handler
   const handleGoogleSignIn = () => {
-    setIsLoading(true)
-    signIn("google", { callbackUrl: window.location.origin })
-  }
+    setIsLoading(true);
+    signIn("google", { callbackUrl: window.location.origin });
+  };
 
   return (
     <Card className="mx-auto max-w-max custom-shadow">
       <CardHeader>
         <CardTitle className="text-2xl">Welcome</CardTitle>
         <CardDescription>
-          Login or register to sync across devices and unlock more models
+          Login or register to sync across multiple devices and unlock more features
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <Tabs defaultValue="login" className="w-full" onValueChange={(value) => setMode(value as 'login' | 'register')}>
+        <Tabs 
+          defaultValue="login" 
+          className="w-full" 
+          onValueChange={(value) => setMode(value as 'login' | 'register')}
+        >
           <TabsList className="grid w-full grid-cols-2 space-x-1">
             <TabsTrigger
               className="transition-scale-zoom hover:bg-secondary hover:custom-shadow"
@@ -123,7 +165,7 @@ export function LoginForm() {
           </TabsList>
           <TabsContent value="login">
             <Form {...loginForm}>
-              <form onSubmit={loginForm.handleSubmit(handleCredentials)} className="grid gap-4">
+              <form onSubmit={loginForm.handleSubmit(handleLogin)} className="grid gap-4">
                 <FormField
                   control={loginForm.control}
                   name="email"
@@ -131,7 +173,12 @@ export function LoginForm() {
                     <FormItem>
                       <FormLabel>Email</FormLabel>
                       <FormControl>
-                        <Input placeholder="m@example.com" type="email" disabled={isLoading} {...field} />
+                        <Input 
+                          placeholder="m@example.com" 
+                          type="email" 
+                          disabled={isLoading} 
+                          {...field} 
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -144,14 +191,20 @@ export function LoginForm() {
                     <FormItem>
                       <FormLabel>Password</FormLabel>
                       <FormControl>
-                        <Input type="password" disabled={isLoading} {...field} />
+                        <Input 
+                          type="password" 
+                          disabled={isLoading} 
+                          {...field} 
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
                 {loginForm.formState.errors.root && (
-                  <p className="text-sm text-destructive">{loginForm.formState.errors.root.message}</p>
+                  <p className="text-sm text-destructive">
+                    {loginForm.formState.errors.root.message}
+                  </p>
                 )}
                 <Button type="submit" className="w-full" disabled={isLoading}>
                   {isLoading ? "Logging in..." : "Login"}
@@ -161,7 +214,25 @@ export function LoginForm() {
           </TabsContent>
           <TabsContent value="register">
             <Form {...registerForm}>
-              <form onSubmit={registerForm.handleSubmit(handleCredentials)} className="grid gap-4">
+              <form onSubmit={registerForm.handleSubmit(handleRegister)} className="grid gap-4">
+                <FormField
+                  control={registerForm.control}
+                  name="username"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Username</FormLabel>
+                      <FormControl>
+                        <Input 
+                          placeholder="Your Name" 
+                          type="text" 
+                          disabled={isLoading} 
+                          {...field} 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 <FormField
                   control={registerForm.control}
                   name="email"
@@ -169,7 +240,12 @@ export function LoginForm() {
                     <FormItem>
                       <FormLabel>Email</FormLabel>
                       <FormControl>
-                        <Input placeholder="m@example.com" type="email" disabled={isLoading} {...field} />
+                        <Input 
+                          placeholder="m@example.com" 
+                          type="email" 
+                          disabled={isLoading} 
+                          {...field} 
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -182,7 +258,11 @@ export function LoginForm() {
                     <FormItem>
                       <FormLabel>Password</FormLabel>
                       <FormControl>
-                        <Input type="password" disabled={isLoading} {...field} />
+                        <Input 
+                          type="password" 
+                          disabled={isLoading} 
+                          {...field} 
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -195,14 +275,20 @@ export function LoginForm() {
                     <FormItem>
                       <FormLabel>Confirm Password</FormLabel>
                       <FormControl>
-                        <Input type="password" disabled={isLoading} {...field} />
+                        <Input 
+                          type="password" 
+                          disabled={isLoading} 
+                          {...field} 
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
                 {registerForm.formState.errors.root && (
-                  <p className="text-sm text-destructive">{registerForm.formState.errors.root.message}</p>
+                  <p className="text-sm text-destructive">
+                    {registerForm.formState.errors.root.message}
+                  </p>
                 )}
                 <Button type="submit" className="w-full" disabled={isLoading}>
                   {isLoading ? "Registering..." : "Register"}
@@ -247,9 +333,9 @@ export function LoginForm() {
               fill="#EA4335"
             />
           </svg>
-          Continue with Google
+          Sign in with Google
         </Button>
       </CardFooter>
     </Card>
-  )
+  );
 }

@@ -5,3 +5,6 @@ openai
 python-dotenv
 tiktoken
 pymongo
+supabase
+passlib[bcrypt]
+python-jose
