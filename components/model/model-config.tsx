@@ -105,7 +105,7 @@ const ModelConfig: React.FC<ModelConfigProps> = ({
                 <div className={`${editingModel?.id !== model.id ? 'flex justify-between items-start' : ''}`}>
                   <div>
                     <div
-                      className="flex cursor-pointer justify-between items-center pb-2"
+                      className="flex cursor-pointer justify-between items-center"
                       onDoubleClick={() => {
                         if (editingModel?.id === model.id) {
                           setEditingModel(null);

@@ -326,7 +326,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
             <div className="flex-grow p-0 overflow-hidden">
               <div className="flex flex-col">
                 <div className={`flex items-center justify-between rounded-md ${isGenerating[message.id] ? "opacity-50 glow-effect" : ""}`}>
-                  <div className="flex items-center space-x-1 mb-0.5">
+                  <div className="flex items-center space-x-1">
                     <Button
                       variant="secondary"
                       className="w-6 h-6 p-0 rounded-md relative"
@@ -481,7 +481,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                   />
                 ) : (
                   <div
-                    className={`whitespace-normal break-words markdown-content font-serif overflow-hidden px-1 ${!selectedMessage && parentId === null || isSelectedOrParent || (siblings.some(s => s.id === selectedMessage)) ? '' : message.replies.length > 0 ? `${message.isCollapsed ? 'border-l-2 rounded-bl-lg border-b-2 border-dashed' : 'border-l-2'} ml-3` : 'ml-3.5'}`}
+                    className={`whitespace-normal break-words markdown-content font-serif overflow-hidden px-1 mt-0.5 ${!selectedMessage && parentId === null || isSelectedOrParent || (siblings.some(s => s.id === selectedMessage)) ? '' : message.replies.length > 0 ? `${message.isCollapsed ? 'border-l-2 rounded-bl-lg border-b-2 border-dashed' : 'border-l-2'} ml-3` : 'ml-3.5'}`}
                     onDoubleClick={() => {
                       cancelEditingMessage();
                       startEditingMessage(message);
