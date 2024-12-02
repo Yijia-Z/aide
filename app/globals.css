@@ -26,7 +26,7 @@
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 60 9.1% 97.8%;
     --border: 20 5.9% 94%;
-    --input: 20 5.9% 88%;
+    --input: 20 5.9% 94%;
     --ring: 20 5.9% 88%;
 
     --radius: 0.75rem;
@@ -57,7 +57,7 @@
     --accent-foreground: 60 9.1% 97.8%;
     --destructive: 0 52.8% 35.6%;
     --destructive-foreground: 60 9.1% 97.8%;
-    --border: 12 6.5% 33.3%;
+    --border: 12 6.5% 25.1%;
     --input: 12 6.5% 25.1%;
     --ring: 24 5.7% 20.9%;
 
@@ -81,7 +81,7 @@
 }
 /* Utility classes */
 .top-bar {
-  @apply flex items-center justify-between pb-4 space-x-2 absolute top-0 left-0 right-0 z-10;
+  @apply select-none flex items-center justify-between pb-4 space-x-2 absolute top-0 left-0 right-0 z-10;
 }
 
 .min-font-size {
@@ -89,12 +89,29 @@
 }
 
 .transition-scale-zoom {
-@apply transition-all ease-in-out md:hover:scale-[94%];
-
+  @apply transition-all ease-in-out md:hover:scale-[94%];
 }
 
 .custom-shadow {
-  @apply transform-gpu backdrop-blur-[1px] [border:1px_solid_rgba(255,255,255,.4)] [box-shadow:0_-20px_80px_-20px_#ffffff9f_inset] dark:[border:1px_solid_rgba(255,255,255,.1)] dark:[box-shadow:0_-20px_80px_-20px_#ffffff1f_inset];
+  @apply transform-gpu backdrop-blur-[1px] rounded-lg;
+  box-shadow: 0 -20px 80px -20px #ffffff9f inset;
+  /*   &::after {
+    content: '';
+    @apply absolute inset-[0px] border border-border pointer-events-none rounded-lg;
+  }
+ */
+}
+
+.dark .custom-shadow {
+  box-shadow: 0 -20px 80px -20px #ffffff1f inset;
+}
+
+.inside-border {
+  @apply relative;
+  &::after {
+    content: '';
+    @apply absolute inset-[0px] border-2 border-border rounded-lg pointer-events-none;
+  }
 }
 
 /* Hide scrollbar */
@@ -109,7 +126,7 @@
 
 /* Markdown content styles */
 .markdown-content {
-  @apply text-foreground;
+  @apply select-none text-foreground;
 
   h1 {
     @apply text-2xl font-bold mt-4 mb-2;
@@ -125,7 +142,7 @@
   }
   ul,
   ol {
-    @apply mb-1 pl-5;
+    @apply mb-1 pl-7;
   }
   ul {
     @apply list-disc;
@@ -143,10 +160,10 @@
     @apply border-l-4 border-border pl-4 italic my-1;
   }
   code {
-    @apply bg-background rounded px-1 font-mono text-sm text-muted-foreground;
+    @apply bg-background rounded px-1 font-mono text-sm text-muted-foreground whitespace-pre-wrap break-words;
   }
   pre {
-    @apply bg-transparent rounded-md overflow-auto pt-4;
+    @apply bg-transparent rounded-b-lg overflow-auto pt-6;
   }
   pre code {
     @apply bg-transparent p-0;
@@ -190,6 +207,16 @@ button svg,
 @keyframes glow {
   0%,
   100% {
+    box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.2);
+  }
+  50% {
+    box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.4);
+  }
+}
+
+@keyframes glow-dark {
+  0%,
+  100% {
     box-shadow: inset 0 0 5px rgba(255, 255, 255, 0.2);
   }
   50% {
@@ -197,10 +224,12 @@ button svg,
   }
 }
 
-@media (min-width: 640px) {
-  .glow-effect {
-    animation: glow 1.5s infinite;
-  }
+.glow-effect {
+  animation: glow 1.5s infinite;
+}
+
+.dark .glow-effect {
+  animation: glow-dark 1.5s infinite;
 }
 
 /* Transition styles for messages, threads, and models */

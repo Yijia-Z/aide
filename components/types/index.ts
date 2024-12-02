@@ -44,6 +44,7 @@ export interface ModelParameters {
   stop?: string[];
   tools?: any[];
   tool_choice?: ToolChoice;
+  supported_parameters?: any;
 }
 
 export interface ToolParameter {
@@ -66,7 +67,6 @@ export interface Tool {
   id: string;
   name: string;
   description: string;
-  enabled: boolean;
   type: string;
   function: ToolFunction;
 }

@@ -14,84 +14,110 @@ import {
   CommandItem,
 } from "@/components/ui/command";
 import { Badge } from "@/components/ui/badge";
-import { X } from "lucide-react";
+import { Tool } from "../types";
 
 interface ToolSelectorProps {
-  tools: any[];
-  selectedTools: string[];
+  availableTools: Tool[];
+  selectedTools: Tool[];
   toolChoice: string | { type: string; function: { name: string } };
-  onToolsChange: (tools: string[]) => void;
+  onToolsChange: (tools: Tool[]) => void;
   onToolChoiceChange: (choice: string | { type: string; function: { name: string } }) => void;
 }
 
 export function ToolSelector({
-  tools,
   selectedTools,
   toolChoice,
   onToolsChange,
   onToolChoiceChange,
+  availableTools
 }: ToolSelectorProps) {
+  const isToolChoiceVisible = toolChoice !== 'none';
+
+  const handleToolsChange = (newTools: Tool[]) => {
+    onToolsChange(newTools);
+    // If we're in required mode and this is the first tool, automatically select it
+    if (toolChoice === 'required' && newTools.length === 1) {
+      onToolChoiceChange({
+        type: "function",
+        function: { name: newTools[0].function.name }
+      });
+    }
+  };
+
   return (
     <div className="space-y-2">
-      <div>
-        <div className="flex flex-wrap">
-          {selectedTools.map((toolName) => (
-            <Badge key={toolName} variant="secondary">
-              {toolName}
-              <button
-                className="ml-1"
-                onClick={() => onToolsChange(selectedTools.filter(t => t !== toolName))}
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </Badge>
-          ))}
-        </div>
-        <Command className="mt-2 custom-shadow">
-          <CommandInput placeholder="Search tools..." />
-          <CommandEmpty>No tools found.</CommandEmpty>
-          <CommandGroup>
-            {tools.map((tool) => (
-              <CommandItem
-                key={tool.function.name}
-                onSelect={() => {
-                  if (!selectedTools.includes(tool.function.name)) {
-                    onToolsChange([...selectedTools, tool.function.name]);
-                  }
-                }}
-              >
-                {tool.name}
-              </CommandItem>
-            ))}
-          </CommandGroup>
-        </Command>
-      </div>
-
       <div className="space-y-2">
-        <label className="text-sm font-medium">tool_choice</label>
         <Select
-          value={typeof toolChoice === 'string' ? toolChoice : 'specific'}
+          value={typeof toolChoice === 'string' ? toolChoice : 'required'}
           onValueChange={(value) => {
-            if (value === 'specific') {
+            if (value === 'required' && selectedTools.length > 0) {
               onToolChoiceChange({
                 type: "function",
-                function: { name: selectedTools[0] || '' }
+                function: { name: selectedTools[0].function.name }
               });
             } else {
               onToolChoiceChange(value);
             }
           }}
         >
-          <SelectTrigger>
+          <SelectTrigger className="text-primary" >
             <SelectValue placeholder="Select tool choice" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="custom-shadow">
             <SelectItem value="none">None</SelectItem>
             <SelectItem value="auto">Auto</SelectItem>
             <SelectItem value="required">Required</SelectItem>
           </SelectContent>
         </Select>
       </div>
+
+      {isToolChoiceVisible && (
+        <div>
+          <div className="flex flex-wrap gap-1 mb-2">
+            {availableTools.filter(tool => selectedTools.some(selected => selected.function.name === tool.function.name)).map((tool) => (
+              <Badge
+                key={tool.function.name}
+                variant={toolChoice === 'auto' ? 'outline' : toolChoice === 'none' ? 'outline' : 'secondary'}
+                className="flex items-center gap-2 cursor-pointer hover:text-destructive active:bg-background"
+                onClick={() => handleToolsChange(selectedTools.filter(t => t.function.name !== tool.function.name))}
+              >
+                {tool.function.name}
+              </Badge>
+            ))}
+          </div>
+          {availableTools.filter(tool => !selectedTools.some(selected => selected.function.name === tool.function.name)).length > 0 && (
+            <Command className="custom-shadow rounded-lg">
+              <CommandInput placeholder="Search available tools..." />
+              <CommandEmpty>No tools found.</CommandEmpty>
+              <CommandGroup>
+                {availableTools
+                  .filter((tool) => !selectedTools.some((selected) => selected.function.name === tool.function.name))
+                  .map((tool: Tool) => (
+                    <CommandItem
+                      key={tool.function.name}
+                      onSelect={() => {
+                        if (toolChoice === 'required' || 'auto') {
+                          onToolChoiceChange({
+                            type: "function",
+                            function: { name: tool.function.name }
+                          });
+                          handleToolsChange([...selectedTools, tool]);
+                        }
+                      }}
+                    >
+                      <div className="flex flex-col">
+                        <span className="font-medium">{tool.name}</span>
+                        <span className="text-sm text-muted-foreground">
+                          {tool.description}
+                        </span>
+                      </div>
+                    </CommandItem>
+                  ))}
+              </CommandGroup>
+            </Command>
+          )}
+        </div>
+      )}
     </div>
   );
 }

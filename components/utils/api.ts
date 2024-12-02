@@ -1,7 +1,5 @@
-import { Thread, Model } from "../types";
+import { Thread, Model, Tool } from "../types";
 import { findAllParentMessages } from "./helpers";
-
-
 
 export async function generateAIResponse(
   prompt: string,
@@ -10,7 +8,7 @@ export async function generateAIResponse(
   threads: Thread[],
   currentThread: string | null,
   replyingTo: string | null,
-  tools: any[],
+  tools: Tool[],
   onData: (chunk: string) => void,
   abortController?: AbortController
 ) {
@@ -32,9 +30,8 @@ export async function generateAIResponse(
     },
   };
 
-  console.log("Request payload:", JSON.stringify(requestPayload, null, 2));
-  const apiUrl = "http://localhost:3000/api/chat";
-  console.log(`Fetching API at: ${apiUrl}`);
+  // console.log("Request payload:", JSON.stringify(requestPayload, null, 2));
+  // console.log(`Fetching API at: /api/chat`);
 
   const response = await fetch(
     "/api/chat",

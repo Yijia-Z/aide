@@ -19,8 +19,8 @@ interface Thread {
 interface MessageViewProps {
   threads: Thread[];
   currentThread: string | null;
-  selectedMessage: string | null;
-  setSelectedMessage: (messageId: string | null) => void;
+  selectedMessages: { [key: string]: string | null };
+  setSelectedMessages: React.Dispatch<React.SetStateAction<{ [key: string]: string | null }>>;
   cancelEditingMessage: () => void;
   addEmptyReply: (threadId: string, parentId: string | null) => void;
   renderMessage: (message: Message, threadId: string) => React.ReactNode;
@@ -29,8 +29,8 @@ interface MessageViewProps {
 const MessageView: React.FC<MessageViewProps> = ({
   threads,
   currentThread,
-  selectedMessage,
-  setSelectedMessage,
+  selectedMessages,
+  setSelectedMessages,
   cancelEditingMessage,
   addEmptyReply,
   renderMessage,
@@ -68,7 +68,7 @@ const MessageView: React.FC<MessageViewProps> = ({
       </div>
       <ScrollArea
         className="flex-grow"
-        onClick={() => setSelectedMessage(null)}
+        onClick={() => setSelectedMessages((prev) => ({ ...prev, [String(currentThread)]: null }))}
       >
         <div className="mb-4" onClick={(e) => e.stopPropagation()}>
           {currentThreadData?.messages.map((message: Message) =>

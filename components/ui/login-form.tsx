@@ -136,7 +136,7 @@ export function LoginForm() {
   };
 
   return (
-    <Card className="mx-auto max-w-max custom-shadow">
+    <Card className="mx-auto max-w-max custom-shadow select-none">
       <CardHeader>
         <CardTitle className="text-2xl">Welcome</CardTitle>
         <CardDescription>
@@ -311,7 +311,7 @@ export function LoginForm() {
         </div>
         <Button
           variant="outline"
-          className="w-full"
+          className="w-full h-fit whitespace-break-spaces"
           onClick={handleGoogleSignIn}
           disabled={isLoading}
         >
