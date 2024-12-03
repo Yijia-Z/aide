@@ -303,7 +303,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
         <ContextMenuTrigger
           disabled={editingMessage === message.id}
           onContextMenu={(e) => {
-            if (currentThread) {
+            if (currentThread && selectedMessages[currentThread] !== message.id) {
               setSelectedMessages((prev) => ({ ...prev, [currentThread]: message.id }));
             }
           }}
@@ -318,7 +318,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
             )}
             onClick={(e) => {
               e.stopPropagation();
-              if (currentThread) {
+              if (currentThread && selectedMessages[currentThread] !== message.id) {
                 setSelectedMessages((prev) => ({ ...prev, [currentThread]: message.id }));
               }
             }}
