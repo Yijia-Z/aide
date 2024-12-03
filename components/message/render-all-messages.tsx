@@ -211,7 +211,7 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
         ))}
       </div>
     </ScrollArea>
-      <div className="absolute bottom-0 right-0">
+      <div className="absolute bottom-0 right-0 hidden sm:block">
         <Dialog>
           <DialogTrigger asChild>
             <div className="flex flex-row-reverse px-5">
