@@ -95,8 +95,8 @@ export default function ThreadedDocument() {
     setAvailableModels,
     models,
     setModels,
-    selectedModel,
-    setSelectedModel,
+    selectedModels,
+    setSelectedModels,
     editingModel,
     setEditingModel,
   } = useModels();
@@ -317,18 +317,18 @@ export default function ThreadedDocument() {
       parentId: string | null,
       content: string,
       publisher: "user" | "ai",
-      newMessageId?: string
+      newMessageId?: string,
+      modelDetails?: Model
     ) => {
       setThreads((prev) =>
         prev.map((thread) => {
           if (thread.id !== threadId) return thread;
-          const model = models.find((m) => m.id === selectedModel);
           const newMessage: Message = {
             id: newMessageId || Date.now().toString(),
             content,
             publisher,
-            modelId: publisher === "ai" ? model?.id : undefined,
-            modelConfig: publisher === "ai" ? { ...model } : undefined,
+            modelId: publisher === "ai" ? modelDetails?.id : undefined,
+            modelConfig: publisher === "ai" ? { ...modelDetails } : undefined,
             replies: [],
             isCollapsed: false,
             userCollapsed: false,
@@ -355,7 +355,7 @@ export default function ThreadedDocument() {
         })
       );
     },
-    [models, selectedModel, setSelectedMessages, currentThread, setThreads]
+    [models, selectedModels, setSelectedMessages, currentThread, setThreads]
   );
 
   // Change the model
@@ -773,11 +773,11 @@ export default function ThreadedDocument() {
         prev.filter((model: { id: string }) => model.id !== id)
       );
       // If the deleted model was selected, switch to the first available model
-      if (selectedModel === id) {
-        setSelectedModel(models[0].id);
+      if (selectedModels.includes(id)) {
+        setSelectedModels(models[0] ? [models[0].id] : []);
       }
     },
-    [models, selectedModel, setModels, setSelectedModel]
+    [models, selectedModels, setModels, setSelectedModels]
   );
 
   const addNewModel = useCallback(() => {
@@ -1037,14 +1037,12 @@ export default function ThreadedDocument() {
   // Generate AI reply
   const generateAIReply = useCallback(
     async (threadId: string, messageId: string, count: number = 1) => {
-      // Manage abort controllers on a per-message basis
       const messageAbortController = new AbortController();
       const cleanup = () => {
         messageAbortController.abort();
         setIsGenerating((prev) => ({ ...prev, [messageId]: false }));
       };
 
-      // If already generating for this message, abort the current generation
       if (isGenerating[messageId] && messageAbortController) {
         cleanup();
         return;
@@ -1057,53 +1055,59 @@ export default function ThreadedDocument() {
       if (!message) return;
 
       try {
-        const model =
-          models.find((m: { id: any }) => m.id === selectedModel) || models[0];
-        const enabledTools = (model.parameters?.tool_choice !== "none" && model.parameters?.tool_choice !== undefined ? model.parameters?.tools ?? [] : []) as Tool[];
-        // window.alert(JSON.stringify(enabledTools));
-        // window.alert(count)
-        for (let i = 0; i < count; i++) {
-          const newMessageId = Date.now().toString();
-          addMessage(threadId, messageId, "", "ai", newMessageId);
-          setSelectedMessages((prev) => ({ ...prev, [String(currentThread)]: newMessageId }));
+        const selectedModelIds = selectedModels;
+        if (selectedModelIds.length === 0) return;
 
-          setIsGenerating((prev) => ({ ...prev, [newMessageId]: true }));
-          let fullResponse = "";
-          try {
-            await generateAIResponse(
-              message.content,
-              message.publisher,
-              model,
-              threads,
-              threadId,
-              messageId,
-              enabledTools,
-              (chunk) => {
-                const lines = chunk.split("\n");
-                for (const line of lines) {
-                  if (line.startsWith("data:")) {
-                    const dataStr = line.replace("data:", "").trim();
-                    if (dataStr === "[DONE]") {
-                      return;
-                    }
-                    try {
-                      const data = JSON.parse(dataStr);
-                      const delta = data.choices[0].delta || {};
-                      if (delta.content) {
-                        fullResponse += delta.content;
-                        updateMessageContent(threadId, newMessageId, fullResponse);
+        for (let i = 0; i < count; i++) {
+          const promises = selectedModelIds.map(async (modelId) => {
+            const model = models.find((m) => m.id === modelId);
+            if (!model) return;
+
+            const newMessageId = Date.now().toString() + Math.random().toString(36).slice(2);
+            // Pass the model details when creating the message
+            addMessage(threadId, messageId, "", "ai", newMessageId, model);
+            setIsGenerating((prev) => ({ ...prev, [newMessageId]: true }));
+
+            let fullResponse = "";
+            try {
+              const enabledTools = (model.parameters?.tool_choice !== "none" && model.parameters?.tool_choice !== undefined
+                ? model.parameters?.tools ?? []
+                : []) as Tool[];
+
+              await generateAIResponse(
+                message.content,
+                message.publisher,
+                model,
+                threads,
+                threadId,
+                messageId,
+                enabledTools,
+                (chunk) => {
+                  const lines = chunk.split("\n");
+                  for (const line of lines) {
+                    if (line.startsWith("data:")) {
+                      const dataStr = line.replace("data:", "").trim();
+                      if (dataStr === "[DONE]") return;
+                      try {
+                        const data = JSON.parse(dataStr);
+                        const delta = data.choices[0].delta || {};
+                        if (delta.content) {
+                          fullResponse += delta.content;
+                          updateMessageContent(threadId, newMessageId, fullResponse);
+                        }
+                      } catch (error) {
+                        console.error("Error parsing chunk:", error);
                       }
-                    } catch (error) {
-                      console.error("Error parsing chunk:", error);
                     }
                   }
-                }
-              },
-              messageAbortController
-            );
-          } finally {
-            setIsGenerating((prev) => ({ ...prev, [newMessageId]: false }));
-          }
+                },
+                messageAbortController
+              );
+            } finally {
+              setIsGenerating((prev) => ({ ...prev, [newMessageId]: false }));
+            }
+          });
+          await Promise.all(promises);
         }
       } catch (error) {
         if (error instanceof DOMException && error.name === 'AbortError') {
@@ -1117,28 +1121,23 @@ export default function ThreadedDocument() {
       threads,
       currentThread,
       models,
-      selectedModel,
+      selectedModels,
       addMessage,
       findMessageById,
       setSelectedMessages,
       updateMessageContent,
       isGenerating,
+      setThreads
     ]
   );
 
-  // useEffect hooks
   // Load threads
   useEffect(() => {
     const loadThreads = async () => {
       try {
-        // Clear existing threads first
-        setThreads([]);
-        setCurrentThread(null);
-
         const cachedThreads = storage.get("threads");
         if (cachedThreads) {
           setThreads(cachedThreads);
-          setCurrentThread(cachedThreads[0]?.id || null);
           return;
         }
 
@@ -1160,7 +1159,6 @@ export default function ThreadedDocument() {
             ],
           };
           setThreads([defaultThread]);
-          setCurrentThread(defaultThread.id);
           storage.set("threads", [defaultThread]);
           return;
         }
@@ -1172,7 +1170,6 @@ export default function ThreadedDocument() {
           const data = await response.json();
           const loadedThreads = data.threads || [];
           setThreads(loadedThreads);
-          setCurrentThread(loadedThreads[0]?.id || null);
           storage.set("threads", loadedThreads);
         } else {
           throw new Error("Failed to load threads from backend");
@@ -1196,13 +1193,12 @@ export default function ThreadedDocument() {
           ],
         };
         setThreads([defaultThread]);
-        setCurrentThread(defaultThread.id);
         storage.set("threads", [defaultThread]);
       }
     };
 
     loadThreads();
-  }, [setCurrentThread, setThreads]);
+  }, [setThreads]);
 
   // Focus on thread title input when editing
   useEffect(() => {
@@ -1317,16 +1313,16 @@ export default function ThreadedDocument() {
       const cachedModels = storage.get("models");
       if (cachedModels) {
         setModels(cachedModels);
-        setSelectedModel(cachedModels[0]?.id || null);
         setModelsLoaded(true);
+        // Don't override selectedModels from cache since useModels handles that
       }
 
       if (!apiBaseUrl) {
         // If no apiBaseUrl, ensure default model is set
         if (!cachedModels) {
           setModels([DEFAULT_MODEL]);
-          setSelectedModel(DEFAULT_MODEL.id);
           setModelsLoaded(true);
+          // Let useModels handle selectedModels initialization
         }
         return;
       }
@@ -1337,7 +1333,6 @@ export default function ThreadedDocument() {
         });
         if (response.ok) {
           const data = await response.json();
-          // console.log("Loaded models:", data.models);
           let loadedModels = data.models || [];
 
           // If no models are loaded, add the default model
@@ -1346,8 +1341,8 @@ export default function ThreadedDocument() {
           }
 
           setModels(loadedModels);
-          setSelectedModel(loadedModels[0].id);
           setModelsLoaded(true);
+          // Let useModels handle selectedModels initialization
 
           // Update cache with the newly fetched models
           storage.set("models", loadedModels);
@@ -1356,8 +1351,8 @@ export default function ThreadedDocument() {
           // Ensure default model is set if loading fails and no cache exists
           if (!cachedModels) {
             setModels([DEFAULT_MODEL]);
-            setSelectedModel(DEFAULT_MODEL.id);
             setModelsLoaded(true);
+            // Let useModels handle selectedModels initialization
           }
         }
       } catch (error) {
@@ -1365,14 +1360,14 @@ export default function ThreadedDocument() {
         // Ensure default model is set if an error occurs and no cache exists
         if (!cachedModels) {
           setModels([DEFAULT_MODEL]);
-          setSelectedModel(DEFAULT_MODEL.id);
           setModelsLoaded(true);
+          // Let useModels handle selectedModels initialization
         }
       }
     };
 
     loadModels();
-  }, [setModels, setModelsLoaded, setSelectedModel]);
+  }, [setModels, setModelsLoaded]);
 
   // fetch available models
   useEffect(() => {
@@ -1748,8 +1743,8 @@ export default function ThreadedDocument() {
           >
             <ModelConfig
               models={models}
-              selectedModel={selectedModel}
-              setSelectedModel={setSelectedModel}
+              selectedModels={selectedModels}
+              setSelectedModels={setSelectedModels}
               addNewModel={addNewModel}
               fetchAvailableModels={fetchAvailableModels}
               fetchModelParameters={fetchModelParameters}
@@ -1914,8 +1909,8 @@ export default function ThreadedDocument() {
               <TabsContent value="models" className="flex-grow overflow-y-clip">
                 <ModelConfig
                   models={models}
-                  selectedModel={selectedModel}
-                  setSelectedModel={setSelectedModel}
+                  selectedModels={selectedModels}
+                  setSelectedModels={setSelectedModels}
                   addNewModel={addNewModel}
                   fetchAvailableModels={fetchAvailableModels}
                   fetchModelParameters={fetchModelParameters}

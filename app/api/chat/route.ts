@@ -112,7 +112,7 @@ export async function POST(req: NextRequest) {
                 const dataStr = line.slice(6).trim();
 
 
-                if (!dataStr || dataStr === "[Done]") continue;
+                if (!dataStr || dataStr === "[Done]" || dataStr === "[DONE]") continue;
 
                 try {
                   const parsed = JSON.parse(dataStr);
@@ -197,7 +197,7 @@ export async function POST(req: NextRequest) {
                         content: toolResult.content,
                       });
 
-                    } else if (finish_reason === "end_turn" || finish_reason === "stop") {
+                    } else if (finish_reason === "end_turn" || finish_reason === "stop" || finish_reason === "STOP") {
                       // console.log("Finish reason is 'end_turn' or 'stop', closing stream.");
                       parsed.choices[0].delta.content = assistantMessages;
 

@@ -5,23 +5,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { SelectBaseModel } from "@/components/model/model-selector";
 import { Model, ModelParameters, Tool } from "@/components/types";
 import { Badge } from "@/components/ui/badge";
+import { MultiSelect } from "./multi-select";
 
 interface ModelConfigProps {
   models: Model[];
-  selectedModel: string | null;
+  selectedModels: string[];
   editingModel: Model | null;
-  setSelectedModel: (modelId: string) => void;
+  setSelectedModels: (modelIds: string[]) => void;
   setEditingModel: (model: Model | null) => void;
   addNewModel: () => void;
   handleModelChange: (
@@ -37,9 +31,9 @@ interface ModelConfigProps {
 
 const ModelConfig: React.FC<ModelConfigProps> = ({
   models,
-  selectedModel,
+  selectedModels,
   editingModel,
-  setSelectedModel,
+  setSelectedModels,
   setEditingModel,
   addNewModel,
   handleModelChange,
@@ -59,21 +53,18 @@ const ModelConfig: React.FC<ModelConfigProps> = ({
           backdropFilter: "blur(1px)",
         }}
       >
-        <Select
-          value={selectedModel ?? models[0]?.id}
-          onValueChange={setSelectedModel}
-        >
-          <SelectTrigger className="custom-shadow transition-scale-zoom">
-            <SelectValue placeholder="Select a model" />
-          </SelectTrigger>
-          <SelectContent className="custom-shadow">
-            {models.map((model) => (
-              <SelectItem key={model.id} value={model.id}>
-                {model.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <MultiSelect
+          options={models.map(model => ({
+            value: model.id,
+            label: model.name
+          }))}
+          onValueChange={(values) => setSelectedModels(values)}
+          defaultValue={selectedModels}
+          placeholder="Select models"
+          variant="secondary"
+          className="custom-shadow"
+          maxCount={0}
+        />
         <Button
           className="bg-transparent hover:bg-secondary custom-shadow transition-scale-zoom text-primary border border-border"
           size="default"
@@ -209,7 +200,7 @@ const ModelConfig: React.FC<ModelConfigProps> = ({
                         {model.parameters?.tools && model.parameters.tools.length > 0 && (
                           <p>
                             {(
-                              <span className="flex flex-wrap gap-1">
+                              <span className="flex flex-wrap gap-1 mt-1">
                                 {model.parameters.tools
                                   .filter(tool => availableTools.some(availableTool => availableTool.function.name === tool.function.name))
                                   .map((tool) => (
