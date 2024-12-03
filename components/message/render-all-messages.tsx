@@ -1,7 +1,7 @@
 import React from 'react';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
-import { CheckCheck, Clipboard, ClipboardPaste, ClipboardType, ClipboardX, Diff, Pencil, MessageSquareOff, MessageSquarePlus, MessageSquareReply, MoveHorizontal, MoveVertical, Trash, Trash2, WandSparkles, X } from "lucide-react";
+import { CheckCheck, Clipboard, ClipboardPaste, ClipboardType, ClipboardX, Diff, Pencil, MessageSquareOff, MessageSquarePlus, MessageSquareReply, MoveHorizontal, MoveVertical, Trash, Trash2, WandSparkles, X, HelpCircle } from "lucide-react";
 import RenderMessage from './render-message';
 import { Thread, Message } from '@/components/types';
 import {
@@ -12,6 +12,13 @@ import {
   MenubarShortcut,
   MenubarTrigger,
 } from "@/components/ui/menubar";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 interface RenderMessagesProps {
   threads: Thread[];
@@ -103,8 +110,39 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
         {currentThread && (
           <Menubar className="p-0 border-none bg-transparent">
             <MenubarMenu>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button className="rounded-md px-4 bg-transparent hover:bg-secondary custom-shadow transition-scale-zoom text-primary border border-border" size="default">
+                    <HelpCircle className="h-4 w-4" />
+                    <span className="ml-2 hidden md:inline">Help</span>
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[425px]">
+                  <DialogHeader>
+                    <DialogTitle>Help</DialogTitle>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <p>Here are some keyboard shortcuts:</p>
+                    <ul className="list-disc pl-5">
+                      <li><strong>C</strong>: Toggle Collapse</li>
+                      <li><strong>←/→</strong>: Navigate Parent/Child</li>
+                      <li><strong>↑/↓</strong>: Navigate Siblings</li>
+                      <li><strong>N</strong>: New Message</li>
+                      <li><strong>R</strong>: Reply</li>
+                      <li><strong>E/Double-click</strong>: Edit</li>
+                      <li><strong>Enter</strong>: Generate Single Reply</li>
+                      <li><strong>Ctrl/Cmd + Enter</strong>: Confirm Edit | Multi-Generate</li>
+                      <li><strong>Escape</strong>: Cancel Edit | Select | Clipboard</li>
+                      <li><strong>Ctrl/Cmd + C | X | V</strong>: Copy | Cut | Paste</li>
+                      <li><strong>Delete/Backspace</strong>: Delete Single Message</li>
+                      <li><strong>Ctrl/Cmd + Delete</strong>: Delete with Replies</li>
+                      <li><strong>Alt/Option + Delete</strong>: Delete only Replies</li>
+                    </ul>
+                  </div>
+                </DialogContent>
+              </Dialog>
               <MenubarTrigger asChild>
-                <Button
+                  <Button
                   className="rounded-md px-4 bg-transparent hover:bg-secondary custom-shadow transition-scale-zoom text-primary border border-border"
                   size="default"
                 >
@@ -120,63 +158,63 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
                     addEmptyReply(currentThread, null);
                   }}
                 >
-                  <MessageSquarePlus className="mr-2 h-4 w-4" />
+                <MessageSquarePlus className="mr-2 h-4 w-4" />
                   New Message
-                  <MenubarShortcut className="hidden md:inline">N</MenubarShortcut>
-                </MenubarItem>
+                <MenubarShortcut className="hidden md:inline">N</MenubarShortcut>
+              </MenubarItem>
+              <MenubarItem
+                onClick={() => {
+                  pasteMessage(currentThread, null)
+                }}
+              >
+                {clipboardMessage ? (
+                  <ClipboardPaste className="mr-2 h-4 w-4" />
+                ) : (
+                  <ClipboardType className="mr-2 h-4 w-4" />
+                )}
+                <span>{clipboardMessage ? "Paste Message" : "Paste Clipboard"}</span>
+                <MenubarShortcut className="hidden ml-2 md:inline">⌘ V</MenubarShortcut>
+              </MenubarItem>
+              {clipboardMessage && (
                 <MenubarItem
                   onClick={() => {
-                    pasteMessage(currentThread, null)
+                    setClipboardMessage(null);
+                    clearGlowingMessages();
                   }}
                 >
-                  {clipboardMessage ? (
-                    <ClipboardPaste className="mr-2 h-4 w-4" />
-                  ) : (
-                    <ClipboardType className="mr-2 h-4 w-4" />
-                  )}
-                  <span>{clipboardMessage ? "Paste Message" : "Paste Clipboard"}</span>
-                  <MenubarShortcut className="hidden ml-2 md:inline">⌘ V</MenubarShortcut>
+                  <ClipboardX className="mr-2 h-4 w-4" />
+                  <span>Clear {clipboardMessage?.operation === "cut" ? "Cut" : "Copied"}</span>
+                  <MenubarShortcut className="hidden md:inline">Esc</MenubarShortcut>
                 </MenubarItem>
-                {clipboardMessage && (
-                  <MenubarItem
-                    onClick={() => {
-                      setClipboardMessage(null);
-                      clearGlowingMessages();
-                    }}
-                  >
-                    <ClipboardX className="mr-2 h-4 w-4" />
-                    <span>Clear {clipboardMessage?.operation === "cut" ? "Cut" : "Copied"}</span>
-                    <MenubarShortcut className="hidden md:inline">Esc</MenubarShortcut>
-                  </MenubarItem>
-                )}
-              </MenubarContent>
-            </MenubarMenu>
-          </Menubar>
-        )}
-      </div>
-      <ScrollArea className="flex-gro md:pr-2" onClick={() => setSelectedMessages((prev) => ({ ...prev, [String(currentThread)]: null }))}>
-        <div onClick={(e) => e.stopPropagation()}>
-          {currentThreadData?.messages.map((message: Message) => (
-            <RenderMessage
-              key={message.id}
-              message={message}
-              threadId={currentThread}
-              threads={threads}
-              currentThread={currentThread}
-              selectedMessages={selectedMessages}
-              editingMessage={editingMessage}
-              editingContent={editingContent}
-              glowingMessageIds={glowingMessageIds}
-              addGlowingMessage={addGlowingMessage}
-              removeGlowingMessage={removeGlowingMessage}
-              clearGlowingMessages={clearGlowingMessages}
-              copiedStates={copiedStates}
-              clipboardMessage={clipboardMessage}
-              isGenerating={isGenerating}
-              setSelectedMessages={setSelectedMessages}
-              toggleCollapse={toggleCollapse}
-              setEditingContent={setEditingContent}
-              confirmEditingMessage={confirmEditingMessage}
+              )}
+            </MenubarContent>
+          </MenubarMenu>
+        </Menubar>
+      )}
+    </div>
+    <ScrollArea className="flex-gro md:pr-2" onClick={() => setSelectedMessages((prev) => ({ ...prev, [String(currentThread)]: null }))}>
+      <div onClick={(e) => e.stopPropagation()}>
+        {currentThreadData?.messages.map((message: Message) => (
+          <RenderMessage
+            key={message.id}
+            message={message}
+            threadId={currentThread}
+            threads={threads}
+            currentThread={currentThread}
+            selectedMessages={selectedMessages}
+            editingMessage={editingMessage}
+            editingContent={editingContent}
+            glowingMessageIds={glowingMessageIds}
+            addGlowingMessage={addGlowingMessage}
+            removeGlowingMessage={removeGlowingMessage}
+            clearGlowingMessages={clearGlowingMessages}
+            copiedStates={copiedStates}
+            clipboardMessage={clipboardMessage}
+            isGenerating={isGenerating}
+            setSelectedMessages={setSelectedMessages}
+            toggleCollapse={toggleCollapse}
+            setEditingContent={setEditingContent}
+            confirmEditingMessage={confirmEditingMessage}
               cancelEditingMessage={cancelEditingMessage}
               startEditingMessage={startEditingMessage}
               addEmptyReply={addEmptyReply}
