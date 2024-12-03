@@ -214,7 +214,7 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
       <div className="absolute bottom-0 right-0 hidden sm:block">
         <Dialog>
           <DialogTrigger asChild>
-            <div className="flex flex-row-reverse pr-4 pb-8">
+            <div className="flex flex-row-reverse pr-4 pb-4">
               <Button
                 className="rounded-md px-3 bg-transparent hover:bg-secondary custom-shadow transition-scale-zoom text-primary border border-border"
                 size="default"
