@@ -1,6 +1,7 @@
 # backend/models.py
 from pydantic import BaseModel
 from typing import List, Dict, Optional, Union
+from datetime import datetime
 
 class Message(BaseModel):
     role: str
@@ -72,3 +73,23 @@ class ToolUseRequest(BaseModel):
     tool_name: str
     tool_args: dict
     tool_call_id: str
+
+
+
+class UserCreate(BaseModel):
+    email: str
+    password: str
+    username: Optional[str] = None
+
+class UserInDB(BaseModel):
+    id: str
+    email: str
+    username: Optional[str] = None
+    hashed_password: str
+    created_at: datetime
+
+class UserOut(BaseModel):
+    id: str
+    email: str
+    username: Optional[str] = None
+    created_at: datetime
