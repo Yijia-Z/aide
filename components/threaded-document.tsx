@@ -207,10 +207,6 @@ export default function ThreadedDocument() {
       // Fetch from API if no valid cache is found
       const response = await fetch("https://openrouter.ai/api/v1/models", {
         method: "GET",
-        headers: {
-          Authorization: `Bearer ${process.env.NEXT_PUBLIC_OPENROUTER_API_KEY}`,
-          "Content-Type": "application/json",
-        },
       });
 
       if (!response.ok) {
@@ -355,7 +351,7 @@ export default function ThreadedDocument() {
         })
       );
     },
-    [models, selectedModels, setSelectedMessages, currentThread, setThreads]
+    [setSelectedMessages, currentThread, setThreads]
   );
 
   // Change the model
@@ -874,6 +870,19 @@ export default function ThreadedDocument() {
     [setThreads]
   );
 
+  // Find message by ID
+  const findMessageById = useCallback(
+    (messages: Message[], id: string): Message | null => {
+      for (const message of messages) {
+        if (message.id === id) return message;
+        const found = findMessageById(message.replies, id);
+        if (found) return found;
+      }
+      return null;
+    },
+    []
+  );
+
   const pasteMessage = useCallback(
     (threadId: string, parentId: string | null) => {
       const messageToPaste = clipboardMessage?.message || {
@@ -981,20 +990,7 @@ export default function ThreadedDocument() {
       }
 
     },
-    [clipboardMessage, setClipboardMessage, clearGlowingMessages, setSelectedMessages, deleteMessage, updateMessageContent, currentThread, setThreads]
-  );
-
-  // Find message by ID
-  const findMessageById = useCallback(
-    (messages: Message[], id: string): Message | null => {
-      for (const message of messages) {
-        if (message.id === id) return message;
-        const found = findMessageById(message.replies, id);
-        if (found) return found;
-      }
-      return null;
-    },
-    []
+    [clipboardMessage, setClipboardMessage, clearGlowingMessages, setSelectedMessages, deleteMessage, updateMessageContent, findMessageById, threads, currentThread, setThreads]
   );
 
   // Collapse deep children
@@ -1119,15 +1115,12 @@ export default function ThreadedDocument() {
     },
     [
       threads,
-      currentThread,
       models,
       selectedModels,
       addMessage,
       findMessageById,
-      setSelectedMessages,
       updateMessageContent,
-      isGenerating,
-      setThreads
+      isGenerating
     ]
   );
 
@@ -1214,10 +1207,22 @@ export default function ThreadedDocument() {
         `message-${selectedMessages[currentThread]}`
       );
       if (messageElement) {
-        messageElement.scrollIntoView({
-          behavior: "smooth",
-          block: "start",
-        });
+        // Check if element is fully in view
+        const rect = messageElement.getBoundingClientRect();
+        const isInView = (
+          rect.top >= 0 &&
+          rect.left >= 0 &&
+          rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
+          rect.right <= (window.innerWidth || document.documentElement.clientWidth)
+        );
+
+        // Only scroll if not fully in view
+        if (!isInView) {
+          messageElement.scrollIntoView({
+            behavior: "smooth",
+            block: "start",
+          });
+        }
       }
     }
   }, [selectedMessages, currentThread]);

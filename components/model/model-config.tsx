@@ -198,23 +198,19 @@ const ModelConfig: React.FC<ModelConfigProps> = ({
                           </p>
                         )}
                         {model.parameters?.tools && model.parameters.tools.length > 0 && (
-                          <p>
-                            {(
-                              <span className="flex flex-wrap gap-1 mt-1">
-                                {model.parameters.tools
-                                  .filter(tool => availableTools.some(availableTool => availableTool.function.name === tool.function.name))
-                                  .map((tool) => (
-                                    <Badge
-                                      key={tool.function.name}
-                                      variant={model.parameters.tool_choice === 'auto' ? 'outline' : model.parameters.tool_choice === 'none' ? 'outline' : 'secondary'}
-                                      className={`flex items-center gap-2 ${model.parameters.tool_choice === 'none' ? 'text-muted-foreground line-through' : ''}`}
-                                    >
-                                      {tool.function.name}
-                                    </Badge>
-                                  ))}
-                              </span>
-                            )}
-                          </p>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {model.parameters.tools
+                              .filter(tool => availableTools.some(availableTool => availableTool.function.name === tool.function.name))
+                              .map((tool) => (
+                                <Badge
+                                  key={tool.function.name}
+                                  variant={model.parameters.tool_choice === 'auto' ? 'outline' : model.parameters.tool_choice === 'none' ? 'outline' : 'secondary'}
+                                  className={`flex items-center gap-2 ${model.parameters.tool_choice === 'none' ? 'text-muted-foreground line-through' : ''}`}
+                                >
+                                  {tool.function.name}
+                                </Badge>
+                              ))}
+                          </div>
                         )}
                       </div>
                     )}

@@ -202,19 +202,19 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
     <div className="flex items-center justify-center h-full select-none">
       <div className="hidden sm:block">
         <p className="text-sm text-muted-foreground whitespace-pre pl-16">
-          <span> <Diff className="inline-block mr-1 w-3 h-3" /> C                    ┃ Toggle Collapse</span><br />
-          <span> <MoveHorizontal className="inline-block mr-1 w-3 h-3" /> ←/→                  ┃ Navigate Parent/Child</span><br />
-          <span> <MoveVertical className="inline-block mr-1 w-3 h-3" /> ↑/↓                  ┃ Navigate Siblings</span><br /><br />
-          <span> <MessageSquarePlus className="inline-block mr-1 w-3 h-3" /> N                    ┃ New Message</span><br />
-          <span> <MessageSquareReply className="inline-block mr-1 w-3 h-3" /> R                    ┃ Reply</span><br />
-          <span> <Pencil className="inline-block mr-1 w-3 h-3" /> E/Double-click       ┃ Edit</span><br />
-          <span> <WandSparkles className="inline-block mr-1 w-3 h-3" /> Enter                ┃ Generate Single Reply</span><br />
-          <span> <CheckCheck className="inline-block mr-1 w-3 h-3" /> Ctrl/Cmd + Enter     ┃ Confirm Edit | Multi-Generate</span><br />
-          <span> <X className="inline-block mr-1 w-3 h-3" /> Escape               ┃ Cancel Edit | Select | Clipboard</span><br />
-          <span> <Clipboard className="inline-block mr-1 w-3 h-3" /> Ctrl/Cmd + C | X | V ┃ Copy | Cut | Paste</span><br /><br />
-          <span> <Trash className="inline-block mr-1 w-3 h-3" /> Delete/Backspace     ┃ Delete Single Message</span><br />
-          <span> <Trash2 className="inline-block mr-1 w-3 h-3" /> Ctrl/Cmd + Delete    ┃ Delete with Replies</span><br />
-          <span> <MessageSquareOff className="inline-block mr-1 w-3 h-3" /> Alt/Option + Delete  ┃ Delete only Replies</span>
+          <span> <Diff className="inline-block mr-1 w-3 h-3" /> C                     ┃ Toggle Collapse</span><br />
+          <span> <MoveHorizontal className="inline-block mr-1 w-3 h-3" /> ←/→                   ┃ Navigate Parent/Child</span><br />
+          <span> <MoveVertical className="inline-block mr-1 w-3 h-3" /> ↑/↓                   ┃ Navigate Siblings</span><br /><br />
+          <span> <MessageSquarePlus className="inline-block mr-1 w-3 h-3" /> N                     ┃ New Message</span><br />
+          <span> <MessageSquareReply className="inline-block mr-1 w-3 h-3" /> R                     ┃ Reply</span><br />
+          <span> <Pencil className="inline-block mr-1 w-3 h-3" /> E/Double-click        ┃ Edit</span><br />
+          <span> <WandSparkles className="inline-block mr-1 w-3 h-3" /> Enter                 ┃ Generate Single Reply</span><br />
+          <span> <CheckCheck className="inline-block mr-1 w-3 h-3" /> Ctrl/Cmd + Enter      ┃ Confirm Edit | Multi-Generate</span><br />
+          <span> <X className="inline-block mr-1 w-3 h-3" /> Escape                ┃ Cancel Edit | Select | Clipboard</span><br />
+          <span> <Clipboard className="inline-block mr-1 w-3 h-3" /> Ctrl/Cmd + C | X | V  ┃ Copy | Cut | Paste</span><br /><br />
+          <span> <Trash className="inline-block mr-1 w-3 h-3" /> Delete/Backspace      ┃ Delete Single Message</span><br />
+          <span> <Trash2 className="inline-block mr-1 w-3 h-3" /> Ctrl/Cmd + Delete     ┃ Delete with Replies</span><br />
+          <span> <MessageSquareOff className="inline-block mr-1 w-3 h-3" /> Alt/Option + Delete   ┃ Delete only Replies</span>
         </p>
         <div className="mt-4 text-center text-sm text-muted-foreground font-serif">
           <span>Select a thread to view messages.</span>
@@ -223,7 +223,7 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
             href="https://github.com/yijia-z/aide"
             target="_blank"
             rel="noopener noreferrer"
-            className="hover:underline pl-1"
+            className="hover:underline pl-2"
           >
             GitHub
           </a>
@@ -240,7 +240,7 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
           href="https://github.com/yijia-z/aide"
           target="_blank"
           rel="noopener noreferrer"
-          className="hover:underline pl-3"
+          className="hover:underline pl-2"
         >
           GitHub
         </a>
