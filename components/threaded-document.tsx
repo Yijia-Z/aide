@@ -1667,7 +1667,7 @@ export default function ThreadedDocument() {
   ]);
 
   return (
-    <div className="h-screen flex flex-col md:flex-row p-2 md:pr-0 overflow-ellipsis ">
+    <div className="h-screen flex flex-col md:flex-row m-2 md:pr-0 overflow-ellipsis ">
       <div className="sm:hidden bg-transparent">
         {/* Mobile layout with tabs for threads, messages, and models */}
         <Tabs
