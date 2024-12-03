@@ -229,7 +229,7 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
             <div className="grid gap-4 py-4">
               <p>Here are some keyboard shortcuts:</p>
               <ul className="list-disc pl-5">
-                <li><strong>H</strong>: Open Help Dialog</li>
+                <li><strong>?</strong>: Open Help Dialog</li>
                 <li><strong>C</strong>: Toggle Collapse</li>
                 <li><strong>←/→</strong>: Navigate Parent/Child</li>
                 <li><strong>↑/↓</strong>: Navigate Siblings</li>
