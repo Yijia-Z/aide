@@ -208,46 +208,47 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
           />
         ))}
       </div>
-      </ScrollArea>
-      <Dialog>
-        <DialogTrigger asChild>
-          <div className="flex flex-row-reverse px-5">
-            <Button 
-              className="w-32 rounded-md px-4 bg-transparent hover:bg-secondary custom-shadow transition-scale-zoom text-primary border border-border" 
-              size="default"
-              aria-label="Help"
-            >
-              <HelpCircle className="h-4 w-4" />
-              <span className="ml-2 hidden md:inline">Help</span>
-            </Button>
-          </div>
-        </DialogTrigger>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Help</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <p>Here are some keyboard shortcuts:</p>
-            <ul className="list-disc pl-5">
-              <li><strong>H</strong>: Open Help Dialog</li>
-              <li><strong>C</strong>: Toggle Collapse</li>
-              <li><strong>←/→</strong>: Navigate Parent/Child</li>
-              <li><strong>↑/↓</strong>: Navigate Siblings</li>
-              <li><strong>N</strong>: New Message</li>
-              <li><strong>R</strong>: Reply</li>
-              <li><strong>E/Double-click</strong>: Edit</li>
-              <li><strong>Enter</strong>: Generate Single Reply</li>
-              <li><strong>Ctrl/Cmd + Enter</strong>: Confirm Edit | Multi-Generate</li>
-              <li><strong>Escape</strong>: Cancel Edit | Select | Clipboard</li>
-              <li><strong>Ctrl/Cmd + C | X | V</strong>: Copy | Cut | Paste</li>
-              <li><strong>Delete/Backspace</strong>: Delete Single Message</li>
-              <li><strong>Ctrl/Cmd + Delete</strong>: Delete with Replies</li>
-              <li><strong>Alt/Option + Delete</strong>: Delete only Replies</li>
-            </ul>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </div>
+    </ScrollArea>
+      <div className="absolute bottom-0 right-0">
+        <Dialog>
+          <DialogTrigger asChild>
+            <div className="flex flex-row-reverse px-5">
+              <Button 
+                className="rounded-md px-4 bg-transparent hover:bg-secondary custom-shadow transition-scale-zoom text-primary border border-border" 
+                size="default"
+                aria-label="Help"
+              >
+                <HelpCircle className="h-4 w-4" />
+              </Button>
+            </div>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Help</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <p>Here are some keyboard shortcuts:</p>
+              <ul className="list-disc pl-5">
+                <li><strong>H</strong>: Open Help Dialog</li>
+                <li><strong>C</strong>: Toggle Collapse</li>
+                <li><strong>←/→</strong>: Navigate Parent/Child</li>
+                <li><strong>↑/↓</strong>: Navigate Siblings</li>
+                <li><strong>N</strong>: New Message</li>
+                <li><strong>R</strong>: Reply</li>
+                <li><strong>E/Double-click</strong>: Edit</li>
+                <li><strong>Enter</strong>: Generate Single Reply</li>
+                <li><strong>Ctrl/Cmd + Enter</strong>: Confirm Edit | Multi-Generate</li>
+                <li><strong>Escape</strong>: Cancel Edit | Select | Clipboard</li>
+                <li><strong>Ctrl/Cmd + C | X | V</strong>: Copy | Cut | Paste</li>
+                <li><strong>Delete/Backspace</strong>: Delete Single Message</li>
+                <li><strong>Ctrl/Cmd + Delete</strong>: Delete with Replies</li>
+                <li><strong>Alt/Option + Delete</strong>: Delete only Replies</li>
+              </ul>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
+  </div>
   ) : (
     <div className="flex items-center justify-center h-full select-none">
       <div className="hidden sm:block">
