@@ -93,7 +93,9 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
   const currentThreadData = threads.find((t) => t.id === currentThread);
   useShortcut("?", () => {
     const helpButton = document.querySelector("[aria-label='Help']") as HTMLButtonElement
-    helpButton.click();
+    if (!editingMessage && helpButton) {
+      helpButton.click();
+    }
   });
 
   return currentThread ? (
@@ -222,30 +224,63 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
               </Button>
             </div>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
+          <DialogContent className="sm:max-w-[550px]"> 
             <DialogHeader>
               <DialogTitle>Help</DialogTitle>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <p>Here are some keyboard shortcuts:</p>
-              <ul className="list-disc pl-5">
-                <li><strong>?</strong>: Open Help Dialog</li>
-                <li><strong>C</strong>: Toggle Collapse</li>
-                <li><strong>←/→</strong>: Navigate Parent/Child</li>
-                <li><strong>↑/↓</strong>: Navigate Siblings</li>
-                <li><strong>N</strong>: New Message</li>
-                <li><strong>R</strong>: Reply</li>
-                <li><strong>E/Double-click</strong>: Edit</li>
-                <li><strong>Enter</strong>: Generate Single Reply</li>
-                <li><strong>Ctrl/Cmd + Enter</strong>: Confirm Edit | Multi-Generate</li>
-                <li><strong>Escape</strong>: Cancel Edit | Select | Clipboard</li>
-                <li><strong>Ctrl/Cmd + C | X | V</strong>: Copy | Cut | Paste</li>
-                <li><strong>Delete/Backspace</strong>: Delete Single Message</li>
-                <li><strong>Ctrl/Cmd + Delete</strong>: Delete with Replies</li>
-                <li><strong>Alt/Option + Delete</strong>: Delete only Replies</li>
-              </ul>
-            </div>
-          </DialogContent>
+              <div className="flex items-center justify-center h-full select-none">
+                <div className="hidden sm:block">
+                  <p className="text-sm text-muted-foreground whitespace-pre">
+                    <span> <HelpCircle className="inline-block mr-1 w-3 h-3" /> ?                    ┃ Open Help Dialog</span><br />
+                    <span> <Diff className="inline-block mr-1 w-3 h-3" /> C                    ┃ Toggle Collapse</span><br />
+                    <span> <MoveHorizontal className="inline-block mr-1 w-3 h-3" /> ←/→                  ┃ Navigate Parent/Child</span><br />
+                    <span> <MoveVertical className="inline-block mr-1 w-3 h-3" /> ↑/↓                  ┃ Navigate Siblings</span><br /><br />
+                    <span> <MessageSquarePlus className="inline-block mr-1 w-3 h-3" /> N                    ┃ New Message</span><br />
+                    <span> <MessageSquareReply className="inline-block mr-1 w-3 h-3" /> R                    ┃ Reply</span><br />
+                    <span> <Pencil className="inline-block mr-1 w-3 h-3" /> E/Double-click       ┃ Edit</span><br />
+                    <span> <WandSparkles className="inline-block mr-1 w-3 h-3" /> Enter                ┃ Generate Single Reply</span><br />
+                    <span> <CheckCheck className="inline-block mr-1 w-3 h-3" /> Ctrl/Cmd + Enter     ┃ Confirm Edit | Multi-Generate</span><br />
+                    <span> <X className="inline-block mr-1 w-3 h-3" /> Escape               ┃ Cancel Edit | Select | Clipboard</span><br />
+                    <span> <Clipboard className="inline-block mr-1 w-3 h-3" /> Ctrl/Cmd + C | X | V ┃ Copy | Cut | Paste</span><br /><br />
+                    <span> <Trash className="inline-block mr-1 w-3 h-3" /> Delete/Backspace     ┃ Delete Single Message</span><br />
+                    <span> <Trash2 className="inline-block mr-1 w-3 h-3" /> Ctrl/Cmd + Delete    ┃ Delete with Replies</span><br />
+                    <span> <MessageSquareOff className="inline-block mr-1 w-3 h-3" /> Alt/Option + Delete  ┃ Delete only Replies</span>
+                  </p>
+                  <div className="mt-4 text-center text-sm text-muted-foreground font-serif">
+                    <span>Select a thread to view messages.</span>
+                    <br />
+                    <a
+                      href="https://github.com/yijia-z/aide"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="hover:underline pl-1"
+                    >
+                      GitHub
+                    </a>
+                    <span className="mx-2">|</span>
+                    <a href="mailto:z@zy-j.com" className="hover:underline">
+                      Contact
+                    </a>
+                  </div>
+                </div>
+                <div className="sm:hidden fixed bottom-20 left-0 right-0 p-4 text-center text-sm text-muted-foreground bg-background font-serif">
+                  <span>Select a thread to view messages.</span>
+                  <br />
+                  <a
+                    href="https://github.com/yijia-z/aide"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:underline pl-3"
+                  >
+                    GitHub
+                  </a>
+                  <span className="mx-2">|</span>
+                  <a href="mailto:z@zy-j.com" className="hover:underline">
+                    Contact
+                  </a>
+                </div>
+              </div>
+            </DialogContent>
         </Dialog>
       </div>
   </div>
