@@ -120,6 +120,7 @@ export default function ThreadedDocument() {
     setAvailableTools,
   } = useTools();
 
+  // Load tools
   const loadTools = useCallback(async () => {
     if (apiBaseUrl) {
       setToolsLoading(true);
@@ -187,6 +188,7 @@ export default function ThreadedDocument() {
     [editingContent, setEditingContent, setEditingMessage, setThreads]
   );
 
+  // Fetch available models from the API or cache
   const fetchAvailableModels = useCallback(async () => {
     try {
       const cachedModels = storage.get("availableModels");
@@ -219,7 +221,6 @@ export default function ThreadedDocument() {
       }
 
       const data = await response.json();
-      // console.log("Received data from OpenRouter:", data);
 
       if (!data.data) {
         console.error('Response data does not contain "data" key.');
@@ -260,8 +261,7 @@ export default function ThreadedDocument() {
     }
   }, [setAvailableModels]);
 
-  // useCallback methods
-  // Save threads
+  // Save threads to storage and backend
   const saveThreads = useCallback(async (threadsToSave: Thread[]) => {
     try {
       storage.set("threads", threadsToSave);
@@ -280,6 +280,7 @@ export default function ThreadedDocument() {
     }
   }, []);
 
+  // Debounce saveThreads to avoid frequent saves
   const debouncedSaveThreads = useMemo(
     () => debounce(saveThreads, 2000),
     [saveThreads]
@@ -306,7 +307,7 @@ export default function ThreadedDocument() {
     setNewThreadId,
   ]);
 
-  // Add message
+  // Add message to a thread
   const addMessage = useCallback(
     (
       threadId: string,

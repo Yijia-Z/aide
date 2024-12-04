@@ -8,6 +8,31 @@ import { motion } from 'framer-motion';
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 
+/**
+ * The `SettingsPanel` component renders a settings interface for the user.
+ * It displays account settings if the user is logged in, otherwise it shows a login form.
+ * 
+ * @component
+ * @example
+ * // Usage example
+ * <SettingsPanel />
+ * 
+ * @returns {JSX.Element} The rendered settings panel component.
+ * 
+ * @remarks
+ * This component uses the `useSession` hook to get the current user session.
+ * It also includes a logout button that calls the `signOut` function when clicked.
+ * 
+ * @dependencies
+ * - `useSession` from `next-auth/react`
+ * - `signOut` from `next-auth/react`
+ * - `ModeToggle` component
+ * - `ScrollArea` component
+ * - `motion` from `framer-motion`
+ * - `LoginForm` component
+ * - `Button` component
+ */
+
 export function SettingsPanel() {
   const { data: session } = useSession()
 

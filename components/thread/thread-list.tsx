@@ -43,7 +43,7 @@ const ThreadList: React.FC<ThreadListProps> = ({
   setNewThreadId,
 }) => {
 
-  // Sort threads with newer threads (higher id) at the top, and pinned threads taking precedence
+  // Sort threads with pinned threads first, then by id in descending order
   const sortedThreads = threads.sort((a, b) => {
     if (a.isPinned && !b.isPinned) return -1;
     if (!a.isPinned && b.isPinned) return 1;

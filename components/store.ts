@@ -1,6 +1,16 @@
 export const isBrowser = () => typeof window !== "undefined";
 
+/**
+ * A utility object for interacting with the browser's localStorage.
+ * Provides methods to get, set, and remove items from localStorage.
+ */
 export const storage = {
+  /**
+   * Retrieves an item from localStorage.
+   * 
+   * @param key - The key of the item to retrieve.
+   * @returns The parsed value of the item, or null if not found or an error occurs.
+   */
   get: (key: string) => {
     if (!isBrowser()) return null;
     try {
@@ -12,6 +22,12 @@ export const storage = {
     }
   },
 
+  /**
+   * Stores an item in localStorage.
+   * 
+   * @param key - The key under which to store the item.
+   * @param value - The value to store. It will be stringified before saving.
+   */
   set: (key: string, value: any) => {
     if (!isBrowser()) return;
     try {
@@ -21,6 +37,11 @@ export const storage = {
     }
   },
 
+  /**
+   * Removes an item from localStorage.
+   * 
+   * @param key - The key of the item to remove.
+   */
   remove: (key: string) => {
     if (!isBrowser()) return;
     try {

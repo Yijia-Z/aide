@@ -1,3 +1,37 @@
+/**
+ * Props for the ToolSelector component.
+ * 
+ * @interface ToolSelectorProps
+ * @property {Tool[]} availableTools - List of tools that can be selected.
+ * @property {Tool[]} selectedTools - List of currently selected tools.
+ * @property {string | { type: string; function: { name: string } }} toolChoice - The current tool choice mode or specific tool function.
+ * @property {(tools: Tool[]) => void} onToolsChange - Callback function to handle changes in the selected tools.
+ * @property {(choice: string | { type: string; function: { name: string } }) => void} onToolChoiceChange - Callback function to handle changes in the tool choice.
+ */
+
+/**
+ * ToolSelector component allows users to select tools from a list of available tools.
+ * 
+ * @param {ToolSelectorProps} props - The props for the ToolSelector component.
+ * @returns {JSX.Element} The rendered ToolSelector component.
+ * 
+ * @component
+ * @example
+ * const availableTools = [{ name: 'Tool1', function: { name: 'func1' }, description: 'Description1' }];
+ * const selectedTools = [{ name: 'Tool1', function: { name: 'func1' }, description: 'Description1' }];
+ * const toolChoice = 'required';
+ * const handleToolsChange = (tools) => console.log(tools);
+ * const handleToolChoiceChange = (choice) => console.log(choice);
+ * 
+ * <ToolSelector
+ *   availableTools={availableTools}
+ *   selectedTools={selectedTools}
+ *   toolChoice={toolChoice}
+ *   onToolsChange={handleToolsChange}
+ *   onToolChoiceChange={handleToolChoiceChange}
+ * />
+ */
+
 import * as React from "react";
 import {
   Select,
