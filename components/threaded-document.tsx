@@ -1798,7 +1798,7 @@ export default function ThreadedDocument() {
               grid-cols-5
               select-none"
             style={{
-              paddingBottom: `${window.matchMedia('(display-mode: standalone)').matches ? '64px' : (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('env(safe-area-inset-bottom)')) > 0 ? '64px' : '40px')}`
+              paddingBottom: `${parseInt('env(safe-area-inset-bottom)') > 0 ? '64px' : '40px'}`
             }}
           >
             <TabsTrigger

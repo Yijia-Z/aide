@@ -41,7 +41,7 @@
 import React from 'react';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
-import { CheckCheck, Clipboard, ClipboardPaste, ClipboardType, ClipboardX, Diff, Pencil, MessageSquareOff, MessageSquarePlus, MessageSquareReply, MoveHorizontal, MoveVertical, Trash, Trash2, WandSparkles, X, HelpCircle } from "lucide-react";
+import { CheckCheck, Clipboard, ClipboardPaste, ClipboardType, ClipboardX, Diff, Pencil, MessageSquareOff, MessageSquarePlus, MessageSquareReply, MoveHorizontal, MoveVertical, Trash, Trash2, WandSparkles, X, HelpCircle, Command, Keyboard, CircleHelp } from "lucide-react";
 import RenderMessage from './render-message';
 import { Thread, Message } from '@/components/types';
 import {
@@ -55,11 +55,12 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { useShortcut } from "@/components/utils/use-shortcut";
 
 interface RenderMessagesProps {
   threads: Thread[];
@@ -131,222 +132,261 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
   setLastGenerateCount,
 }) => {
   const currentThreadData = threads.find((t) => t.id === currentThread);
-  useShortcut("?", () => {
-    const helpButton = document.querySelector("[aria-label='Help']") as HTMLButtonElement
-    if (!editingMessage && helpButton) {
-      helpButton.click();
-    }
-  });
+  const [showHelpDialog, setShowHelpDialog] = React.useState(false);
+  React.useEffect(() => {
+    const handleKeyPress = (event: KeyboardEvent) => {
+      // Check if the pressed key is "?" and no input element is focused
+      if (
+        event.key === "?" &&
+        !(document.activeElement instanceof HTMLInputElement ||
+          document.activeElement instanceof HTMLTextAreaElement)
+      ) {
+        event.preventDefault();
+        setShowHelpDialog(true);
+      }
+    };
 
-  return currentThread ? (
+    window.addEventListener("keydown", handleKeyPress);
+    return () => window.removeEventListener("keydown", handleKeyPress);
+  }, []);
+
+  return (
     <div
       className={`flex flex-col relative sm:h-full h-[calc(97vh)] hide-scrollbar bg-[radial-gradient(hsl(var(--muted))_1px,transparent_1px)] [background-size:16px_16px] [background-position:9px_0]`}
     >
-      <div
-        className="top-bar md:pr-2 bg-gradient-to-b from-background/100 to-background/00"
-        style={{
-          mask: "linear-gradient(black, black, transparent)",
-          backdropFilter: "blur(1px)",
-        }}
-      >
-        <h1 className="text-2xl font-serif font-bold pl-2 overflow-hidden">
-          <span className="block truncate text-2xl sm:text-sm md:text-base lg:text-xl xl:text-2xl">
-            {currentThreadData?.title}
-          </span>
-        </h1>
-        {currentThread && (
-          <Menubar className="p-0 border-none bg-transparent">
-            <MenubarMenu>
-              <MenubarTrigger asChild>
-                <Button
-                  className="rounded-md px-4 bg-transparent hover:bg-secondary custom-shadow transition-scale-zoom text-primary border border-border"
-                  size="default"
-                >
-                  <MessageSquarePlus className="h-4 w-4" />
-                  <span className="ml-2 hidden md:inline">New Message</span>
-                </Button>
-              </MenubarTrigger>
-              <MenubarContent className="custom-shadow">
-                <MenubarItem
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    cancelEditingMessage();
-                    addEmptyReply(currentThread, null);
-                  }}
-                >
-                  <MessageSquarePlus className="mr-2 h-4 w-4" />
-                  New Message
-                  <MenubarShortcut className="hidden md:inline">N</MenubarShortcut>
-                </MenubarItem>
-                <MenubarItem
-                  onClick={() => {
-                    pasteMessage(currentThread, null)
-                  }}
-                >
-                  {clipboardMessage ? (
-                    <ClipboardPaste className="mr-2 h-4 w-4" />
-                  ) : (
-                    <ClipboardType className="mr-2 h-4 w-4" />
-                  )}
-                  <span>{clipboardMessage ? "Paste Message" : "Paste Clipboard"}</span>
-                  <MenubarShortcut className="hidden ml-2 md:inline">⌘ V</MenubarShortcut>
-                </MenubarItem>
-                {clipboardMessage && (
+      {currentThread ? (
+        <>
+          <div
+            className="top-bar md:pr-2 bg-gradient-to-b from-background/100 to-background/00"
+            style={{
+              mask: "linear-gradient(black, black, transparent)",
+              backdropFilter: "blur(1px)",
+            }}
+          >
+            <h1 className="text-2xl font-serif font-bold pl-2 overflow-hidden">
+              <span className="block truncate text-2xl sm:text-sm md:text-base lg:text-xl xl:text-2xl">
+                {currentThreadData?.title}
+              </span>
+            </h1>
+            <Menubar className="p-0 border-none bg-transparent">
+              <MenubarMenu>
+                <MenubarTrigger asChild>
+                  <Button
+                    className="rounded-md px-4 bg-transparent hover:bg-secondary custom-shadow transition-scale-zoom text-primary border border-border"
+                    size="default"
+                  >
+                    <MessageSquarePlus className="h-4 w-4" />
+                    <span className="ml-2 hidden md:inline">New Message</span>
+                  </Button>
+                </MenubarTrigger>
+                <MenubarContent className="custom-shadow">
                   <MenubarItem
-                    onClick={() => {
-                      setClipboardMessage(null);
-                      clearGlowingMessages();
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      cancelEditingMessage();
+                      addEmptyReply(currentThread, null);
                     }}
                   >
-                    <ClipboardX className="mr-2 h-4 w-4" />
-                    <span>Clear {clipboardMessage?.operation === "cut" ? "Cut" : "Copied"}</span>
-                    <MenubarShortcut className="hidden md:inline">Esc</MenubarShortcut>
+                    <MessageSquarePlus className="mr-2 h-4 w-4" />
+                    New Message
+                    <MenubarShortcut className="hidden md:inline">N</MenubarShortcut>
                   </MenubarItem>
-                )}
-              </MenubarContent>
-            </MenubarMenu>
-          </Menubar>
-        )}
-      </div>
-      <ScrollArea className="flex-gro md:pr-2" onClick={() => setSelectedMessages((prev) => ({ ...prev, [String(currentThread)]: null }))}>
-        <div onClick={(e) => e.stopPropagation()}>
-          {currentThreadData?.messages.map((message: Message) => (
-            <RenderMessage
-              key={message.id}
-              message={message}
-              threadId={currentThread}
-              threads={threads}
-              currentThread={currentThread}
-              selectedMessages={selectedMessages}
-              editingMessage={editingMessage}
-              editingContent={editingContent}
-              glowingMessageIds={glowingMessageIds}
-              addGlowingMessage={addGlowingMessage}
-              removeGlowingMessage={removeGlowingMessage}
-              clearGlowingMessages={clearGlowingMessages}
-              copiedStates={copiedStates}
-              clipboardMessage={clipboardMessage}
-              isGenerating={isGenerating}
-              setSelectedMessages={setSelectedMessages}
-              toggleCollapse={toggleCollapse}
-              setEditingContent={setEditingContent}
-              confirmEditingMessage={confirmEditingMessage}
-              cancelEditingMessage={cancelEditingMessage}
-              startEditingMessage={startEditingMessage}
-              addEmptyReply={addEmptyReply}
-              generateAIReply={generateAIReply}
-              copyOrCutMessage={copyOrCutMessage}
-              pasteMessage={pasteMessage}
-              deleteMessage={deleteMessage}
-              findMessageById={findMessageById}
-              findMessageAndParents={findMessageAndParents}
-              getSiblings={getSiblings}
-              getModelDetails={getModelDetails}
-              setCopiedStates={setCopiedStates}
-              setThreads={setThreads}
-              setClipboardMessage={setClipboardMessage}
-              lastGenerateCount={lastGenerateCount}
-              setLastGenerateCount={setLastGenerateCount}
-            />
-          ))}
+                  <MenubarItem
+                    onClick={() => {
+                      pasteMessage(currentThread, null);
+                    }}
+                  >
+                    {clipboardMessage ? (
+                      <ClipboardPaste className="mr-2 h-4 w-4" />
+                    ) : (
+                      <ClipboardType className="mr-2 h-4 w-4" />
+                    )}
+                    <span>{clipboardMessage ? "Paste Message" : "Paste Clipboard"}</span>
+                    <MenubarShortcut className="hidden ml-2 md:inline">⌘ V</MenubarShortcut>
+                  </MenubarItem>
+                  {clipboardMessage && (
+                    <MenubarItem
+                      onClick={() => {
+                        setClipboardMessage(null);
+                        clearGlowingMessages();
+                      }}
+                    >
+                      <ClipboardX className="mr-2 h-4 w-4" />
+                      <span>Clear {clipboardMessage?.operation === "cut" ? "Cut" : "Copied"}</span>
+                      <MenubarShortcut className="hidden md:inline">Esc</MenubarShortcut>
+                    </MenubarItem>
+                  )}
+                </MenubarContent>
+              </MenubarMenu>
+            </Menubar>
+          </div>
+          <ScrollArea className="flex-gro md:pr-2" onClick={() => setSelectedMessages((prev) => ({ ...prev, [String(currentThread)]: null }))}>
+            <div onClick={(e) => e.stopPropagation()}>
+              {currentThreadData?.messages.map((message: Message) => (
+                <RenderMessage
+                  key={message.id}
+                  message={message}
+                  threadId={currentThread}
+                  threads={threads}
+                  currentThread={currentThread}
+                  selectedMessages={selectedMessages}
+                  editingMessage={editingMessage}
+                  editingContent={editingContent}
+                  glowingMessageIds={glowingMessageIds}
+                  addGlowingMessage={addGlowingMessage}
+                  removeGlowingMessage={removeGlowingMessage}
+                  clearGlowingMessages={clearGlowingMessages}
+                  copiedStates={copiedStates}
+                  clipboardMessage={clipboardMessage}
+                  isGenerating={isGenerating}
+                  setSelectedMessages={setSelectedMessages}
+                  toggleCollapse={toggleCollapse}
+                  setEditingContent={setEditingContent}
+                  confirmEditingMessage={confirmEditingMessage}
+                  cancelEditingMessage={cancelEditingMessage}
+                  startEditingMessage={startEditingMessage}
+                  addEmptyReply={addEmptyReply}
+                  generateAIReply={generateAIReply}
+                  copyOrCutMessage={copyOrCutMessage}
+                  pasteMessage={pasteMessage}
+                  deleteMessage={deleteMessage}
+                  findMessageById={findMessageById}
+                  findMessageAndParents={findMessageAndParents}
+                  getSiblings={getSiblings}
+                  getModelDetails={getModelDetails}
+                  setCopiedStates={setCopiedStates}
+                  setThreads={setThreads}
+                  setClipboardMessage={setClipboardMessage}
+                  lastGenerateCount={lastGenerateCount}
+                  setLastGenerateCount={setLastGenerateCount}
+                />
+              ))}
+            </div>
+          </ScrollArea>
+        </>
+      ) : (
+        <div className="flex font-serif items-center justify-center h-full select-none">
+          <span>Select a thread to view messages.</span>
         </div>
-      </ScrollArea>
+      )}
       <div className="absolute bottom-0 right-0 hidden sm:block">
-        <Dialog>
+        <Dialog open={showHelpDialog} onOpenChange={setShowHelpDialog}>
           <DialogTrigger asChild>
             <div className="flex flex-row-reverse pr-4 pb-4">
               <Button
-                className="rounded-md px-3 bg-transparent hover:bg-secondary custom-shadow transition-scale-zoom text-primary border border-border"
-                size="default"
-                aria-label="Help"
+                className="bg-transparent hover:bg-secondary custom-shadow transition-scale-zoom text-primary border"
+                size="icon"
               >
-                <HelpCircle className="h-4 w-4" />
+                <Command className="h-4 w-4" />
               </Button>
             </div>
           </DialogTrigger>
-          <DialogContent className="max-w-[550px]">
-            <DialogHeader>
-              <DialogTitle>Keyboard shortcuts</DialogTitle>
+          <DialogContent className="custom-shadow bg-background/80 select-none">
+            <DialogHeader className='font-serif'>
+              <DialogTitle>Keyboard Shortcuts</DialogTitle>
+              <DialogDescription>
+                A list of keyboard shortcuts for navigating and interacting with messages
+              </DialogDescription>
             </DialogHeader>
-            <div className="flex items-center justify-center h-full select-none">
-              <div>
-                <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                  <span> <HelpCircle className="inline-block mr-1 w-3 h-3" /> ?                    ┃ Open Help Dialog</span><br />
-                  <span> <Diff className="inline-block mr-1 w-3 h-3" /> C                    ┃ Toggle Collapse</span><br />
-                  <span> <MoveHorizontal className="inline-block mr-1 w-3 h-3" /> ←/→                  ┃ Navigate Parent/Child</span><br />
-                  <span> <MoveVertical className="inline-block mr-1 w-3 h-3" /> ↑/↓                  ┃ Navigate Siblings</span><br /><br />
-                  <span> <MessageSquarePlus className="inline-block mr-1 w-3 h-3" /> N                    ┃ New Message</span><br />
-                  <span> <MessageSquareReply className="inline-block mr-1 w-3 h-3" /> R                    ┃ Reply</span><br />
-                  <span> <Pencil className="inline-block mr-1 w-3 h-3" /> E/Double-click       ┃ Edit</span><br />
-                  <span> <WandSparkles className="inline-block mr-1 w-3 h-3" /> Enter                ┃ Generate Single Reply</span><br />
-                  <span> <CheckCheck className="inline-block mr-1 w-3 h-3" /> Ctrl/Cmd + Enter     ┃ Confirm Edit | Multi-Generate</span><br />
-                  <span> <X className="inline-block mr-1 w-3 h-3" /> Escape               ┃ Cancel Edit | Select | Clipboard</span><br />
-                  <span> <Clipboard className="inline-block mr-1 w-3 h-3" /> Ctrl/Cmd + C | X | V ┃ Copy | Cut | Paste</span><br /><br />
-                  <span> <Trash className="inline-block mr-1 w-3 h-3" /> Delete/Backspace     ┃ Delete Single Message</span><br />
-                  <span> <Trash2 className="inline-block mr-1 w-3 h-3" /> Ctrl/Cmd + Delete    ┃ Delete with Replies</span><br />
-                  <span> <MessageSquareOff className="inline-block mr-1 w-3 h-3" /> Alt/Option + Delete  ┃ Delete only Replies</span>
-                </p>
-                <div className="mt-4 text-center text-sm text-muted-foreground font-serif">
-                  <a href="mailto:z@zy-j.com" className="underline hover:glow">
-                    Having problems? Send us feedback
+            <div className="flex items-center justify-center h-full w-full">
+              <div className="w-full">
+                <table className="text-sm text-foreground whitespace-pre-wrap w-full">
+                  <tbody>
+                    <tr>
+                      <td><Keyboard className="inline-block mr-1 w-4 h-4" /> <kbd>?</kbd></td>
+                      <td className="text-right">Open Help Dialog</td>
+                    </tr>
+                    <tr>
+                      <td><Diff className="inline-block mr-1 w-4 h-4" /> <kbd>C</kbd></td>
+                      <td className="text-right">Toggle Collapse</td>
+                    </tr>
+                    <tr>
+                      <td><MoveHorizontal className="inline-block mr-1 w-4 h-4" /> <kbd>←</kbd>/<kbd>→</kbd></td>
+                      <td className="text-right">Navigate Parent/Child</td>
+                    </tr>
+                    <tr>
+                      <td><MoveVertical className="inline-block mr-1 w-4 h-4" /> <kbd>↑</kbd>/<kbd>↓</kbd></td>
+                      <td className="text-right">Navigate Siblings</td>
+                    </tr>
+                    <tr>
+                      <td><MessageSquarePlus className="inline-block mr-1 w-4 h-4" /> <kbd>N</kbd></td>
+                      <td className="text-right">Add Message at Root</td>
+                    </tr>
+                    <tr>
+                      <td><MessageSquareReply className="inline-block mr-1 w-4 h-4" /> <kbd>R</kbd></td>
+                      <td className="text-right">Reply</td>
+                    </tr>
+                    <tr>
+                      <td><Pencil className="inline-block mr-1 w-4 h-4" /> <kbd>E</kbd>/Double-click</td>
+                      <td className="text-right">Edit</td>
+                    </tr>
+                    <tr>
+                      <td><WandSparkles className="inline-block mr-1 w-4 h-4" /> <kbd>Enter</kbd></td>
+                      <td className="text-right">Generate Once</td>
+                    </tr>
+                    <tr className="border-t border-b border-muted-foreground">
+                      <td>
+                        <CheckCheck className="inline-block mr-3 w-4 h-4" />
+                        <kbd>⌃</kbd>/<kbd>⌘</kbd> + <kbd>Enter</kbd>
+                      </td>
+                      <td className="text-right">
+                        Confirm Edit
+                        <br />
+                        Multi-Generate
+                      </td>
+                    </tr>
+                    <tr className="border-t border-b border-muted-foreground">
+                      <td>
+                        <X className="inline-block mr-3 w-4 h-4" />
+                        <kbd>Escape</kbd>
+                      </td>
+                      <td className="text-right">
+                        Cancel Edit
+                        <br />
+                        Select
+                        <br />
+                        Clipboard
+                      </td>
+                    </tr>
+                    <tr className="border-t border-b border-muted-foreground">
+                      <td>
+                        <Clipboard className="inline-block mr-3 w-4 h-4" />
+                        <kbd>⌃</kbd>/<kbd>⌘</kbd> + <kbd>C</kbd>, <kbd>X</kbd>, <kbd>V</kbd>
+                      </td>
+                      <td className="text-right">
+                        Copy
+                        <br />
+                        Cut
+                        <br />
+                        Paste
+                      </td>
+                    </tr>
+                    <tr>
+                      <td><Trash className="inline-block mr-1 w-4 h-4" /> <kbd>Delete</kbd>/<kbd>Backspace</kbd></td>
+                      <td className="text-right">Delete Single Message</td>
+                    </tr>
+                    <tr>
+                      <td><Trash2 className="inline-block mr-1 w-4 h-4" /> <kbd>⌃</kbd>/<kbd>⌘</kbd> + <kbd>Delete</kbd></td>
+                      <td className="text-right">Delete with Replies</td>
+                    </tr>
+                    <tr>
+                      <td><MessageSquareOff className="inline-block mr-1 w-4 h-4" /> <kbd>⌥</kbd> + <kbd>Delete</kbd></td>
+                      <td className="text-right">Delete only Replies</td>
+                    </tr>
+                  </tbody>
+                </table>
+                <DialogFooter className="text-sm text-muted-foreground font-serif">
+                  <a href="mailto:z@zy-j.com" className="hover:glow">
+                    <span className="underline">Send us feedback</span>
                   </a>
-                </div>
+                  <a href="https://github.com/yijia-z/aide/issues" className="hover:glow">
+                    <span className="underline">Submit a GitHub Issue</span>
+                  </a>
+                </DialogFooter>
               </div>
             </div>
           </DialogContent>
         </Dialog>
-      </div>
-    </div>
-  ) : (
-    <div className="flex items-center justify-center h-full select-none">
-      <div className="hidden sm:block">
-        <p className="text-sm text-muted-foreground whitespace-pre pl-16">
-          <span> <Diff className="inline-block mr-1 w-3 h-3" /> C                     ┃ Toggle Collapse</span><br />
-          <span> <MoveHorizontal className="inline-block mr-1 w-3 h-3" /> ←/→                   ┃ Navigate Parent/Child</span><br />
-          <span> <MoveVertical className="inline-block mr-1 w-3 h-3" /> ↑/↓                   ┃ Navigate Siblings</span><br /><br />
-          <span> <MessageSquarePlus className="inline-block mr-1 w-3 h-3" /> N                     ┃ New Message</span><br />
-          <span> <MessageSquareReply className="inline-block mr-1 w-3 h-3" /> R                     ┃ Reply</span><br />
-          <span> <Pencil className="inline-block mr-1 w-3 h-3" /> E/Double-click        ┃ Edit</span><br />
-          <span> <WandSparkles className="inline-block mr-1 w-3 h-3" /> Enter                 ┃ Generate Single Reply</span><br />
-          <span> <CheckCheck className="inline-block mr-1 w-3 h-3" /> Ctrl/Cmd + Enter      ┃ Confirm Edit | Multi-Generate</span><br />
-          <span> <X className="inline-block mr-1 w-3 h-3" /> Escape                ┃ Cancel Edit | Select | Clipboard</span><br />
-          <span> <Clipboard className="inline-block mr-1 w-3 h-3" /> Ctrl/Cmd + C | X | V  ┃ Copy | Cut | Paste</span><br /><br />
-          <span> <Trash className="inline-block mr-1 w-3 h-3" /> Delete/Backspace      ┃ Delete Single Message</span><br />
-          <span> <Trash2 className="inline-block mr-1 w-3 h-3" /> Ctrl/Cmd + Delete     ┃ Delete with Replies</span><br />
-          <span> <MessageSquareOff className="inline-block mr-1 w-3 h-3" /> Alt/Option + Delete   ┃ Delete only Replies</span>
-        </p>
-        <div className="mt-4 text-center text-sm text-muted-foreground font-serif">
-          <span>Select a thread to view messages.</span>
-          <br />
-          <a
-            href="https://github.com/yijia-z/aide"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hover:underline pl-2"
-          >
-            GitHub
-          </a>
-          <span className="mx-2">|</span>
-          <a href="mailto:z@zy-j.com" className="hover:underline">
-            Contact
-          </a>
-        </div>
-      </div>
-      <div className="sm:hidden fixed bottom-20 left-0 right-0 p-4 text-center text-sm text-muted-foreground bg-background font-serif">
-        <span>Select a thread to view messages.</span>
-        <br />
-        <a
-          href="https://github.com/yijia-z/aide"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="hover:underline pl-2"
-        >
-          GitHub
-        </a>
-        <span className="mx-2">|</span>
-        <a href="mailto:z@zy-j.com" className="hover:underline">
-          Contact
-        </a>
       </div>
     </div>
   );

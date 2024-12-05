@@ -6,6 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import {
     Dialog,
     DialogContent,
+    DialogDescription,
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
@@ -125,9 +126,12 @@ export function ToolManager({ tools, setTools, availableTools, setAvailableTools
             </ScrollArea>
 
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                <DialogContent className="sm:max-w-[425px]">
-                    <DialogHeader>
+                <DialogContent className="custom-shadow bg-background/80 select-none">
+                    <DialogHeader className='font-serif'>
                         <DialogTitle>Add Tool</DialogTitle>
+                        <DialogDescription>
+                            Search and add tools to your workspace. Added tools will appear in your tools list.
+                        </DialogDescription>
                     </DialogHeader>
                     <Command className="custom-shadow rounded-lg">
                         <CommandInput placeholder="Search tools to add..." />
