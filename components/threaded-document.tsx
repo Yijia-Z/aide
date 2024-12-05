@@ -1780,7 +1780,6 @@ export default function ThreadedDocument() {
             className="overflow-y-clip fixed top-0 left-2 right-2 pb-20"
             style={{
               paddingTop: "env(safe-area-inset-top)",
-              paddingBottom: "env(safe-area-inset-bottom)"
             }}
           >
             <SettingsPanel />
@@ -1794,10 +1793,12 @@ export default function ThreadedDocument() {
               bottom-0 
               left-0 
               right-0 
-              pb-10
               space-x-1
               grid-cols-5
               select-none"
+            style={{
+              paddingBottom: `${window.matchMedia('(display-mode: standalone)').matches ? '64px' : (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('env(safe-area-inset-bottom)')) > 0 ? '64px' : '40px')}`
+            }}
           >
             <TabsTrigger
               value="threads"
