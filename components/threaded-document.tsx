@@ -1328,7 +1328,7 @@ export default function ThreadedDocument() {
         if (!cachedModels) {
           setModels([DEFAULT_MODEL]);
           setModelsLoaded(true);
-          // Let useModels handle selectedModels initialization
+          setSelectedModels([DEFAULT_MODEL.id]);
         }
         return;
       }
