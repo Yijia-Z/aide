@@ -387,7 +387,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                 <div className={`flex items-center justify-between rounded-md ${isGenerating[message.id] ? "opacity-50 glow-effect" : ""}`}>
                   <div className="flex items-center space-x-1">
                     <Button
-                      variant="secondary"
+                      variant="outline"
                       className="w-6 h-6 p-0 rounded-md relative"
                       onClick={(e) => {
                         e.stopPropagation();

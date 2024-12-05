@@ -1794,13 +1794,14 @@ export default function ThreadedDocument() {
               bottom-0 
               left-0 
               right-0 
+              pb-16
               space-x-1
               grid-cols-5
               select-none"
-            style={{
+/*             style={{
               paddingBottom: `${parseInt('env(safe-area-inset-bottom)') > 0 ? '64px' : '40px'}`
             }}
-          >
+ */          >
             <TabsTrigger
               value="threads"
               className="bg-transparent data-[state=active]:bg-secondary/80"

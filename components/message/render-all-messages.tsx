@@ -343,9 +343,9 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
                       <td className="text-right">
                         Cancel Edit
                         <br />
-                        Select
+                        Cancel Select
                         <br />
-                        Clipboard
+                        Clear Clipboard
                       </td>
                     </tr>
                     <tr className="border-t border-b border-muted-foreground">

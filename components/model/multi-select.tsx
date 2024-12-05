@@ -25,6 +25,7 @@ import {
     CheckIcon,
     ChevronDown,
     CheckCheckIcon,
+    X,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -211,7 +212,7 @@ export const MultiSelect = React.forwardRef<
                         {...props}
                         onClick={handleTogglePopover}
                         className={cn(
-                            "flex w-full p-1 rounded-md border min-h-10 h-auto items-center justify-between bg-inherit hover:bg-inherit [&_svg]:pointer-events-auto",
+                            "flex flex-grow text-foreground rounded-md border min-h-10 h-auto items-center justify-between bg-inherit hover:bg-inherit [&_svg]:pointer-events-auto",
                             className
                         )}
                     >
@@ -219,57 +220,41 @@ export const MultiSelect = React.forwardRef<
                             <div className="flex justify-between items-center w-full">
                                 <div className="flex flex-wrap items-center">
                                     {maxCount === 0 && selectedValues.length === 1 ? (
-                                        // Show single selection when maxCount is 0 and only one selected
                                         (() => {
                                             const value = selectedValues[0];
                                             const option = options.find((o) => o.value === value);
                                             const IconComponent = option?.icon;
                                             return (
-                                                <Badge
-                                                    onClick={(event) => {
-                                                        event.stopPropagation();
-                                                        toggleOption(value);
-                                                    }}
-                                                    key={value}
-                                                    className={cn(
-                                                        multiSelectVariants({ variant }),
-                                                        "flex items-center cursor-pointer hover:text-destructive active:bg-background"
-                                                    )}
-                                                >
+                                                <div className="flex items-center">
                                                     {IconComponent && (
                                                         <IconComponent className="h-4 w-4 mr-2" />
                                                     )}
-                                                    {option?.label}
-                                                </Badge>
+                                                    <span className="text-sm">{option?.label}</span>
+                                                </div>
                                             );
                                         })()
                                     ) : (
-                                        <Badge
-                                            onClick={(event) => {
-                                                event.stopPropagation();
-                                                clearExtraOptions();
-                                            }}
-                                            className={cn(
-                                                "flex items-center cursor-pointer hover:text-destructive active:bg-background",
-                                                multiSelectVariants({ variant })
-                                            )}
-                                        >
-                                            {`${selectedValues.length} selected`}
-                                        </Badge>
+                                        <span className="text-sm">
+                                            {selectedValues.length === options.length ? 'All' : `${selectedValues.length} selected`}
+                                        </span>
                                     )}
                                 </div>
-                                <div className="flex items-center justify-between">
-                                    <ChevronDown className="h-4 mr-2 cursor-pointer text-muted-foreground" />
-                                </div>
+                                <X
+                                    className="ml-2 h-4 w-4 cursor-pointer text-muted-foreground hover:text-destructive"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleClear();
+                                    }}
+                                />
                             </div>
                         ) : (
                             <div className="flex items-center justify-between w-full mx-auto">
-                                <span className="text-sm text-muted-foreground mx-3">
+                                <span className="text-sm text-muted-foreground">
                                     {placeholder}
                                 </span>
-                                <ChevronDown className="h-4 cursor-pointer text-muted-foreground mx-2" />
                             </div>
                         )}
+                        <ChevronDown className="h-4 cursor-pointer text-muted-foreground" />
                     </Button>
                 </PopoverTrigger>
                 <PopoverContent
@@ -290,17 +275,18 @@ export const MultiSelect = React.forwardRef<
                                     onSelect={toggleAll}
                                     className="cursor-pointer"
                                 >
+                                    <span>Select All</span>
+                                    <div className="flex-1" />
                                     <div
                                         className={cn(
-                                            "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
+                                            "flex h-4 w-4 items-center justify-center",
                                             selectedValues.length === options.length
-                                                ? "bg-primary text-primary-foreground"
-                                                : "opacity-50 [&_svg]:invisible"
+                                                ? ""
+                                                : "[&_svg]:invisible"
                                         )}
                                     >
                                         <CheckCheckIcon className="h-4 w-4" />
                                     </div>
-                                    <span>Select All</span>
                                 </CommandItem>
                                 <CommandSeparator className="my-1 h-[0.5px]" />
                                 {options.map((option) => {
@@ -311,20 +297,21 @@ export const MultiSelect = React.forwardRef<
                                             onSelect={() => toggleOption(option.value)}
                                             className="cursor-pointer"
                                         >
-                                            <div
-                                                className={cn(
-                                                    "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
-                                                    isSelected
-                                                        ? "bg-primary text-primary-foreground"
-                                                        : "opacity-50 [&_svg]:invisible"
-                                                )}
-                                            >
-                                                <CheckIcon className="h-4 w-4" />
-                                            </div>
                                             {option.icon && (
                                                 <option.icon className="mr-2 h-4 w-4 text-muted-foreground" />
                                             )}
                                             <span>{option.label}</span>
+                                            <div className="flex-1" />
+                                            <div
+                                                className={cn(
+                                                    "flex h-4 w-4 items-center justify-center",
+                                                    isSelected
+                                                        ? ""
+                                                        : "[&_svg]:invisible"
+                                                )}
+                                            >
+                                                <CheckIcon className="h-4 w-4" />
+                                            </div>
                                         </CommandItem>
                                     );
                                 })}

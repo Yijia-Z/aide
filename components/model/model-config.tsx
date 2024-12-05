@@ -88,7 +88,7 @@ const ModelConfig: React.FC<ModelConfigProps> = ({
           }))}
           onValueChange={(values) => setSelectedModels(values)}
           defaultValue={selectedModels}
-          placeholder="Select models"
+          placeholder="None"
           variant="secondary"
           className="custom-shadow"
           maxCount={0}
