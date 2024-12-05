@@ -1,3 +1,17 @@
+/**
+ * Component for selecting a base model and configuring its parameters.
+ *
+ * @param {SelectBaseModelProps} props - The properties for the SelectBaseModel component.
+ * @param {string} props.value - The currently selected model ID.
+ * @param {Tool[]} props.availableTools - The list of available tools.
+ * @param {(value: string, parameters: Partial<ModelParameters>) => void} props.onValueChange - Callback function to handle changes in the selected model and its parameters.
+ * @param {() => Promise<Model[]>} props.fetchAvailableModels - Function to fetch the list of available models.
+ * @param {Partial<ModelParameters>} [props.existingParameters] - Existing parameters for the selected model.
+ * @param {(modelId: string) => Promise<ModelParameters | null>} props.fetchModelParameters - Function to fetch parameters for a specific model.
+ *
+ * @returns {JSX.Element} The rendered SelectBaseModel component.
+ */
+
 "use client";
 
 import * as React from "react";

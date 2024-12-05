@@ -1,4 +1,23 @@
-// src/components/multi-select.tsx
+/**
+ * MultiSelect component allows users to select multiple options from a dropdown list.
+ * It supports various styles, custom icons, and a search functionality.
+ * 
+ * @component
+ * @param {Object} props - The props for the MultiSelect component.
+ * @param {Array} props.options - An array of option objects to be displayed in the multi-select component.
+ * @param {string} props.options[].label - The text to display for the option.
+ * @param {string} props.options[].value - The unique value associated with the option.
+ * @param {React.ComponentType} [props.options[].icon] - Optional icon component to display alongside the option.
+ * @param {function} props.onValueChange - Callback function triggered when the selected values change. Receives an array of the new selected values.
+ * @param {string[]} [props.defaultValue=[]] - The default selected values when the component mounts.
+ * @param {string} [props.placeholder="Select options"] - Placeholder text to be displayed when no values are selected.
+ * @param {number} [props.maxCount=3] - Maximum number of items to display. Extra selected items will be summarized.
+ * @param {boolean} [props.modalPopover=false] - The modality of the popover. When set to true, interaction with outside elements will be disabled and only popover content will be visible to screen readers.
+ * @param {boolean} [props.asChild=false] - If true, renders the multi-select component as a child of another component.
+ * @param {string} [props.className] - Additional class names to apply custom styles to the multi-select component.
+ * @param {React.Ref<HTMLButtonElement>} ref - Ref to the button element.
+ * @returns {JSX.Element} The rendered MultiSelect component.
+ */
 
 import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";

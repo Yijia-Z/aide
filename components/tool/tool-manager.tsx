@@ -42,6 +42,30 @@ interface ToolManagerProps {
     error: string;
 }
 
+/**
+ * Component for managing tools.
+ *
+ * @component
+ * @param {ToolManagerProps} props - The properties for the ToolManager component.
+ * @param {Tool[]} props.tools - The list of all tools.
+ * @param {React.Dispatch<React.SetStateAction<Tool[]>>} props.setTools - Function to set the list of all tools.
+ * @param {Tool[]} props.availableTools - The list of available tools.
+ * @param {React.Dispatch<React.SetStateAction<Tool[]>>} props.setAvailableTools - Function to set the list of available tools.
+ * @param {boolean} props.isLoading - Indicates if the tools are being loaded.
+ * @param {Error | null} props.error - The error object if there is an error.
+ *
+ * @returns {JSX.Element} The rendered ToolManager component.
+ *
+ * @example
+ * <ToolManager
+ *   tools={tools}
+ *   setTools={setTools}
+ *   availableTools={availableTools}
+ *   setAvailableTools={setAvailableTools}
+ *   isLoading={isLoading}
+ *   error={error}
+ * />
+ */
 export function ToolManager({ tools, setTools, availableTools, setAvailableTools, isLoading, error }: ToolManagerProps) {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
 

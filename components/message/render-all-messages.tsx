@@ -1,3 +1,43 @@
+/**
+ * Component to render all messages within a selected thread.
+ *
+ * @component
+ * @param {RenderMessagesProps} props - The properties for the RenderMessages component.
+ * @param {Thread[]} props.threads - Array of thread objects.
+ * @param {string | null} props.currentThread - ID of the currently selected thread.
+ * @param {{ [key: string]: string | null }} props.selectedMessages - Object containing selected messages.
+ * @param {string | null} props.editingMessage - ID of the message currently being edited.
+ * @param {string} props.editingContent - Content of the message currently being edited.
+ * @param {string[]} props.glowingMessageIds - Array of message IDs that should have a glowing effect.
+ * @param {(id: string) => void} props.addGlowingMessage - Function to add a glowing effect to a message.
+ * @param {(id: string) => void} props.removeGlowingMessage - Function to remove the glowing effect from a message.
+ * @param {() => void} props.clearGlowingMessages - Function to clear all glowing messages.
+ * @param {{ [key: string]: boolean }} props.copiedStates - Object containing the copied states of messages.
+ * @param {{ message: Message; operation: "copy" | "cut"; sourceThreadId: string | null; originalMessageId: string | null; } | null} props.clipboardMessage - Object containing the clipboard message details.
+ * @param {{ [key: string]: boolean }} props.isGenerating - Object containing the generating states of messages.
+ * @param {React.Dispatch<React.SetStateAction<{ [key: string]: string | null }>>} props.setSelectedMessages - Function to set the selected messages.
+ * @param {(threadId: string, messageId: string) => void} props.toggleCollapse - Function to toggle the collapse state of a message.
+ * @param {(content: string) => void} props.setEditingContent - Function to set the content of the message being edited.
+ * @param {(threadId: string, messageId: string) => void} props.confirmEditingMessage - Function to confirm the editing of a message.
+ * @param {() => void} props.cancelEditingMessage - Function to cancel the editing of a message.
+ * @param {(message: Message) => void} props.startEditingMessage - Function to start editing a message.
+ * @param {(threadId: string, parentId: string | null) => void} props.addEmptyReply - Function to add an empty reply to a message.
+ * @param {(threadId: string, messageId: string, count: number) => void} props.generateAIReply - Function to generate an AI reply to a message.
+ * @param {(threadId: string, messageId: string, operation: "copy" | "cut") => void} props.copyOrCutMessage - Function to copy or cut a message.
+ * @param {(threadId: string, parentId: string | null) => void} props.pasteMessage - Function to paste a message.
+ * @param {(threadId: string, messageId: string, deleteChildren: boolean | "clear") => void} props.deleteMessage - Function to delete a message.
+ * @param {(messages: Message[], id: string) => Message | null} props.findMessageById - Function to find a message by its ID.
+ * @param {(messages: Message[], targetId: string, parents?: Message[]) => [Message | null, Message[]]} props.findMessageAndParents - Function to find a message and its parents.
+ * @param {(messages: Message[], messageId: string) => Message[]} props.getSiblings - Function to get the siblings of a message.
+ * @param {(modelId: string | undefined) => any} props.getModelDetails - Function to get the details of a model.
+ * @param {React.Dispatch<React.SetStateAction<{ [key: string]: boolean }>>} props.setCopiedStates - Function to set the copied states of messages.
+ * @param {React.Dispatch<React.SetStateAction<Thread[]>>} props.setThreads - Function to set the threads.
+ * @param {React.Dispatch<React.SetStateAction<{ message: Message; operation: "copy" | "cut"; sourceThreadId: string | null; originalMessageId: string | null; } | null>>} props.setClipboardMessage - Function to set the clipboard message.
+ * @param {number} props.lastGenerateCount - The last generate count.
+ * @param {React.Dispatch<React.SetStateAction<number>>} props.setLastGenerateCount - Function to set the last generate count.
+ * @returns {JSX.Element} The rendered component.
+ */
+
 import React from 'react';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";

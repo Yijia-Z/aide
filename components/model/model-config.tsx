@@ -1,3 +1,31 @@
+/**
+ * ModelConfig component props interface.
+ * 
+ * @interface ModelConfigProps
+ * @property {Model[]} models - List of available models.
+ * @property {string[]} selectedModels - List of selected model IDs.
+ * @property {Model | null} editingModel - The model currently being edited.
+ * @property {(modelIds: string[]) => void} setSelectedModels - Function to set selected models.
+ * @property {(model: Model | null) => void} setEditingModel - Function to set the model being edited.
+ * @property {() => void} addNewModel - Function to add a new model.
+ * @property {(field: keyof Model, value: string | number | Partial<ModelParameters> | Tool[]) => void} handleModelChange - Function to handle changes to the model fields.
+ * @property {() => void} saveModelChanges - Function to save changes to the model.
+ * @property {(modelId: string) => void} deleteModel - Function to delete a model.
+ * @property {() => Promise<any>} fetchAvailableModels - Function to fetch available models.
+ * @property {(modelId: string) => Promise<any>} fetchModelParameters - Function to fetch parameters for a specific model.
+ * @property {Tool[]} availableTools - List of available tools.
+ */
+
+/**
+ * ModelConfig component.
+ * 
+ * This component renders a configuration interface for managing models. It allows users to select, edit, add, and delete models.
+ * 
+ * @component
+ * @param {ModelConfigProps} props - The props for the ModelConfig component.
+ * @returns {JSX.Element} The rendered ModelConfig component.
+ */
+
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Check, X, Trash, Sparkles, Edit } from "lucide-react";

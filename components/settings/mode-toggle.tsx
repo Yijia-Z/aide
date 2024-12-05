@@ -1,3 +1,29 @@
+/**
+ * ModeToggle component provides a dropdown menu to toggle between light, dark, and system themes.
+ * It uses the `useTheme` hook from `next-themes` to set the theme.
+ *
+ * @component
+ * @example
+ * // Usage example
+ * <ModeToggle />
+ *
+ * @returns {JSX.Element} The rendered ModeToggle component.
+ *
+ * @remarks
+ * This component uses the `DropdownMenu`, `DropdownMenuTrigger`, `DropdownMenuContent`, and `DropdownMenuItem`
+ * components from the `@/components/ui/dropdown-menu` module to create the dropdown menu.
+ * It also uses the `Button` component from the `@/components/ui/button` module.
+ *
+ * The component displays a button with a sun icon for light mode and a moon icon for dark mode.
+ * When the button is clicked, a dropdown menu appears with options to select light, dark, or system theme.
+ *
+ * @dependencies
+ * - `react`
+ * - `lucide-react`
+ * - `next-themes`
+ * - `@/components/ui/button`
+ * - `@/components/ui/dropdown-menu`
+ */
 "use client"
 
 import * as React from "react"
