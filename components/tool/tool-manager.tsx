@@ -82,7 +82,13 @@ export function ToolManager({ tools, setTools, availableTools, setAvailableTools
 
     return (
         <div className="flex flex-col relative h-[calc(97vh)] overflow-clip select-none">
-            <div className="top-bar bg-gradient-to-b from-background/100 to-background/00">
+            <div
+                className="top-bar bg-gradient-to-b from-background/100 to-background/00"
+                style={{
+                    mask: "linear-gradient(black, black, transparent)",
+                    backdropFilter: "blur(1px)",
+                }}
+            >
                 <h2 className="text-2xl font-serif font-bold pl-2">Tools</h2>
                 <Button
                     className="bg-transparent hover:bg-secondary custom-shadow transition-scale-zoom text-primary border border-border"
