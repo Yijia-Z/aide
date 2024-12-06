@@ -402,13 +402,22 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                         : "text-green-800 dark:text-green-600"
                         }`}
                     >
+                      {/* Show publisher name based on these conditions:
+                          1. If this is a top-level message (parentId === null)
+                          2. If this is an AI message with a different model than parent
+                          3. If this is a user message
+                          
+                          For AI messages, show model name or "AI"
+                          For user messages, show "user"
+                          Otherwise show nothing */}
                       {parentId === null ||
-                        message.publisher !==
-                        findMessageById(
-                          threads.find((t) => t.id === currentThread)
-                            ?.messages || [],
-                          parentId
-                        )?.publisher
+                        (message.publisher === "ai" &&
+                          modelDetails?.id !== findMessageById(
+                            threads.find((t) => t.id === currentThread)
+                              ?.messages || [],
+                            parentId
+                          )?.modelConfig?.id) ||
+                        message.publisher === "user"
                         ? message.publisher === "ai"
                           ? modelDetails?.name || "AI"
                           : "user"
@@ -416,13 +425,19 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                     </span>
                     {modelDetails && (
                       <div className="flex items-center space-x-1">
-                        <Badge variant="outline" className="select-none text-muted-foreground">
-                          <Bot className="w-3 h-3 mr-1" />
-                          {modelDetails.baseModel
-                            ?.split("/")
-                            .pop()
-                            ?.split("-")[0]}
-                        </Badge>
+                        {(!parentId || modelDetails?.id !== findMessageById(
+                          threads.find((t) => t.id === currentThread)
+                            ?.messages || [],
+                          parentId
+                        )?.modelConfig?.id) && (
+                            <Badge variant="outline" className="select-none text-muted-foreground">
+                              <Bot className="w-3 h-3 mr-1" />
+                              {modelDetails.baseModel
+                                ?.split("/")
+                                .pop()
+                                ?.split("-")[0]}
+                            </Badge>
+                          )}
                         {modelDetails.parameters?.tools && modelDetails.parameters.tools.length > 0 && modelDetails.parameters.tool_choice !== "none" && (
                           <div className="flex gap-1">
                             {modelDetails.parameters.tools.map((tool: Tool) => (
