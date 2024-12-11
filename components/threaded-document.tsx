@@ -1373,7 +1373,7 @@ export default function ThreadedDocument() {
     };
 
     loadModels();
-  }, [setModels, setModelsLoaded]);
+  }, [setModels, setModelsLoaded, setSelectedModels]);
 
   // fetch available models
   useEffect(() => {

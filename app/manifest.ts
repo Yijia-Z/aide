@@ -32,10 +32,6 @@ export default function manifest(): MetadataRoute.Manifest {
         ],
         "prefer_related_applications": false,
         "display_override": ["standalone"],
-        "serviceworker": {
-            "src": "/sw.js",
-            "scope": "/"
-        },
         "shortcuts": [
             {
                 "name": "New Thread",
