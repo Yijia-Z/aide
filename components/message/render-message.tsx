@@ -67,7 +67,7 @@ import rehypeRaw from "rehype-raw";
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { Prism, SyntaxHighlighterProps } from 'react-syntax-highlighter';
 import { gruvboxDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { cn } from "@/lib/utils";
 import {
@@ -221,6 +221,8 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
   lastGenerateCount,
   setLastGenerateCount,
 }) => {
+  const SyntaxHighlighter = Prism as unknown as typeof React.Component<SyntaxHighlighterProps>;
+
   // Message selection and hierarchy
   const selectedMessage = currentThread !== null ? selectedMessages[currentThread] : null;
   const isSelected = selectedMessage === message.id;
