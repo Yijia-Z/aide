@@ -1,7 +1,7 @@
 # backend/api/models.py
 from fastapi import APIRouter, HTTPException, Request
-from backend.service.db_utils import clientdb
-from backend.service.model_utils import load_models_from_file, get_default_models, models_list
+from service.db_utils import clientdb
+from service.model_utils import load_models_from_file, get_default_models, models_list
 import logging
 
 router = APIRouter()

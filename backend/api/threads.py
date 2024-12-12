@@ -1,7 +1,7 @@
 # backend/api/threads.py
 from fastapi import APIRouter, HTTPException
-from backend.models import ThreadData
-from backend.service.db_utils import clientdb
+from models import ThreadData
+from service.db_utils import clientdb
 import logging
 
 router = APIRouter()

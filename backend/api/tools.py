@@ -1,11 +1,11 @@
 # backend/api/tools.py
 from fastapi import APIRouter, HTTPException, Request
-from backend.service.tool_utils import save_tools_to_db, load_tools_from_db, get_default_tools, serialize_tool
-from backend.service.db_utils import clientdb
-from backend.models import Tool
+from service.tool_utils import save_tools_to_db, load_tools_from_db, get_default_tools, serialize_tool
+from service.db_utils import clientdb
+from models import Tool
 import logging
-from backend.models import Tool, ToolUseRequest
-from backend.service.process_tool_use import process_tool_use_function
+from models import Tool, ToolUseRequest
+from service.process_tool_use import process_tool_use_function
 router = APIRouter()
 logger = logging.getLogger(__name__)
 

@@ -1,6 +1,6 @@
 # backend/service/tool_utils.py
 from typing import List, Dict, Any 
-from backend.service.db_utils import clientdb  # 引入数据库客户端
+from service.db_utils import clientdb  # 引入数据库客户端
 import logging
 from bson import ObjectId
 

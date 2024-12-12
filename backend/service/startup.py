@@ -1,6 +1,6 @@
 # backend/service/startup.py
 
-from backend.service.tool_utils import load_tools_from_db
+from service.tool_utils import load_tools_from_db
 import logging
 
 logger = logging.getLogger(__name__)

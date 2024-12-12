@@ -1,7 +1,7 @@
 # backend/api/tools_support.py
 from fastapi import APIRouter, HTTPException
-from backend.service.db_utils import clientdb
-from backend.service.tool_utils import serialize_tool
+from service.db_utils import clientdb
+from service.tool_utils import serialize_tool
 import httpx
 import os
 import logging

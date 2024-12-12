@@ -2,7 +2,7 @@
 import json
 from typing import List, Dict
 from pathlib import Path
-from backend.service.db_utils import clientdb  # 引入数据库客户端
+from service.db_utils import clientdb  # 引入数据库客户端
 import logging
 
 logger = logging.getLogger(__name__)

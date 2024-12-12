@@ -1,4 +1,3 @@
-# backend/service/db_utils.py
 import os
 from pymongo import MongoClient
 from pymongo.server_api import ServerApi
@@ -9,16 +8,18 @@ from pathlib import Path
 # 日志设置
 logger = logging.getLogger(__name__)
 
-# 加载环境变量
-current_dir = Path(__file__).resolve().parent
-parent_dir = current_dir.parent.parent  # 修改路径到项目根目录
-dotenv_path = parent_dir / ".env.local"
+# 只在开发环境中加载.env文件
+if not os.getenv("MONGODB_URI"):
+    current_dir = Path(__file__).resolve().parent
+    parent_dir = current_dir.parent.parent
+    dotenv_path = parent_dir / ".env.local"
 
-if not dotenv_path.exists():
-    logger.error(f"Missing .env.local file {dotenv_path}")
-    raise FileNotFoundError(f".env.local not found at this path {dotenv_path}")
-
-load_dotenv(dotenv_path=dotenv_path)
+    if not dotenv_path.exists():
+        logger.warning(f".env.local file not found at {dotenv_path}, attempting to load from default .env")
+        dotenv_path = parent_dir / ".env"
+        
+    if dotenv_path.exists():
+        load_dotenv(dotenv_path=dotenv_path)
 
 mongo_url = os.getenv("MONGODB_URI")
 if not mongo_url:

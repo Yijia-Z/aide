@@ -3,8 +3,8 @@ import logging
 import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from backend.api import router as api_router
-from backend.service.startup import startup_event
+from api import router as api_router
+from service.startup import startup_event
 
 
 # 设置日志
@@ -36,4 +36,5 @@ if __name__ == "__main__":
 
     logger.info("API key loaded.")
     logger.info(f"Allowed origins: {allowed_origins}")
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
