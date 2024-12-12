@@ -1,6 +1,12 @@
 import NextAuth from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import GoogleProvider from "next-auth/providers/google"
+import { createClient } from '@supabase/supabase-js'
+
+const supabase = createClient(
+    process.env.SUPABASE_URL!,
+    process.env.SUPABASE_KEY!
+)
 
 const handler = NextAuth({
     providers: [
@@ -8,39 +14,58 @@ const handler = NextAuth({
             name: "Credentials",
             credentials: {
                 email: { label: "Email", type: "email" },
-                password: { label: "Password", type: "password" }
+                password: { label: "Password", type: "password" },
+                mode: { type: "text" }, // Add mode to handle login vs register
             },
             async authorize(credentials) {
                 try {
-                    const res = await fetch("http://localhost:8000/api/login", {
-                        method: 'POST',
-                        body: JSON.stringify(credentials),
-                        headers: { "Content-Type": "application/json" }
-                    })
-
-                    const data = await res.json()
-
-                    if (res.ok && data.access_token) {
-                        // Get user info using the access token
-                        const userRes = await fetch("http://localhost:8000/api/userinfo", {
-                            headers: {
-                                Authorization: `Bearer ${data.access_token}`
-                            }
-                        })
-
-                        const userData = await userRes.json()
-
-                        return {
-                            id: userData.id,
-                            name: userData.username,
-                            email: userData.email,
-                            accessToken: data.access_token
-                        }
+                    if (!credentials?.email || !credentials?.password) {
+                        return null;
                     }
-                    return null
+
+                    if (credentials.mode === 'register') {
+                        // Handle registration
+                        const { data: existingUser } = await supabase
+                            .from('users')
+                            .select()
+                            .eq('email', credentials.email)
+                            .single();
+
+                        if (existingUser) {
+                            throw new Error('Email already registered');
+                        }
+
+                        const { data: newUser, error } = await supabase.auth.signUp({
+                            email: credentials.email,
+                            password: credentials.password,
+                        });
+
+                        if (error) throw error;
+
+                        return newUser.user ? {
+                            id: newUser.user.id,
+                            email: newUser.user.email!,
+                            name: newUser.user.user_metadata?.name || null,
+                        } : null;
+
+                    } else {
+                        // Handle login
+                        const { data: { user }, error } = await supabase.auth.signInWithPassword({
+                            email: credentials.email,
+                            password: credentials.password,
+                        });
+
+                        if (error) throw error;
+
+                        return user ? {
+                            id: user.id,
+                            email: user.email!,
+                            name: user.user_metadata?.name || null,
+                        } : null;
+                    }
                 } catch (error) {
-                    console.error("Auth error:", error)
-                    return null
+                    console.error("Auth error:", error);
+                    return null;
                 }
             }
         }),
