@@ -9,6 +9,7 @@ import {
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
 import { storage } from "./store";
+import { createOfflineDetector } from '@/components/utils/offline-detector';
 import ThreadList from "@/components/thread/thread-list";
 import ModelConfig from "./model/model-config";
 import RenderMessages from "@/components/message/render-all-messages";
@@ -39,6 +40,7 @@ const apiBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 
 export default function ThreadedDocument() {
   const { data: session, status } = useSession()
+  const [isOffline, setIsOffline] = useState(false);
   const [activeTab, setActiveTab] = useState<"threads" | "messages" | "models" | "tools" | "settings">(
     (storage.get('activeTab') || "threads") as "threads" | "messages" | "models" | "tools" | "settings"
     //!session ? "settings" : "threads"
@@ -149,6 +151,17 @@ export default function ThreadedDocument() {
   useEffect(() => {
     storage.set('activeTab', activeTab);
   }, [activeTab]);
+
+  useEffect(() => {
+    const offlineDetector = createOfflineDetector();
+    const removeListener = offlineDetector.addListener((offline) => {
+      setIsOffline(offline);
+    });
+
+    return () => {
+      removeListener();
+    };
+  }, []);
 
   // Helper methods
   const getModelDetails = (modelId: string | undefined) => {
@@ -264,8 +277,11 @@ export default function ThreadedDocument() {
   // Save threads to storage and backend
   const saveThreads = useCallback(async (threadsToSave: Thread[]) => {
     try {
-      storage.set("threads", threadsToSave);
-      if (apiBaseUrl) {
+      // Always save to local storage/IndexedDB
+      await storage.setLarge("threads", threadsToSave);
+
+      // Only try to save to backend if online
+      if (!isOffline && apiBaseUrl) {
         const savePromises = threadsToSave.map((thread: Thread) =>
           fetch(`${apiBaseUrl}/api/save_thread`, {
             method: "POST",
@@ -278,7 +294,7 @@ export default function ThreadedDocument() {
     } catch (error) {
       console.error("Failed to save threads:", error);
     }
-  }, []);
+  }, [isOffline, apiBaseUrl]);
 
   // Debounce saveThreads to avoid frequent saves
   const debouncedSaveThreads = useMemo(
