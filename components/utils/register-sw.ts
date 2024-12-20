@@ -1,11 +1,10 @@
 export async function registerServiceWorker() {
-    // Check if we're in a browser environment and if service workers are supported
     if (
         typeof window === 'undefined' ||
         !('serviceWorker' in navigator) ||
         typeof navigator.serviceWorker === 'undefined'
     ) {
-        console.log('Service workers are not supported in this environment');
+        console.log('Service workers are not supported');
         return;
     }
 
@@ -14,23 +13,32 @@ export async function registerServiceWorker() {
             scope: '/',
         });
 
-        // Check if there's an update available
+        // Handle updates
         registration.addEventListener('updatefound', () => {
             const newWorker = registration.installing;
             if (newWorker) {
                 newWorker.addEventListener('statechange', () => {
-                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                        // New service worker available
-                        if (window.confirm('New version available! Reload to update?')) {
-                            newWorker.postMessage({ type: 'SKIP_WAITING' });
-                            window.location.reload();
+                    if (newWorker.state === 'installed') {
+                        if (navigator.serviceWorker.controller) {
+                            const shouldUpdate = window.confirm(
+                                'New version available! Would you like to update?'
+                            );
+                            if (shouldUpdate) {
+                                newWorker.postMessage({ type: 'SKIP_WAITING' });
+                                window.location.reload();
+                            }
                         }
                     }
                 });
             }
         });
 
-        console.log('Service Worker registered successfully:', registration);
+        // Handle controller change
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+            console.log('Service Worker controller changed');
+        });
+
+        console.log('Service Worker registered successfully');
     } catch (error) {
         console.error('Service Worker registration failed:', error);
     }
