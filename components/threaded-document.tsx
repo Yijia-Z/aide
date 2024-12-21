@@ -9,7 +9,7 @@ import {
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
 import { storage } from "./store";
-import { createOfflineDetector } from '@/components/utils/offline-detector';
+// import { createOfflineDetector } from '@/components/utils/offline-detector';
 import ThreadList from "@/components/thread/thread-list";
 import ModelConfig from "./model/model-config";
 import RenderMessages from "@/components/message/render-all-messages";
@@ -39,11 +39,11 @@ const DEFAULT_MODEL: Model = {
 const apiBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 
 export default function ThreadedDocument() {
-  //const { data: session, status } = useSession()
-  const [isOffline, setIsOffline] = useState(false);
+  // const { data: session, status } = useSession()
+  // const [isOffline, setIsOffline] = useState(false);
   const [activeTab, setActiveTab] = useState<"threads" | "messages" | "models" | "tools" | "settings">(
     (storage.get('activeTab') || "threads") as "threads" | "messages" | "models" | "tools" | "settings"
-    //!session ? "settings" : "threads"
+    // !session ? "settings" : "threads"
   )
 
   // Thread-related states
@@ -147,7 +147,7 @@ export default function ThreadedDocument() {
     storage.set('activeTab', activeTab);
   }, [activeTab]);
 
-  useEffect(() => {
+/*   useEffect(() => {
     const offlineDetector = createOfflineDetector();
     const removeListener = offlineDetector.addListener((offline) => {
       setIsOffline(offline);
@@ -157,7 +157,7 @@ export default function ThreadedDocument() {
       removeListener();
     };
   }, []);
-
+ */
   // Helper methods
   const getModelDetails = (modelId: string | undefined) => {
     if (!modelId) return null;
@@ -276,7 +276,7 @@ export default function ThreadedDocument() {
       await storage.setLarge("threads", threadsToSave);
 
       // Only try to save to backend if online
-      if (!isOffline && apiBaseUrl) {
+      if (apiBaseUrl) {
         const savePromises = threadsToSave.map((thread: Thread) =>
           fetch(`${apiBaseUrl}/api/save_thread`, {
             method: "POST",
@@ -289,7 +289,7 @@ export default function ThreadedDocument() {
     } catch (error) {
       console.error("Failed to save threads:", error);
     }
-  }, [isOffline, apiBaseUrl]);
+  }, [apiBaseUrl]);
 
   // Debounce saveThreads to avoid frequent saves
   const debouncedSaveThreads = useMemo(
