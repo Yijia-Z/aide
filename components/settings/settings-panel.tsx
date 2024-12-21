@@ -1,11 +1,14 @@
 "use client";
 
-import { useUser, useClerk } from "@clerk/nextjs";
+import { useUser, useClerk, UserProfile, UserButton } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
-import { LoginForm } from "@/components/ui/login-form";
+import { SignIn } from "@clerk/nextjs";
 import { ModeToggle } from "./mode-toggle";
 import { motion } from "framer-motion";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { ChevronDown } from "lucide-react";
 
 /**
  * The `SettingsPanel` component renders a settings interface for the user.
@@ -49,17 +52,19 @@ export function SettingsPanel() {
           exit={{ opacity: 0, y: -20 }}
         >
           {!isSignedIn ? (
-            <LoginForm />
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="outline">Sign In</Button>
+              </DialogTrigger>
+              <DialogContent className="flex items-center justify-center">
+                <SignIn routing="hash" />
+              </DialogContent>
+            </Dialog>
           ) : (
-            <div className="space-y-4">
-              <h2 className="text-2xl font-bold">Account Settings</h2>
-              <div className="flex items-center justify-between">
-                <span>
-                  Logged in as: {user?.fullName ?? user?.primaryEmailAddress?.emailAddress}
-                </span>
-                <Button variant="destructive" onClick={handleLogout}>
-                  Logout
-                </Button>
+            <div className="p-4">
+              <div className="flex items-center gap-4">
+                <UserButton />
+                <p>{user?.fullName}</p>
               </div>
             </div>
           )}

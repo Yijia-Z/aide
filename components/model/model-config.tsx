@@ -38,7 +38,6 @@ import { SelectBaseModel } from "@/components/model/model-selector";
 import { Model, ModelParameters, Tool } from "@/components/types";
 import { Badge } from "@/components/ui/badge";
 import { MultiSelect } from "./multi-select";
-
 interface ModelConfigProps {
   models: Model[];
   selectedModels: string[];
@@ -55,6 +54,7 @@ interface ModelConfigProps {
   fetchAvailableModels: () => Promise<any>;
   fetchModelParameters: (modelId: string) => Promise<any>;
   availableTools: Tool[];
+  isSignedIn?: boolean;
 }
 
 const ModelConfig: React.FC<ModelConfigProps> = ({
@@ -70,6 +70,7 @@ const ModelConfig: React.FC<ModelConfigProps> = ({
   fetchAvailableModels,
   fetchModelParameters,
   availableTools,
+  isSignedIn
 }) => {
 
   return (
@@ -162,6 +163,7 @@ const ModelConfig: React.FC<ModelConfigProps> = ({
                           fetchAvailableModels={fetchAvailableModels}
                           fetchModelParameters={fetchModelParameters}
                           existingParameters={editingModel.parameters}
+                          isSignedIn={isSignedIn}
                         />
                         <div className="py-1">
                           <Label>System Prompt</Label>

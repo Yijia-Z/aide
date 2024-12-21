@@ -39,7 +39,7 @@ const DEFAULT_MODEL: Model = {
 const apiBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 
 export default function ThreadedDocument() {
-  // const { data: session, status } = useSession()
+  const { isSignedIn } = useUser();
   // const [isOffline, setIsOffline] = useState(false);
   const [activeTab, setActiveTab] = useState<"threads" | "messages" | "models" | "tools" | "settings">(
     (storage.get('activeTab') || "threads") as "threads" | "messages" | "models" | "tools" | "settings"
@@ -147,17 +147,17 @@ export default function ThreadedDocument() {
     storage.set('activeTab', activeTab);
   }, [activeTab]);
 
-/*   useEffect(() => {
-    const offlineDetector = createOfflineDetector();
-    const removeListener = offlineDetector.addListener((offline) => {
-      setIsOffline(offline);
-    });
-
-    return () => {
-      removeListener();
-    };
-  }, []);
- */
+  /*   useEffect(() => {
+      const offlineDetector = createOfflineDetector();
+      const removeListener = offlineDetector.addListener((offline) => {
+        setIsOffline(offline);
+      });
+  
+      return () => {
+        removeListener();
+      };
+    }, []);
+   */
   // Helper methods
   const getModelDetails = (modelId: string | undefined) => {
     if (!modelId) return null;
@@ -1071,6 +1071,11 @@ export default function ThreadedDocument() {
             const model = models.find((m) => m.id === modelId);
             if (!model) return;
 
+            if (!isSignedIn && !model.baseModel.endsWith(":free")) {
+              alert(`Sign in to use ${model.baseModel}`);
+              return;
+            }
+
             const newMessageId = Date.now().toString() + Math.random().toString(36).slice(2);
             // Pass the model details when creating the message
             addMessage(threadId, messageId, "", "ai", newMessageId, model);
@@ -1771,6 +1776,7 @@ export default function ThreadedDocument() {
               setEditingModel={setEditingModel}
               handleModelChange={handleModelChange}
               availableTools={availableTools}
+              isSignedIn={isSignedIn}
             />
           </TabsContent>
           <TabsContent
@@ -1939,6 +1945,7 @@ export default function ThreadedDocument() {
                   setEditingModel={setEditingModel}
                   handleModelChange={handleModelChange}
                   availableTools={availableTools}
+                  isSignedIn={isSignedIn}
                 />
               </TabsContent>
               <TabsContent value="tools" className="flex-grow overflow-y-clip">

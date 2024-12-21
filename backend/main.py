@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI()
 app.include_router(api_router)
 # 设置中间件
-origins = os.getenv("ALLOWED_ORIGINS", "")
+origins = "*" if os.getenv("ENV", "development") != "production" else os.getenv("ALLOWED_ORIGINS", "")
 allowed_origins = [origin.strip() for origin in origins.split(",") if origin.strip()]
 app.add_middleware(
     CORSMiddleware,

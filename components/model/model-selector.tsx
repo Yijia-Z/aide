@@ -48,6 +48,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Tool } from "../types";
+import { cn } from "@/lib/utils";
 
 interface ModelParameters {
   model: string;
@@ -69,6 +70,7 @@ interface SelectBaseModelProps {
   fetchAvailableModels: () => Promise<Model[]>;
   existingParameters?: Partial<ModelParameters>;
   fetchModelParameters: (modelId: string) => Promise<ModelParameters | null>;
+  isSignedIn?: boolean;
 }
 
 export function SelectBaseModel({
@@ -77,7 +79,8 @@ export function SelectBaseModel({
   fetchAvailableModels,
   existingParameters,
   fetchModelParameters,
-  availableTools
+  availableTools,
+  isSignedIn = false
 }: SelectBaseModelProps) {
   const [open, setOpen] = React.useState(false);
   const [parameters, setParameters] = React.useState<ModelParameters | null>(
@@ -103,11 +106,11 @@ export function SelectBaseModel({
         return cachedParameters[modelId];
       }
       if (cachedParameters[modelId]) {
-/*         console.log(
-          "Using cached parameters for model:",
-          modelId,
-          cachedParameters[modelId]
-        ); */
+        /*         console.log(
+                  "Using cached parameters for model:",
+                  modelId,
+                  cachedParameters[modelId]
+                ); */
 
         setParameters(cachedParameters[modelId]);
         return cachedParameters[modelId];
@@ -487,6 +490,9 @@ export function SelectBaseModel({
                     key={model.id}
                     value={model.id}
                     onSelect={async (currentValue) => {
+                      if (!isSignedIn && !model.id.endsWith(":free")) {
+                        return; // Early return for unavailable models
+                      }
                       setOpen(false);
                       const newParameters = await fetchModelParametersWithCache(
                         currentValue
@@ -505,14 +511,18 @@ export function SelectBaseModel({
                         onValueChange(currentValue, newParameters);
                       }
                     }}
+                    disabled={!isSignedIn && !model.id.endsWith(":free")}
+                    className={cn(
+                      "cursor-pointer",
+                      (!isSignedIn && !model.id.endsWith(":free")) && "opacity-50 cursor-not-allowed"
+                    )}
                   >
-                    {/*<Check
-                      className={cn(
-                        "mr-2 h-4 w-4",
-                        value === model.id ? "opacity-100" : "opacity-0"
-                      )}
-                    />*/}
                     {model.name}
+                    {!isSignedIn && !model.id.endsWith(":free") && (
+                      <span className="ml-2 text-xs text-muted-foreground">
+                        Sign in to use
+                      </span>
+                    )}
                   </CommandItem>
                 ))}
               </CommandGroup>
