@@ -1,21 +1,23 @@
-'use client'
+'use client';
 
-import { SessionProvider } from "next-auth/react"
-import { ThemeProvider } from "@/components/theme-provider"
-import { SpeedInsights } from '@vercel/speed-insights/next'
+import { ClerkProvider } from '@clerk/nextjs';
+import { ThemeProvider } from '@/components/theme-provider';
+import { SpeedInsights } from '@vercel/speed-insights/next';
 
 export function Providers({ children }: { children: React.ReactNode }) {
-    return (
-        <SessionProvider>
-            <ThemeProvider
-                attribute="class"
-                defaultTheme="system"
-                enableSystem
-                disableTransitionOnChange
-            >
-                {children}
-                <SpeedInsights />
-            </ThemeProvider>
-        </SessionProvider>
-    )
+  return (
+    <ClerkProvider
+      publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+    >
+      <ThemeProvider
+        attribute="class"
+        defaultTheme="system"
+        enableSystem
+        disableTransitionOnChange
+      >
+        {children}
+        <SpeedInsights />
+      </ThemeProvider>
+    </ClerkProvider>
+  );
 }

@@ -18,7 +18,7 @@ import { Thread, Message, Model, ModelParameters, Tool } from "./types";
 import { useModels } from "./hooks/use-models";
 import { useThreads } from "./hooks/use-threads";
 import { useMessages } from "./hooks/use-messages";
-import { useSession, signOut } from "next-auth/react"
+import { useUser, useClerk } from "@clerk/nextjs";
 import { SettingsPanel } from "./settings/settings-panel"
 import { useTools } from "./hooks/use-tools";
 import { AlignJustify, MessageSquare, Sparkle, Settings, Package } from "lucide-react";
@@ -38,12 +38,13 @@ const DEFAULT_MODEL: Model = {
 const apiBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 
 export default function ThreadedDocument() {
-  const { data: session, status } = useSession()
+  // const { data: session, status } = useSession()
+  const { user, isSignedIn } = useUser();
+  const { signOut } = useClerk(); 
   const [activeTab, setActiveTab] = useState<"threads" | "messages" | "models" | "tools" | "settings">(
     (storage.get('activeTab') || "threads") as "threads" | "messages" | "models" | "tools" | "settings"
     //!session ? "settings" : "threads"
   )
-  const user = session?.user
 
   const handleLogout = () => {
     signOut()

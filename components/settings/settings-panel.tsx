@@ -1,44 +1,33 @@
-"use client"
+"use client";
 
-import { useSession, signOut } from "next-auth/react"
-import { Button } from "@/components/ui/button"
-import { LoginForm } from "@/components/ui/login-form"
-import { ModeToggle } from "./mode-toggle"
-import { motion } from 'framer-motion';
+import { useUser, useClerk } from "@clerk/nextjs";
+import { Button } from "@/components/ui/button";
+import { LoginForm } from "@/components/ui/login-form";
+import { ModeToggle } from "./mode-toggle";
+import { motion } from "framer-motion";
 import { ScrollArea } from "@/components/ui/scroll-area";
-
 
 /**
  * The `SettingsPanel` component renders a settings interface for the user.
- * It displays account settings if the user is logged in, otherwise it shows a login form.
- * 
+ * It displays account settings if the user is signed in (Clerk), otherwise shows a login form.
+ *
  * @component
  * @example
- * // Usage example
  * <SettingsPanel />
- * 
+ *
  * @returns {JSX.Element} The rendered settings panel component.
- * 
+ *
  * @remarks
- * This component uses the `useSession` hook to get the current user session.
- * It also includes a logout button that calls the `signOut` function when clicked.
- * 
- * @dependencies
- * - `useSession` from `next-auth/react`
- * - `signOut` from `next-auth/react`
- * - `ModeToggle` component
- * - `ScrollArea` component
- * - `motion` from `framer-motion`
- * - `LoginForm` component
- * - `Button` component
+ * This component uses Clerk's `useUser()` hook to get the current user.
+ * It also includes a logout button that calls `clerk.signOut()` from `useClerk()`.
  */
-
 export function SettingsPanel() {
-  const { data: session } = useSession()
+  const { user, isSignedIn } = useUser();
+  const { signOut } = useClerk();
 
   const handleLogout = () => {
-    signOut()
-  }
+    signOut();
+  };
 
   return (
     <div className="flex flex-col relative h-[calc(97vh)]">
@@ -53,22 +42,22 @@ export function SettingsPanel() {
         <ModeToggle />
       </div>
       <ScrollArea className="flex-grow">
-        <motion.div className="space-y-2 mt-2"
+        <motion.div
+          className="space-y-2 mt-2"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -20 }}
         >
-          {!session ? (
+          {!isSignedIn ? (
             <LoginForm />
           ) : (
             <div className="space-y-4">
               <h2 className="text-2xl font-bold">Account Settings</h2>
               <div className="flex items-center justify-between">
-                <span>Logged in as: {session?.user?.name}</span>
-                <Button
-                  variant="destructive"
-                  onClick={handleLogout}
-                >
+                <span>
+                  Logged in as: {user?.fullName ?? user?.primaryEmailAddress?.emailAddress}
+                </span>
+                <Button variant="destructive" onClick={handleLogout}>
                   Logout
                 </Button>
               </div>
@@ -77,5 +66,5 @@ export function SettingsPanel() {
         </motion.div>
       </ScrollArea>
     </div>
-  )
+  );
 }
