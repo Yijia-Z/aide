@@ -1145,7 +1145,7 @@ export default function ThreadedDocument() {
   useEffect(() => {
     const loadThreads = async () => {
       try {
-        const cachedThreads = storage.get("threads");
+        const cachedThreads = await storage.getLarge("threads");
         if (cachedThreads) {
           setThreads(cachedThreads);
           return;

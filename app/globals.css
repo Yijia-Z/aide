@@ -253,7 +253,7 @@ button svg,
 .cl-alert,
 .cl-phoneInputBox,
 .cl-userButtonPopoverCard {
-  @apply rounded-lg border border-input bg-transparent;
+  @apply rounded-lg border border-input bg-background;
 }
 
 .cl-headerTitle,
@@ -387,7 +387,7 @@ button[data-localization-key='userProfile.start.dangerSection.deleteAccountButto
 }
 
 .cl-footer {
-  display: none;
+  @apply rounded-b-lg border-x border-b bg-background bg-gradient-to-t from-background to-background text-muted-foreground;
 }
 .cl-userButtonPopoverFooter {
   display: none;

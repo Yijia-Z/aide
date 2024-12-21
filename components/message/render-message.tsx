@@ -268,6 +268,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
     targetId: string,
     newModelName: string
   ): Message[] => {
+    if (!messages) return [];
     return messages.map((message) => {
       if (message.id === targetId) {
         return {
@@ -275,7 +276,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
           modelConfig: { ...message.modelConfig, name: newModelName },
         };
       }
-      if (message.replies.length > 0) {
+      if (message.replies?.length > 0) {
         return {
           ...message,
           replies: updateMessageModelConfig(
