@@ -56,7 +56,7 @@ export function SettingsPanel() {
               <DialogTrigger asChild>
                 <Button variant="outline">Sign In</Button>
               </DialogTrigger>
-              <DialogContent className="flex items-center justify-center">
+              <DialogContent className="flex items-center justify-center w-fit p-0 border-none bg-transparent custom-shadow">
                 <SignIn routing="hash" />
               </DialogContent>
             </Dialog>
