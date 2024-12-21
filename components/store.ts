@@ -1,5 +1,25 @@
 export const isBrowser = () => typeof window !== "undefined";
 
+const DB_NAME = 'aide-store';
+const DB_VERSION = 1;
+const STORE_NAME = 'app-data';
+
+const openDB = (): Promise<IDBDatabase> => {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result);
+
+    request.onupgradeneeded = (event) => {
+      const db = (event.target as IDBOpenDBRequest).result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME);
+      }
+    };
+  });
+};
+
 /**
  * A utility object for interacting with the browser's localStorage.
  * Provides methods to get, set, and remove items from localStorage.
@@ -33,7 +53,7 @@ export const storage = {
     try {
       window.localStorage.setItem(key, JSON.stringify(value));
     } catch (error) {
-      console.error("Error writing to localStorage:", error);
+      console.error("Error writing to storage:", error);
     }
   },
 
@@ -47,20 +67,46 @@ export const storage = {
     try {
       window.localStorage.removeItem(key);
     } catch (error) {
-      console.error("Error removing from localStorage:", error);
+      console.error("Error removing from storage:", error);
     }
   },
-};
 
-export const cleanupStorage = (maxItems = 50) => {
-  if (!isBrowser()) return;
-  try {
-    const threads = storage.get("threads") || [];
-    if (threads.length > maxItems) {
-      const trimmedThreads = threads.slice(-maxItems);
-      storage.set("threads", trimmedThreads);
+  // IndexedDB methods for larger data
+  async setLarge(key: string, value: any): Promise<void> {
+    if (!isBrowser()) return;
+
+    try {
+      const db = await openDB();
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      const store = tx.objectStore(STORE_NAME);
+      await new Promise((resolve, reject) => {
+        const request = store.put(value, key);
+        request.onsuccess = () => resolve(undefined);
+        request.onerror = () => reject(request.error);
+      });
+    } catch (error) {
+      console.error('Error writing large data:', error);
+      // Fallback to localStorage if possible
+      this.set(key, value);
     }
-  } catch (error) {
-    console.error("Error cleaning up storage:", error);
+  },
+
+  async getLarge(key: string): Promise<any> {
+    if (!isBrowser()) return null;
+
+    try {
+      const db = await openDB();
+      const tx = db.transaction(STORE_NAME, 'readonly');
+      const store = tx.objectStore(STORE_NAME);
+      return new Promise((resolve, reject) => {
+        const request = store.get(key);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+    } catch (error) {
+      console.error('Error reading large data:', error);
+      // Fallback to localStorage
+      return this.get(key);
+    }
   }
 };

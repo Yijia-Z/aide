@@ -1,77 +1,71 @@
-const CACHE_NAME = 'aide-v1';
+const CACHE_NAME = 'aide-v2';
 const STATIC_ASSETS = [
     '/',
     '/manifest.json',
     '/android-chrome-192x192.png',
     '/android-chrome-512x512.png',
-    '/fonts/JetBrainsMono-Regular.ttf'
+    '/fonts/JetBrainsMono-Regular.ttf',
+    // Add critical app JavaScript and CSS
+    '/_next/static/chunks/main.js',
+    '/_next/static/chunks/webpack.js',
+    '/_next/static/chunks/pages/_app.js',
+    '/_next/static/chunks/pages/index.js',
+    '/_next/static/css/app.css'
 ];
 
-// Install event - cache static assets
+// Dynamic cache for runtime resources
+const DYNAMIC_CACHE = 'aide-dynamic-v1';
+
+// Install event handler
 self.addEventListener('install', (event) => {
     event.waitUntil(
-        caches.open(CACHE_NAME).then((cache) => {
-            return cache.addAll(STATIC_ASSETS);
-        })
+        Promise.all([
+            caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS)),
+            caches.open(DYNAMIC_CACHE)
+        ])
     );
+    self.skipWaiting();
 });
 
-// Activate event - cleanup old caches
-self.addEventListener('activate', (event) => {
-    event.waitUntil(
-        caches.keys().then((cacheNames) => {
-            return Promise.all(
-                cacheNames.map((cacheName) => {
-                    if (cacheName !== CACHE_NAME) {
-                        return caches.delete(cacheName);
-                    }
-                })
-            );
-        })
-    );
-});
-
-// Fetch event - serve from cache first, then network
+// Fetch event - network first with dynamic caching
 self.addEventListener('fetch', (event) => {
-    event.respondWith(
-        caches.match(event.request).then((response) => {
-            // Return cached response if found
-            if (response) {
-                return response;
-            }
+    // Skip non-GET requests
+    if (event.request.method !== 'GET') return;
 
-            // Clone the request
-            const fetchRequest = event.request.clone();
+    // Handle different types of requests
+    if (event.request.mode === 'navigate' ||
+        event.request.destination === 'style' ||
+        event.request.destination === 'script') {
 
-            // Try network request
-            return fetch(fetchRequest).then((response) => {
-                // Check if valid response
-                if (!response || response.status !== 200 || response.type !== 'basic') {
+        event.respondWith(
+            fetch(event.request)
+                .then((response) => {
+                    const responseClone = response.clone();
+                    caches.open(DYNAMIC_CACHE).then((cache) => {
+                        cache.put(event.request, responseClone);
+                    });
                     return response;
-                }
-
-                // Clone the response
-                const responseToCache = response.clone();
-
-                // Cache the new response
-                caches.open(CACHE_NAME).then((cache) => {
-                    cache.put(event.request, responseToCache);
-                });
-
-                return response;
-            }).catch(() => {
-                // Return fallback for HTML pages
-                if (event.request.mode === 'navigate') {
-                    return caches.match('/');
-                }
-                // Return fallback for images
-                if (event.request.destination === 'image') {
-                    return new Response(
-                        '<svg width="100" height="100"><text x="50%" y="50%" text-anchor="middle">Offline</text></svg>',
-                        { headers: { 'Content-Type': 'image/svg+xml' } }
-                    );
-                }
-            });
-        })
-    );
+                })
+                .catch(async () => {
+                    const cachedResponse = await caches.match(event.request);
+                    return cachedResponse || caches.match('/');
+                })
+        );
+    } else {
+        // For other resources, try cache first
+        event.respondWith(
+            caches.match(event.request)
+                .then((response) => response || fetch(event.request))
+                .catch(() => {
+                    // Return appropriate fallbacks
+                    if (event.request.destination === 'image') {
+                        return new Response(
+                            '<svg width="100" height="100"><text x="50%" y="50%" text-anchor="middle">Offline</text></svg>',
+                            { headers: { 'Content-Type': 'image/svg+xml' } }
+                        );
+                    }
+                    return new Response('Offline content not available');
+                })
+        );
+    }
 });
