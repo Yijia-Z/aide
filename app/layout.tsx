@@ -29,7 +29,7 @@ export const metadata: Metadata = {
     description: "Dive into engaging threaded conversations with AI assistance",
     type: "website",
     url: "https://aide.zy-j.com",
-    images: [{ url: "/android-chrome-512x512.png" }],
+    images: [{ url: "/app.png" }],
   },
 };
 
