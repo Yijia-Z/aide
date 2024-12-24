@@ -11,6 +11,7 @@ import { Check, Edit, Lock } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useState, useEffect } from "react";
 import { storage } from "@/components/store";
+import { Label } from "../ui/label";
 
 /**
  * The `SettingsPanel` component renders a settings interface for the user.
@@ -103,30 +104,43 @@ export function SettingsPanel() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            whileHover={{ y: -2 }}
-            className="group p-2 rounded-lg md:hover:shadow-[inset_0_0_10px_10px_rgba(128,128,128,0.2)]"
-            onDoubleClick={() => isSignedIn && setIsEditing(!isEditing)}
+            whileHover={isEditing ? undefined : { y: -2 }}
+            className={`group p-2 rounded-lg mb-2 ${isEditing ? 'custom-shadow' : 'md:hover:shadow-[inset_0_0_10px_10px_rgba(128,128,128,0.2)] bg-background cursor-pointer'}`}
+            onDoubleClick={() => {
+              if (isSignedIn && !isEditing) {
+                setIsEditing(true);
+              }
+            }}
           >
-            <div className="flex justify-between items-start">
-              {isSignedIn && (
-                <Button
-                  variant="ghost"
-                  className="transition-scale-zoom md:opacity-0 md:group-hover:opacity-100 transition-opacity absolute right-2"
-                  size="sm"
-                  onClick={() => setIsEditing(!isEditing)}
-                >
-                  {isEditing ? <Check className="h-4 w-4" /> : <Edit className="h-4 w-4" />}
-                </Button>
-              )}
+            <div className={`${!isEditing ? 'flex justify-between items-start' : ''}`}>
               <div>
-                <h3 className="font-bold">API Settings</h3>
-                <div className="space-y-1">
-                  <label htmlFor="api-key" className="text-sm text-muted-foreground font-medium">
-                    OpenRouter API Key
-                  </label>
-                  {isSignedIn ? (
-                    isEditing ? (
+                <div
+                  className="flex cursor-pointer justify-between items-center"
+                  onDoubleClick={() => {
+                    if (isEditing) {
+                      setIsEditing(false);
+                    }
+                  }}
+                >
+                  <h3 className="font-bold">API Settings</h3>
+                </div>
+                {isSignedIn && (
+                  <div className="text-muted-foreground">
+                    {isEditing ? (
                       <div>
+                        <div className="pb-1">
+                          <Label>
+                            OpenRouter{" "}
+                            <a
+                              href="https://openrouter.ai/keys"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="underline hover:text-primary"
+                            >
+                              API Key
+                            </a>
+                          </Label>
+                        </div>
                         <Input
                           id="api-key"
                           type="password"
@@ -138,33 +152,38 @@ export function SettingsPanel() {
                             }
                           }}
                           placeholder="sk-••••••••"
-                          className="w-full mb-1"
+                          className="min-font-size text-foreground"
                         />
-                        <p className="text-xs text-muted-foreground">
-                          Get your API key from{" "}
-                          <a
-                            href="https://openrouter.ai/keys"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="underline hover:text-primary"
-                          >
-                            OpenRouter
-                          </a>
-                        </p>
                       </div>
                     ) : (
                       <div className="text-sm">
-                        {apiKey ? "••••••••" : "none"}
+                        <Label>OpenRouter:</Label>
+                        {apiKey ? " ••••••••" : " none"}
                       </div>
-                    )
-                  ) : (
-                    <div className="text-muted-foreground flex items-center gap-2">
-                      <Lock className="h-4 w-4" />
-                      Sign in to set custom keys
-                    </div>
-                  )}
-                </div>
+                    )}
+                  </div>
+                )}
+                {!isSignedIn && (
+                  <div className="text-muted-foreground flex items-center gap-2">
+                    <Lock className="h-4 w-4" />
+                    Sign in to set custom keys
+                  </div>
+                )}
               </div>
+              {isSignedIn && (
+                <Button
+                  variant="ghost"
+                  className="transition-scale-zoom md:opacity-0 md:group-hover:opacity-100 transition-opacity absolute top-2 right-2"
+                  size="sm"
+                  onClick={() => setIsEditing(!isEditing)}
+                >
+                  {isEditing ? (
+                    <Check className="h-4 w-4" />
+                  ) : (
+                    <Edit className="h-4 w-4" />
+                  )}
+                </Button>
+              )}
             </div>
           </motion.div>
         </motion.div>

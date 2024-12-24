@@ -72,6 +72,7 @@ const ModelConfig: React.FC<ModelConfigProps> = ({
   availableTools,
   isSignedIn
 }) => {
+  const [confirmDelete, setConfirmDelete] = React.useState<string | null>(null);
 
   return (
     <div className="flex flex-col relative h-[calc(97vh)] overflow-clip select-none">
@@ -177,34 +178,41 @@ const ModelConfig: React.FC<ModelConfigProps> = ({
                             handleModelChange("systemPrompt", e.target.value)
                           }
                         />
-                        <div className="flex justify-between items-center mt-2">
-                          <div className="space-x-2 text-foreground">
+                        <div className="flex justify-end items-center mt-2 space-x-2">
+                          {confirmDelete === model.id ? (
+                            <>
+                              <Button
+                                className="transition-scale-zoom"
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => {
+                                  deleteModel(model.id);
+                                  setConfirmDelete(null);
+                                }}
+                                disabled={models.length === 1}
+                              >
+                                <Check className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                className="transition-scale-zoom text-primary"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setConfirmDelete(null)}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </>
+                          ) : (
                             <Button
                               className="transition-scale-zoom"
+                              variant="destructive"
                               size="sm"
-                              variant="outline"
-                              onClick={saveModelChanges}
+                              onClick={() => setConfirmDelete(model.id)}
+                              disabled={models.length === 1}
                             >
-                              <Check className="h-4 w-4" />
+                              <Trash className="h-4 w-4" />
                             </Button>
-                            <Button
-                              className="transition-scale-zoom"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setEditingModel(null)}
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </div>
-                          <Button
-                            className="transition-scale-zoom"
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => deleteModel(model.id)}
-                            disabled={models.length === 1}
-                          >
-                            <Trash className="h-4 w-4" />
-                          </Button>
+                          )}
                         </div>
                       </div>
                     ) : (
@@ -249,15 +257,34 @@ const ModelConfig: React.FC<ModelConfigProps> = ({
                       </div>
                     )}
                   </div>
-                  {editingModel?.id !== model.id && (
+                  {editingModel?.id !== model.id ? (
                     <Button
                       variant="ghost"
-                      className="transition-scale-zoom md:opacity-0 md:group-hover:opacity-100 transition-opacity absolute right-2"
+                      className="transition-scale-zoom md:opacity-0 md:group-hover:opacity-100 transition-opacity absolute top-2 right-2"
                       size="sm"
                       onClick={() => setEditingModel(model)}
                     >
                       <Edit className="h-4 w-4" />
                     </Button>
+                  ) : (
+                    <div className="space-x-2 absolute top-2 right-2">
+                      <Button
+                        className="transition-scale-zoom"
+                        size="sm"
+                        variant="outline"
+                        onClick={saveModelChanges}
+                      >
+                        <Check className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        className="transition-scale-zoom"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setEditingModel(null)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
                   )}
                 </div>
               </motion.div>
