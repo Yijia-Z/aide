@@ -59,9 +59,9 @@ const ThreadList: React.FC<ThreadListProps> = ({
           backdropFilter: "blur(1px)",
         }}
       >
-        <h2 className="text-2xl font-serif font-bold pl-2">Threads</h2>
+        <h2 className="text-4xl font-serif font-bold pl-2">Threads</h2>
         <Button
-          className="bg-background hover:bg-secondary custom-shadow transition-scale-zoom text-primary border border-border"
+          className="bg-background hover:bg-secondary custom-shadow transition-scale-zoom text-primary border border-border absolute right-0"
           size="default"
           onClick={() => {
             addThread();
@@ -69,7 +69,7 @@ const ThreadList: React.FC<ThreadListProps> = ({
           }}
         >
           <ListPlus className="h-4 w-4" />
-          <span className="ml-2 hidden md:inline">New Thread</span>
+          <span className="ml-2 hidden lg:inline">New Thread</span>
         </Button>
       </div>
       <ScrollArea
@@ -97,7 +97,7 @@ const ThreadList: React.FC<ThreadListProps> = ({
                   font-serif
                   pl-1
                   cursor-pointer
-                  rounded-md
+                  rounded-lg
                   mb-2
                   md:hover:shadow-[inset_0_0_10px_10px_rgba(128,128,128,0.2)]
                   active:shadow-[inset_0px_0px_10px_rgba(0,0,0,0.7)]

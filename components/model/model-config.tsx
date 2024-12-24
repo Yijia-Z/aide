@@ -76,12 +76,13 @@ const ModelConfig: React.FC<ModelConfigProps> = ({
   return (
     <div className="flex flex-col relative h-[calc(97vh)] overflow-clip select-none">
       <div
-        className="top-bar bg-gradient-to-b from-background/100 to-background/00"
+        className="top-bar h-14 bg-gradient-to-b from-background/100 to-background/00"
         style={{
           mask: "linear-gradient(black, black, transparent)",
           backdropFilter: "blur(1px)",
         }}
       >
+        <h2 className="text-4xl font-serif font-bold pl-2">Models</h2>
         <MultiSelect
           options={models.map(model => ({
             value: model.id,
@@ -91,16 +92,16 @@ const ModelConfig: React.FC<ModelConfigProps> = ({
           defaultValue={selectedModels}
           placeholder="None"
           variant="secondary"
-          className="custom-shadow"
+          className="custom-shadow absolute right-14 xl:right-36"
           maxCount={0}
         />
         <Button
-          className="bg-transparent hover:bg-secondary custom-shadow transition-scale-zoom text-primary border border-border"
+          className="bg-background hover:bg-secondary custom-shadow transition-scale-zoom text-primary border border-border absolute right-0"
           size="default"
           onClick={addNewModel}
         >
           <Sparkles className="h-4 w-4" />
-          <span className="ml-2 hidden md:inline">New Model</span>
+          <span className="ml-2 hidden xl:inline">New Model</span>
         </Button>
       </div>
       <ScrollArea className="flex-grow">
@@ -118,7 +119,7 @@ const ModelConfig: React.FC<ModelConfigProps> = ({
                     setEditingModel(model);
                   }
                 }}
-                className={`group p-2 rounded-md mb-2
+                className={`group p-2 rounded-lg mb-2
                   ${editingModel?.id !== model.id ? 'md:hover:shadow-[inset_0_0_10px_10px_rgba(128,128,128,0.2)] bg-background cursor-pointer' : 'custom-shadow'}
                 `}
               >
@@ -179,6 +180,7 @@ const ModelConfig: React.FC<ModelConfigProps> = ({
                         <div className="flex justify-between items-center mt-2">
                           <div className="space-x-2 text-foreground">
                             <Button
+                              className="transition-scale-zoom"
                               size="sm"
                               variant="outline"
                               onClick={saveModelChanges}
@@ -186,6 +188,7 @@ const ModelConfig: React.FC<ModelConfigProps> = ({
                               <Check className="h-4 w-4" />
                             </Button>
                             <Button
+                              className="transition-scale-zoom"
                               variant="outline"
                               size="sm"
                               onClick={() => setEditingModel(null)}
@@ -194,6 +197,7 @@ const ModelConfig: React.FC<ModelConfigProps> = ({
                             </Button>
                           </div>
                           <Button
+                            className="transition-scale-zoom"
                             variant="destructive"
                             size="sm"
                             onClick={() => deleteModel(model.id)}
@@ -248,8 +252,8 @@ const ModelConfig: React.FC<ModelConfigProps> = ({
                   {editingModel?.id !== model.id && (
                     <Button
                       variant="ghost"
-                      className="transition-scale-zoom md:opacity-0 md:group-hover:opacity-100 transition-opacity"
-                      size="default"
+                      className="transition-scale-zoom md:opacity-0 md:group-hover:opacity-100 transition-opacity absolute right-2"
+                      size="sm"
                       onClick={() => setEditingModel(model)}
                     >
                       <Edit className="h-4 w-4" />

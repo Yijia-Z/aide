@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { PackagePlus, Trash } from "lucide-react";
+import { PackageMinus, PackagePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -73,8 +73,10 @@ export function ToolManager({ tools, setTools, availableTools, setAvailableTools
 
     const handleAddTool = useCallback((tool: Tool) => {
         setAvailableTools([...availableTools, tool]);
-        setIsDialogOpen(false);
-    }, [availableTools, setAvailableTools, setIsDialogOpen]);
+        if (tools.length === availableTools.length + 1) {
+            setIsDialogOpen(false);
+        }
+    }, [availableTools, setAvailableTools, setIsDialogOpen, tools]);
 
     const handleRemoveTool = useCallback((tool: Tool) => {
         setAvailableTools(availableTools.filter(t => t.function.name !== tool.function.name));
@@ -89,13 +91,13 @@ export function ToolManager({ tools, setTools, availableTools, setAvailableTools
                     backdropFilter: "blur(1px)",
                 }}
             >
-                <h2 className="text-2xl font-serif font-bold pl-2">Tools</h2>
+                <h2 className="text-4xl font-serif font-bold pl-2">Tools</h2>
                 <Button
-                    className="bg-transparent hover:bg-secondary custom-shadow transition-scale-zoom text-primary border border-border"
+                    className="bg-background hover:bg-secondary custom-shadow transition-scale-zoom text-primary border border-border absolute right-0"
                     onClick={() => setIsDialogOpen(true)}
                 >
                     <PackagePlus className="h-4 w-4" />
-                    <span className="ml-2 hidden md:inline">Add Tool</span>
+                    <span className="ml-2 hidden lg:inline">Add Tool</span>
                 </Button>
             </div>
 
@@ -109,7 +111,7 @@ export function ToolManager({ tools, setTools, availableTools, setAvailableTools
                                 animate={{ opacity: 1, y: 0 }}
                                 exit={{ opacity: 0, y: -20 }}
                                 whileHover={{ y: -2 }}
-                                className="group p-2 rounded-md md:hover:shadow-[inset_0_0_10px_10px_rgba(128,128,128,0.2)]"
+                                className="group p-2 rounded-lg md:hover:shadow-[inset_0_0_10px_10px_rgba(128,128,128,0.2)]"
                             >
                                 <div className="flex justify-between items-start">
                                     <div>
@@ -118,11 +120,11 @@ export function ToolManager({ tools, setTools, availableTools, setAvailableTools
                                     </div>
                                     <Button
                                         variant="ghost"
-                                        className="transition-scale-zoom md:opacity-0 md:group-hover:opacity-100 transition-opacity"
-                                        size="default"
+                                        className="transition-scale-zoom md:opacity-0 md:group-hover:opacity-100 transition-opacity absolute right-2"
+                                        size="sm"
                                         onClick={() => handleRemoveTool(tool)}
                                     >
-                                        <Trash />
+                                        <PackageMinus />
                                     </Button>
                                 </div>
                             </motion.div>

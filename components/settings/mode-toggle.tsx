@@ -43,10 +43,10 @@ export function ModeToggle() {
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild className="custom-shadow transition-scale-zoom">
-                <Button variant="outline" className="bg-transparent hover:bg-secondary custom-shadow transition-scale-zoom text-primary border border-border">
+                <Button variant="outline" className="bg-background hover:bg-secondary custom-shadow transition-scale-zoom text-primary border border-border absolute right-0">
                     <Sun className="h-4 w-4 dark:hidden" />
                     <Moon className="h-4 w-4 hidden dark:block" />
-                    <span className="text-sm hidden md:inline">
+                    <span className="text-sm hidden lg:inline">
                         <span className="ml-2 dark:hidden">Light</span>
                         <span className="ml-2 hidden dark:inline">Dark</span>
                     </span>

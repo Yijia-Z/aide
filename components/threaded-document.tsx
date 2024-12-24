@@ -1880,32 +1880,32 @@ export default function ThreadedDocument() {
             >
               <TabsList className="grid w-full grid-cols-4 bg-transparent space-x-1 py-0 custom-shadow select-none">
                 <TabsTrigger
-                  className="bg-transparent transition-scale-zoom hover:bg-secondary hover:custom-shadow data-[state=active]:bg-background group"
+                  className="bg-transparent hover:bg-secondary hover:custom-shadow data-[state=active]:bg-background group"
                   value="threads"
                 >
-                  <AlignJustify className="h-5 w-5 group-hover:hidden" />
-                  <span className="hidden group-hover:inline">Threads</span>
+                  <AlignJustify className="h-5 w-5 opacity-100 group-hover:opacity-0 transition-opacity duration-300" />
+                  <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 absolute">Threads</span>
                 </TabsTrigger>
                 <TabsTrigger
-                  className="bg-transparent transition-scale-zoom hover:bg-secondary hover:custom-shadow data-[state=active]:bg-background group"
+                  className="bg-transparent hover:bg-secondary hover:custom-shadow data-[state=active]:bg-background group"
                   value="models"
                 >
-                  <Sparkle className="h-5 w-5 group-hover:hidden" />
-                  <span className="hidden group-hover:inline">Models</span>
+                  <Sparkle className="h-5 w-5 opacity-100 group-hover:opacity-0 transition-opacity duration-300" />
+                  <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 absolute">Models</span>
                 </TabsTrigger>
                 <TabsTrigger
-                  className="bg-transparent transition-scale-zoom hover:bg-secondary hover:custom-shadow data-[state=active]:bg-background group"
+                  className="bg-transparent hover:bg-secondary hover:custom-shadow data-[state=active]:bg-background group"
                   value="tools"
                 >
-                  <Package className="h-5 w-5 group-hover:hidden" />
-                  <span className="hidden group-hover:inline">Tools</span>
+                  <Package className="h-5 w-5 opacity-100 group-hover:opacity-0 transition-opacity duration-300" />
+                  <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 absolute">Tools</span>
                 </TabsTrigger>
                 <TabsTrigger
-                  className="bg-transparent transition-scale-zoom hover:bg-secondary hover:custom-shadow data-[state=active]:bg-background group"
+                  className="bg-transparent hover:bg-secondary hover:custom-shadow data-[state=active]:bg-background group"
                   value="settings"
                 >
-                  <Settings className="h-5 w-5 group-hover:hidden" />
-                  <span className="hidden group-hover:inline">Settings</span>
+                  <Settings className="h-5 w-5 opacity-100 group-hover:opacity-0 transition-opacity duration-300" />
+                  <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 absolute">Settings</span>
                 </TabsTrigger>
               </TabsList>
               <TabsContent

@@ -652,7 +652,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                   {editingMessage === message.id ? (
                     <>
                       <Button
-                        className="hover:bg-background space-x-2 transition-scale-zoom"
+                        className="hover:bg-background transition-scale-zoom"
                         size="sm"
                         variant="ghost"
                         onClick={() =>
@@ -660,18 +660,18 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                         }
                       >
                         <Check className="h-4 w-4" />
-                        <span className="hidden md:inline ml-auto">
+                        <span className="hidden md:inline">
                           <MenubarShortcut>⌘ ↩</MenubarShortcut>
                         </span>
                       </Button>
                       <Button
-                        className="hover:bg-background space-x-2 transition-scale-zoom"
+                        className="hover:bg-background transition-scale-zoom"
                         size="sm"
                         variant="ghost"
                         onClick={cancelEditingMessage}
                       >
                         <X className="h-4 w-4" />
-                        <span className="hidden md:inline ml-auto">
+                        <span className="hidden md:inline">
                           <MenubarShortcut>Esc</MenubarShortcut>
                         </span>
                       </Button>
@@ -692,7 +692,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                         }}
                       >
                         <MessageSquareReply className="h-4 w-4" />
-                        <span className="hidden md:inline ml-2">
+                        <span className="hidden md:inline">
                           Reply
                         </span>
                       </Button>
@@ -794,7 +794,7 @@ const RenderMessage: React.FC<RenderMessageProps> = ({
                         }}
                       >
                         <Edit className="h-4 w-4" />
-                        <span className="hidden md:inline ml-2">
+                        <span className="hidden md:inline">
                           Edit
                         </span>
                       </Button>

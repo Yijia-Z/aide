@@ -172,11 +172,11 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
               <MenubarMenu>
                 <MenubarTrigger asChild>
                   <Button
-                    className="rounded-md px-4 bg-transparent hover:bg-secondary custom-shadow transition-scale-zoom text-primary border border-border"
+                    className="rounded-md px-4 bg-transparent hover:bg-secondary custom-shadow transition-scale-zoom text-primary border border-border absolute md:right-2 right-0"
                     size="default"
                   >
                     <MessageSquarePlus className="h-4 w-4" />
-                    <span className="ml-2 hidden md:inline">New Message</span>
+                    <span className="ml-2 hidden sm:inline">New Message</span>
                   </Button>
                 </MenubarTrigger>
                 <MenubarContent className="custom-shadow">
