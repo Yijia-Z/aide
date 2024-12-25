@@ -235,7 +235,12 @@ export const MultiSelect = React.forwardRef<
                                         })()
                                     ) : (
                                         <span className="text-sm">
-                                            {selectedValues.length === options.length ? 'All' : `${selectedValues.length} selected`}
+                                            {selectedValues.length === options.length ? 'All' : (
+                                                <>
+                                                    {selectedValues.length}
+                                                    <span className="hidden xl:inline"> selected</span>
+                                                </>
+                                            )}
                                         </span>
                                     )}
                                 </div>
@@ -257,8 +262,8 @@ export const MultiSelect = React.forwardRef<
                     </Button>
                 </PopoverTrigger>
                 <PopoverContent
-                    className="w-auto p-0 border-none"
-                    align="start"
+                    className="w-auto p-0 -mr-14 border-none"
+                    align="end"
                     onEscapeKeyDown={() => setIsPopoverOpen(false)}
                 >
                     <Command className="custom-shadow">

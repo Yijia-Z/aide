@@ -113,19 +113,19 @@ export function ToolManager({ tools, setTools, availableTools, setAvailableTools
                                 whileHover={{ y: -2 }}
                                 className="group p-2 rounded-lg md:hover:shadow-[inset_0_0_10px_10px_rgba(128,128,128,0.2)]"
                             >
-                                <div className="flex justify-between items-start">
-                                    <div>
-                                        <h3 className="font-bold">{tool.name}</h3>
-                                        <p className="text-sm text-muted-foreground">{tool.description}</p>
+                                <div className="flex-grow justify-between items-start">
+                                    <div className="flex cursor-pointer justify-between items-center">
+                                        <h3 className="font-bold text-xl">{tool.name}</h3>
+                                        <Button
+                                            variant="ghost"
+                                            className="transition-scale-zoom md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+                                            size="sm"
+                                            onClick={() => handleRemoveTool(tool)}
+                                        >
+                                            <PackageMinus />
+                                        </Button>
                                     </div>
-                                    <Button
-                                        variant="ghost"
-                                        className="transition-scale-zoom md:opacity-0 md:group-hover:opacity-100 transition-opacity absolute right-2"
-                                        size="sm"
-                                        onClick={() => handleRemoveTool(tool)}
-                                    >
-                                        <PackageMinus />
-                                    </Button>
+                                    <p className="text-sm text-muted-foreground">{tool.description}</p>
                                 </div>
                             </motion.div>
                         ))}

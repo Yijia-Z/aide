@@ -77,33 +77,35 @@ const ModelConfig: React.FC<ModelConfigProps> = ({
   return (
     <div className="flex flex-col relative h-[calc(97vh)] overflow-clip select-none">
       <div
-        className="top-bar h-14 bg-gradient-to-b from-background/100 to-background/00"
+        className="top-bar h-14 bg-gradient-to-b from-background/100 to-background/00 flex items-center justify-between"
         style={{
           mask: "linear-gradient(black, black, transparent)",
           backdropFilter: "blur(1px)",
         }}
       >
         <h2 className="text-4xl font-serif font-bold pl-2">Models</h2>
-        <MultiSelect
-          options={models.map(model => ({
-            value: model.id,
-            label: model.name
-          }))}
-          onValueChange={(values) => setSelectedModels(values)}
-          defaultValue={selectedModels}
-          placeholder="None"
-          variant="secondary"
-          className="custom-shadow absolute right-14 xl:right-36"
-          maxCount={0}
-        />
-        <Button
-          className="bg-background hover:bg-secondary custom-shadow transition-scale-zoom text-primary border border-border absolute right-0"
-          size="default"
-          onClick={addNewModel}
-        >
-          <Sparkles className="h-4 w-4" />
-          <span className="ml-2 hidden xl:inline">New Model</span>
-        </Button>
+        <div className="flex items-center gap-2 absolute top-0 right-0">
+          <MultiSelect
+            options={models.map(model => ({
+              value: model.id,
+              label: model.name
+            }))}
+            onValueChange={(values) => setSelectedModels(values)}
+            defaultValue={selectedModels}
+            placeholder="None"
+            variant="secondary"
+            className="custom-shadow"
+            maxCount={0}
+          />
+          <Button
+            className="bg-background hover:bg-secondary custom-shadow transition-scale-zoom text-primary border border-border"
+            size="default"
+            onClick={addNewModel}
+          >
+            <Sparkles className="h-4 w-4" />
+            <span className="ml-2 hidden lg:inline">New Model</span>
+          </Button>
+        </div>
       </div>
       <ScrollArea className="flex-grow">
         <AnimatePresence>
@@ -124,17 +126,46 @@ const ModelConfig: React.FC<ModelConfigProps> = ({
                   ${editingModel?.id !== model.id ? 'md:hover:shadow-[inset_0_0_10px_10px_rgba(128,128,128,0.2)] bg-background cursor-pointer' : 'custom-shadow'}
                 `}
               >
-                <div className={`${editingModel?.id !== model.id ? 'flex justify-between items-start' : ''}`}>
+                <div className={`${editingModel?.id !== model.id ? 'flex-grow justify-between items-start' : ''}`}>
                   <div>
                     <div
-                      className="flex cursor-pointer justify-between items-center"
+                      className="flex cursor-pointer items-center"
                       onDoubleClick={() => {
                         if (editingModel?.id === model.id) {
                           setEditingModel(null);
                         }
                       }}
                     >
-                      <h3 className="font-bold">{model.name}</h3>
+                      <h3 className="font-bold text-xl flex-grow">{model.name}</h3>
+                      {editingModel?.id !== model.id ? (
+                        <Button
+                          variant="ghost"
+                          className="transition-scale-zoom md:opacity-0 md:group-hover:opacity-100 transition-opacity "
+                          size="sm"
+                          onClick={() => setEditingModel(model)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      ) : (
+                        <div className="space-x-2 flex justify-end">
+                          <Button
+                            className="transition-scale-zoom"
+                            size="sm"
+                            variant="outline"
+                            onClick={saveModelChanges}
+                          >
+                            <Check className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            className="transition-scale-zoom"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setEditingModel(null)}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
                     </div>
                     {editingModel?.id === model.id ? (
                       <div className="text-muted-foreground">
@@ -257,35 +288,6 @@ const ModelConfig: React.FC<ModelConfigProps> = ({
                       </div>
                     )}
                   </div>
-                  {editingModel?.id !== model.id ? (
-                    <Button
-                      variant="ghost"
-                      className="transition-scale-zoom md:opacity-0 md:group-hover:opacity-100 transition-opacity absolute top-2 right-2"
-                      size="sm"
-                      onClick={() => setEditingModel(model)}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                  ) : (
-                    <div className="space-x-2 absolute top-2 right-2">
-                      <Button
-                        className="transition-scale-zoom"
-                        size="sm"
-                        variant="outline"
-                        onClick={saveModelChanges}
-                      >
-                        <Check className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        className="transition-scale-zoom"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setEditingModel(null)}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  )}
                 </div>
               </motion.div>
             ))}

@@ -112,7 +112,7 @@ export function SettingsPanel() {
               }
             }}
           >
-            <div className={`${!isEditing ? 'flex justify-between items-start' : ''}`}>
+            <div className={`${!isEditing ? 'flex-grow justify-between items-start' : ''}`}>
               <div>
                 <div
                   className="flex cursor-pointer justify-between items-center"
@@ -122,7 +122,21 @@ export function SettingsPanel() {
                     }
                   }}
                 >
-                  <h3 className="font-bold">API Settings</h3>
+                  <h3 className="font-bold text-xl">API Settings</h3>
+                  {isSignedIn && (
+                    <Button
+                      variant="ghost"
+                      className="transition-scale-zoom md:opacity-0 md:group-hover:opacity-100 transition-opacity sticky"
+                      size="sm"
+                      onClick={() => setIsEditing(!isEditing)}
+                    >
+                      {isEditing ? (
+                        <Check className="h-4 w-4" />
+                      ) : (
+                        <Edit className="h-4 w-4" />
+                      )}
+                    </Button>
+                  )}
                 </div>
                 {isSignedIn && (
                   <div className="text-muted-foreground">
@@ -170,20 +184,6 @@ export function SettingsPanel() {
                   </div>
                 )}
               </div>
-              {isSignedIn && (
-                <Button
-                  variant="ghost"
-                  className="transition-scale-zoom md:opacity-0 md:group-hover:opacity-100 transition-opacity absolute top-2 right-2"
-                  size="sm"
-                  onClick={() => setIsEditing(!isEditing)}
-                >
-                  {isEditing ? (
-                    <Check className="h-4 w-4" />
-                  ) : (
-                    <Edit className="h-4 w-4" />
-                  )}
-                </Button>
-              )}
             </div>
           </motion.div>
         </motion.div>
