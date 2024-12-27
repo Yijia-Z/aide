@@ -122,7 +122,7 @@ export default function ThreadedDocument() {
     if (apiBaseUrl) {
       setToolsLoading(true);
       try {
-        const response = await fetch(`${apiBaseUrl}/api/load_tools`);
+        const response = await fetch(`/api/tools`);
         const data = await response.json();
         // console.log("Loaded tools:", data);
         setTools(data.tools || []);
@@ -278,7 +278,7 @@ export default function ThreadedDocument() {
       // Only try to save to backend if online
       if (apiBaseUrl) {
         const savePromises = threadsToSave.map((thread: Thread) =>
-          fetch(`${apiBaseUrl}/api/save_thread`, {
+          fetch(`/api/threads`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ threadId: thread.id, thread }),
@@ -458,7 +458,7 @@ export default function ThreadedDocument() {
           const currentTime = Date.now();
           if (currentTime - lastUpdateTime > 60000) {
             // Update every 60 seconds
-            const response = await fetch(`${apiBaseUrl}/api/save_thread`, {
+            const response = await fetch(`/api/threads`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ threadId, thread: { ...updatedData } }),
@@ -841,7 +841,7 @@ export default function ThreadedDocument() {
         }
         try {
           const response = await fetch(
-            `${apiBaseUrl}/api/delete_thread/${threadId}`,
+            `/api/threads/${threadId}`,
             {
               method: "DELETE",
               headers: { "Content-Type": "application/json" },
@@ -1173,7 +1173,7 @@ export default function ThreadedDocument() {
           return;
         }
 
-        const response = await fetch(`${apiBaseUrl}/api/load_threads`, {
+        const response = await fetch(`/api/threads`, {
           method: "GET",
         });
         if (response.ok) {
@@ -1350,7 +1350,7 @@ export default function ThreadedDocument() {
       }
 
       try {
-        const response = await fetch(`${apiBaseUrl}/api/load_models`, {
+        const response = await fetch(`/api/models`, {
           method: "GET",
         });
         if (response.ok) {
@@ -1401,7 +1401,7 @@ export default function ThreadedDocument() {
       }
 
       try {
-        await fetch(`${apiBaseUrl}/api/save_models`, {
+        await fetch(`/api/models`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ models }),
