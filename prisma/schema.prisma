@@ -1,22 +1,47 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+// prisma/schema.prisma
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  
+  provider = "postgresql"
+  url       = env("DATABASE_URL") // 指向 Supabase 的连接串
+  directUrl = env("DIRECT_URL")
 }
 
 model UserProfile {
-  id             String   @id // 这里可以直接存 Clerk 的 userId
-  username       String?  // 允许为空；若为空则后端自动生成
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id        String   @id                  // Clerk 提供的 userId
+  username  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt 
+
+  // 与 ThreadMembership 一对多关系
+  memberships ThreadMembership[]
+}
+
+model Thread {
+  id        String   @id
+  title     String
+  
+  updatedAt DateTime @updatedAt                // 每次 update 都自动更新
+  createdAt DateTime @default(now())
+
+  // 与 ThreadMembership 一对多关系
+  memberships ThreadMembership[]
+}
+
+model ThreadMembership {
+  userId   String
+  threadId String
+  //role     String?      // VIEWER / EDITOR / MANAGER / ...
+
+  joinedAt DateTime @default(now())
+  pinned         Boolean   @default(false)
+  // 外键关联
+  userProfile UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  thread      Thread      @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  // 复合主键，不允许同一 (userId, threadId) 重复
+  @@id([userId, threadId])
 }

@@ -45,10 +45,24 @@ const ThreadList: React.FC<ThreadListProps> = ({
 
   // Sort threads with pinned threads first, then by id in descending order
   const sortedThreads = threads.sort((a, b) => {
-    if (a.isPinned && !b.isPinned) return -1;
-    if (!a.isPinned && b.isPinned) return 1;
-    return parseInt(b.id) - parseInt(a.id);
+    // 第一步：只要 a 是 pinned 而 b 不是，就让 a 排前；反之 b 排前
+    if (a.isPinned && !b.isPinned) {
+      return -1; 
+    }
+    if (!a.isPinned && b.isPinned) {
+      return 1;
+    }
+  
+    // 第二步：能到这一步，说明:
+    //  - 要么都 pinned
+    //  - 要么都不 pinned
+    // 那就再比较 updatedAt 做倒序
+    const aTime = new Date(a.updatedAt ?? 0).getTime();
+    const bTime = new Date(b.updatedAt ?? 0).getTime();
+    return bTime - aTime;
+    
   });
+  
 
   return (
     <div className="flex flex-col relative h-[calc(97vh)]">

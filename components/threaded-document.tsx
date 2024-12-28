@@ -23,7 +23,8 @@ import { useUser, useClerk } from "@clerk/nextjs";
 import { SettingsPanel } from "./settings/settings-panel"
 import { useTools } from "./hooks/use-tools";
 import { AlignJustify, MessageSquare, Sparkle, Settings, Package } from "lucide-react";
-
+import { v4 as uuidv4 } from 'uuid';
+const newId = uuidv4(); 
 const DEFAULT_MODEL: Model = {
   id: "default",
   name: "Default Model",
@@ -270,7 +271,7 @@ export default function ThreadedDocument() {
   }, [setAvailableModels]);
 
   // Save threads to storage and backend
-  const saveThreads = useCallback(async (threadsToSave: Thread[]) => {
+ const saveThreads = useCallback(async (threadsToSave: Thread[]) => {
     try {
       // Always save to local storage/IndexedDB
       await storage.setLarge("threads", threadsToSave);
@@ -295,15 +296,16 @@ export default function ThreadedDocument() {
   const debouncedSaveThreads = useMemo(
     () => debounce(saveThreads, 2000),
     [saveThreads]
-  );
-
+  ); 
+ 
   // Add new thread
   const addThread = useCallback(() => {
     const newThread: Thread = {
-      id: Date.now().toString(),
+      id: newId.toString(),
       title: "",
       messages: [],
       isPinned: false,
+
     };
     setThreads((prev) => [...prev, newThread]);
     setCurrentThread(newThread.id);
@@ -332,7 +334,7 @@ export default function ThreadedDocument() {
         prev.map((thread) => {
           if (thread.id !== threadId) return thread;
           const newMessage: Message = {
-            id: newMessageId || Date.now().toString(),
+            id: newMessageId || newId.toString(),
             content,
             publisher,
             modelId: publisher === "ai" ? modelDetails?.id : undefined,
@@ -440,7 +442,7 @@ export default function ThreadedDocument() {
   );
 
   // Save thread to backend
-  const saveThreadToBackend = useCallback(
+/*   const saveThreadToBackend = useCallback(
     async (threadId: string, updatedData: Partial<Thread>) => {
       try {
         // Cache the thread data to local storage
@@ -477,7 +479,37 @@ export default function ThreadedDocument() {
       }
     },
     []
-  );
+  ); */
+  const SaveThreadToBackend = useCallback(async (threadId: string, updatedData: Partial<Thread>) => {
+    console.log("Front-end: calling fetch PATCH /api/threads/[id]", { threadId, updatedData });
+    try {
+      const res = await fetch(`/api/threads/${threadId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedData),
+      });
+      console.log("Front-end: response status:", res.status);
+      if (!res.ok) {
+        throw new Error(`Failed to update thread ${threadId}`);
+      }
+      const data = await res.json();
+      console.log("Front-end: success, server returned data:", data);
+      return data.thread;
+    } catch (error) {
+      console.error("Front-end: error in SaveThreadToBackend:", error);
+      throw error;
+    }
+  }, []);
+  
+
+  const debouncedSaveThreadToBackend = useMemo(() => {
+    return debounce(
+      async (threadId: string, updatedData: Partial<Thread>) => {
+        await SaveThreadToBackend(threadId, updatedData);
+      },
+      2000 // 2 秒
+    );
+  }, [SaveThreadToBackend]);
 
   // Confirm editing a thread title
   const confirmEditThreadTitle = useCallback(
@@ -489,10 +521,15 @@ export default function ThreadedDocument() {
       );
       setEditingThreadTitle(null);
       setOriginalThreadTitle(newTitle);
-      saveThreadToBackend(threadId, { title: newTitle });
+      console.log("Attempting to save thread to backend:", {
+        threadId,
+        newTitle,
+      });
+  
+      debouncedSaveThreadToBackend(threadId, { title: newTitle });
     },
     [
-      saveThreadToBackend,
+      debouncedSaveThreadToBackend,
       setEditingThreadTitle,
       setOriginalThreadTitle,
       setThreads,
@@ -529,7 +566,7 @@ export default function ThreadedDocument() {
   // Add a new message
   const addEmptyReply = useCallback(
     (threadId: string, parentId: string | null) => {
-      const newMessageId = Date.now().toString();
+      const newMessageId = newId.toString();
       addMessage(threadId, parentId, "", "user", newMessageId);
 
       startEditingMessage({
@@ -655,7 +692,7 @@ export default function ThreadedDocument() {
 
   // Add helper function to deep clone a message and its replies with new IDs
   const cloneMessageWithNewIds = useCallback((message: Message): Message => {
-    const newId = Date.now().toString() + Math.random().toString(36).slice(2);
+    const newId = Date.toString() + Math.random().toString(36).slice(2);
     return {
       ...message,
       id: newId,
@@ -790,7 +827,7 @@ export default function ThreadedDocument() {
 
   const addNewModel = useCallback(() => {
     const newModel: Model = {
-      id: Date.now().toString(),
+      id: newId.toString(),
       name: "New Model",
       baseModel: "none",
       systemPrompt: "You are a helpful assistant.",
@@ -805,7 +842,7 @@ export default function ThreadedDocument() {
   }, [setEditingModel, setModels]);
 
   const toggleThreadPin = useCallback(
-    (threadId: string) => {
+    async (threadId: string) => {
       setThreads((prev: Thread[]) =>
         prev.map((thread) =>
           thread.id === threadId
@@ -813,8 +850,26 @@ export default function ThreadedDocument() {
             : thread
         )
       );
+      try {
+        const currentThread = threads.find((t) => t.id === threadId);
+        const newPinnedValue = currentThread ? !currentThread.isPinned : true;
+        await fetch("/api/membership/insertpin", {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            threadId,
+            pinned: newPinnedValue,
+          }),
+        });
+        // 如果需要的话，还可以再做后端返回的 pinned 校正
+      } catch (error) {
+        console.error("Failed to toggle pinned state:", error);
+        // 失败时，可以尝试回滚 pinned 状态
+      }
     },
-    [setThreads]
+    [threads, setThreads]
   );
 
   const deleteThread = useCallback(
@@ -898,7 +953,7 @@ export default function ThreadedDocument() {
   const pasteMessage = useCallback(
     (threadId: string, parentId: string | null) => {
       const messageToPaste = clipboardMessage?.message || {
-        id: Date.now().toString() + Math.random().toString(36).slice(2),
+        id: newId.toString() + Math.random().toString(36).slice(2),
         content: "", // Initialize with empty string
         isCollapsed: false,
         userCollapsed: false,
@@ -1076,7 +1131,7 @@ export default function ThreadedDocument() {
               return;
             }
 
-            const newMessageId = Date.now().toString() + Math.random().toString(36).slice(2);
+            const newMessageId = newId.toString() + Math.random().toString(36).slice(2);
             // Pass the model details when creating the message
             addMessage(threadId, messageId, "", "ai", newMessageId, model);
             setIsGenerating((prev) => ({ ...prev, [newMessageId]: true }));
@@ -1153,12 +1208,12 @@ export default function ThreadedDocument() {
 
         if (!apiBaseUrl) {
           const defaultThread = {
-            id: Date.now().toString(),
+            id: newId.toString(),
             title: "Welcome Thread",
             isPinned: false,
             messages: [
               {
-                id: Date.now().toString(),
+                id: newId.toString(),
                 content:
                   "Welcome to your new chat thread! You can start a conversation here or create a new thread.",
                 publisher: "ai" as const,
@@ -1187,12 +1242,12 @@ export default function ThreadedDocument() {
       } catch (error) {
         console.error("Load failed:", error);
         const defaultThread = {
-          id: Date.now().toString(),
+          id: newId.toString(),
           title: "Welcome Thread",
           isPinned: false,
           messages: [
             {
-              id: Date.now().toString(),
+              id: newId.toString(),
               content:
                 "Welcome to your new chat thread! You can start a conversation here or create a new thread.",
               publisher: "ai" as const,
@@ -1293,12 +1348,12 @@ export default function ThreadedDocument() {
     }, [isConnected, lastAttemptTime]);
     */
   // Save threads
-  useEffect(() => {
+/*   useEffect(() => {
     debouncedSaveThreads(threads);
     return () => {
       debouncedSaveThreads.cancel();
     };
-  }, [threads, debouncedSaveThreads]);
+  }, [threads, debouncedSaveThreads]); */
 
   /*   useEffect(() => {
       const savedScroll = storage.get('scrollPosition');
