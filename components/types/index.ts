@@ -72,13 +72,3 @@ export interface Tool {
 }
 
 export type ToolChoice = "auto" | "none" | "required" | { type: "function"; function: { name: string } };
-
-
-// types/models.ts
-
-export interface UserProfile {
-  id: string;        
-  username?: string;  
-  createdAt: string;  
-  updatedAt: string;  
-}
