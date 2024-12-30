@@ -15,7 +15,7 @@ import ModelConfig from "./model/model-config";
 import RenderMessages from "@/components/message/render-all-messages";
 import { ToolManager } from "./tool/tool-manager";
 import { generateAIResponse } from "@/components/utils/api";
-import { Thread, Message, Model, ModelParameters, Tool } from "./types";
+import { Thread, Message, Model, ModelParameters, Tool, ContentPart } from "./types";
 import { useModels } from "./hooks/use-models";
 import { useThreads } from "./hooks/use-threads";
 import { useMessages } from "./hooks/use-messages";
@@ -24,7 +24,6 @@ import { SettingsPanel } from "./settings/settings-panel"
 import { useTools } from "./hooks/use-tools";
 import { AlignJustify, MessageSquare, Sparkle, Settings, Package } from "lucide-react";
 import { v4 as uuidv4 } from 'uuid';
-const newId = uuidv4(); 
 const DEFAULT_MODEL: Model = {
   id: "default",
   name: "Default Model",
@@ -300,8 +299,10 @@ export default function ThreadedDocument() {
  
   // Add new thread
   const addThread = useCallback(() => {
+    const newId = uuidv4();
+  
     const newThread: Thread = {
-      id: newId.toString(),
+      id: newId,
       title: "",
       messages: [],
       isPinned: false,
@@ -325,7 +326,7 @@ export default function ThreadedDocument() {
     (
       threadId: string,
       parentId: string | null,
-      content: string,
+      content: string | ContentPart[],
       publisher: "user" | "ai",
       newMessageId?: string,
       modelDetails?: Model
@@ -333,8 +334,9 @@ export default function ThreadedDocument() {
       setThreads((prev) =>
         prev.map((thread) => {
           if (thread.id !== threadId) return thread;
+          const newId=uuidv4();
           const newMessage: Message = {
-            id: newMessageId || newId.toString(),
+            id: newMessageId || newId,
             content,
             publisher,
             modelId: publisher === "ai" ? modelDetails?.id : undefined,
@@ -540,7 +542,12 @@ export default function ThreadedDocument() {
   const startEditingMessage = useCallback(
     (message: Message) => {
       setEditingMessage(message.id);
-      setEditingContent(message.content);
+      if (typeof message.content === "string") {
+        setEditingContent(message.content);
+      } else {
+        // 把 contentPart[] -> JSON
+        setEditingContent(JSON.stringify(message.content, null, 2));
+      }
     },
     [setEditingContent, setEditingMessage]
   );
@@ -566,6 +573,8 @@ export default function ThreadedDocument() {
   // Add a new message
   const addEmptyReply = useCallback(
     (threadId: string, parentId: string | null) => {
+      const newId=uuidv4();
+
       const newMessageId = newId.toString();
       addMessage(threadId, parentId, "", "user", newMessageId);
 
@@ -692,7 +701,8 @@ export default function ThreadedDocument() {
 
   // Add helper function to deep clone a message and its replies with new IDs
   const cloneMessageWithNewIds = useCallback((message: Message): Message => {
-    const newId = Date.toString() + Math.random().toString(36).slice(2);
+
+    const newId = Date.now().toString() + Math.random().toString(36).slice(2);
     return {
       ...message,
       id: newId,
@@ -710,7 +720,9 @@ export default function ThreadedDocument() {
         const [message] = findMessageAndParents(thread.messages, messageId);
         if (!message) return prev;
 
-        navigator.clipboard.writeText(message.content);
+        navigator.clipboard.writeText(
+          typeof message.content === "string" ? message.content : JSON.stringify(message.content)
+        );
 
         setClipboardMessage({
           message: cloneMessageWithNewIds(message),
@@ -741,17 +753,14 @@ export default function ThreadedDocument() {
         const removeEmptyMessage = (messages: Message[]): Message[] => {
           if (!messages) return [];
           return messages.reduce((acc: Message[], message) => {
-            if (message.id === editingMessage) {
-              if (message.content.trim() === "") {
-                // Call deleteMessage if the message is empty
-                deleteMessage(thread.id, message.id, false);
-                return acc;
-              }
+            if (message.id === editingMessage && (typeof message.content === "string"
+              ? !message.content.trim()
+              : (Array.isArray(message.content) && message.content.length === 0))) {
+              // 如果是空的
+              deleteMessage(thread.id, message.id, false);
+              return acc;
             }
-            return [
-              ...acc,
-              { ...message, replies: removeEmptyMessage(message.replies) },
-            ];
+            return [...acc,{...message, replies: removeEmptyMessage(message.replies) }];
           }, []);
         };
         return { ...thread, messages: removeEmptyMessage(thread.messages) };
@@ -826,8 +835,9 @@ export default function ThreadedDocument() {
   );
 
   const addNewModel = useCallback(() => {
+    const newId = uuidv4();
     const newModel: Model = {
-      id: newId.toString(),
+      id: newId,
       name: "New Model",
       baseModel: "none",
       systemPrompt: "You are a helpful assistant.",
@@ -918,14 +928,20 @@ export default function ThreadedDocument() {
 
   // Update message content
   const updateMessageContent = useCallback(
-    (threadId: string, messageId: string, content: string) => {
+    (threadId: string, messageId: string, newContent: string | ContentPart[]) => {
       setThreads((prev: Thread[]) =>
         prev.map((thread) => {
           if (thread.id !== threadId) return thread;
           const updateContent = (messages: Message[]): Message[] => {
             return messages.map((message) => {
               if (message.id === messageId) {
-                return { ...message, content };
+                if (typeof newContent === "string") {
+                  // 这时直接更新成 string
+                  return { ...message, content: newContent };
+                } else {
+                  // 这是 ContentPart[]，做更多校验或合并都可以
+                  return { ...message, content: newContent };
+                }
               }
               return { ...message, replies: updateContent(message.replies) };
             });
@@ -952,8 +968,10 @@ export default function ThreadedDocument() {
 
   const pasteMessage = useCallback(
     (threadId: string, parentId: string | null) => {
+      const newId=uuidv4();
+
       const messageToPaste = clipboardMessage?.message || {
-        id: newId.toString() + Math.random().toString(36).slice(2),
+        id: newId + Math.random().toString(36).slice(2),
         content: "", // Initialize with empty string
         isCollapsed: false,
         userCollapsed: false,
@@ -1130,8 +1148,9 @@ export default function ThreadedDocument() {
               alert(`Sign in to use ${model.baseModel}`);
               return;
             }
+            const newId=uuidv4();
 
-            const newMessageId = newId.toString() + Math.random().toString(36).slice(2);
+            const newMessageId = newId + Math.random().toString(36).slice(2);
             // Pass the model details when creating the message
             addMessage(threadId, messageId, "", "ai", newMessageId, model);
             setIsGenerating((prev) => ({ ...prev, [newMessageId]: true }));
@@ -1141,9 +1160,17 @@ export default function ThreadedDocument() {
               const enabledTools = (model.parameters?.tool_choice !== "none" && model.parameters?.tool_choice !== undefined
                 ? model.parameters?.tools ?? []
                 : []) as Tool[];
+                let finalContent: string;
 
+                if (typeof message.content === "string") {
+                  // 如果本来就是字符串，就直接保留
+                  finalContent = message.content;
+                } else {
+                  // 如果是 ContentPart[] 或别的，就转换
+                  finalContent = JSON.stringify(message.content);
+                }
               await generateAIResponse(
-                message.content,
+                finalContent,
                 message.publisher,
                 model,
                 threads,
@@ -1207,13 +1234,14 @@ export default function ThreadedDocument() {
         }
 
         if (!apiBaseUrl) {
+          const newId=uuidv4();
           const defaultThread = {
-            id: newId.toString(),
+            id: newId,
             title: "Welcome Thread",
             isPinned: false,
             messages: [
               {
-                id: newId.toString(),
+                id: newId,
                 content:
                   "Welcome to your new chat thread! You can start a conversation here or create a new thread.",
                 publisher: "ai" as const,
@@ -1241,13 +1269,15 @@ export default function ThreadedDocument() {
         }
       } catch (error) {
         console.error("Load failed:", error);
+        const newId=uuidv4();
+
         const defaultThread = {
-          id: newId.toString(),
+          id: newId,
           title: "Welcome Thread",
           isPinned: false,
           messages: [
             {
-              id: newId.toString(),
+              id: newId,
               content:
                 "Welcome to your new chat thread! You can start a conversation here or create a new thread.",
               publisher: "ai" as const,

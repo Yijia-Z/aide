@@ -7,7 +7,7 @@ import { Thread  } from "@/types/models";
 
 export async function PATCH(
   req: NextRequest,
-  context: any 
+  { params }: { params: Promise<{ id: string }> }
 ) {
   // 1) Clerk 鉴权：拿到 userId
   const { userId } = await auth();
@@ -18,7 +18,7 @@ export async function PATCH(
   }
 
   // 2) 拿到路由参数 [id]，即 threadId
-  const threadId = context.params.id as string;
+  const { id: threadId } = await params;
   console.log("[Backend] Enter PATCH /api/threads/[id], threadId =", threadId);
 
   try {

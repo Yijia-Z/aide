@@ -1,13 +1,5 @@
 // types/models.ts
-export interface ThreadsRouteContext {
-  // params 里声明所有我们需要的路由参数
-  params: {
-    id: string; 
-    // 如果还有别的，比如 [slug], [xyz]，也都可以一起定义
-  };
-  // 如果你还想拿 searchParams，可自定义:
-  // searchParams?: { [key: string]: string | string[] | undefined };
-}
+
 export interface Thread {
   id: string;             // String @id (主键)
   title: string;          // 线程标题

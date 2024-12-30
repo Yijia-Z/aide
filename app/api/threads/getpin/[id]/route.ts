@@ -5,14 +5,14 @@ import { auth } from "@clerk/nextjs/server";
 
 export async function GET(
   req: NextRequest,
-context: any
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const { userId } = await auth();
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const threadId = context.params.id as string;
+  const { id: threadId } = await params;
 
   // 查到 Thread
   const thread = await prisma.thread.findUnique({
