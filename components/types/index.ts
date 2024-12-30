@@ -87,7 +87,6 @@ export interface Tool {
   function: ToolFunction;
 }
 
-<<<<<<< HEAD
 export type ToolChoice = "auto" | "none" | "required" | { type: "function"; function: { name: string } };
 
 
@@ -97,6 +96,3 @@ export interface UserProfile {
   createdAt: string;  
   updatedAt: string;  
 }
-=======
-export type ToolChoice = "auto" | "none" | "required" | { type: "function"; function: { name: string } };
->>>>>>> parent of 9b8250d (first try create user table, and allow user edit their username.)

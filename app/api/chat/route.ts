@@ -155,8 +155,9 @@ export async function POST(req: NextRequest) {
                         console.error("Error parsing tool arguments:", error);
                         return controller.error(new Error("Invalid tool arguments format."));
                       }
+                      const baseURL = process.env.ALLOWED_ORIGINS || "http://localhost:3000";
                       const toolUseResponse = await fetch(
-                        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/process_tool_use`,
+                        `${baseURL}/api/tools/process_tool_use`,
                         {
                           method: 'POST',
                           headers: {
