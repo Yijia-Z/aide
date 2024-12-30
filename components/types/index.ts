@@ -14,7 +14,6 @@ export interface Thread {
   title: string;
   messages: Message[];
   isPinned: boolean;
-  updatedAt?: string;
 }
 
 export interface Model {
@@ -74,6 +73,8 @@ export interface Tool {
 
 export type ToolChoice = "auto" | "none" | "required" | { type: "function"; function: { name: string } };
 
+
+// types/models.ts
 
 export interface UserProfile {
   id: string;        
