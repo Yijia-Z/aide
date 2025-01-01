@@ -147,6 +147,41 @@ export default function ThreadedDocument() {
     storage.set('activeTab', activeTab);
   }, [activeTab]);
 
+
+  useEffect(() => {
+    if (!currentThread) {
+      console.log("[ThreadedDocument] currentThread = null, 跳过 fetch");
+      return;
+    }
+
+    const fetchSingleThread = async () => {
+      try {
+        const res = await fetch(`/api/threads/${currentThread}`);
+        if (!res.ok) throw new Error("get single thread fail,first check currentthreadid been seted in threadlist on click thread, then check the api in threads id file. check or eidt ur data format.");
+        const data = await res.json();
+        //its thread details in data.
+        const fetchedThread: Thread = data.thread;
+        //insert thread details to thread[];
+        setThreads(prev => {
+          const idx = prev.findIndex(t => t.id === currentThread);
+          if (idx === -1) {
+            
+            return [...prev, fetchedThread];
+          } else {
+          
+            const newThreads = [...prev];
+            newThreads[idx] = fetchedThread;
+            return newThreads;
+          }
+        });
+      } catch (error) {
+        console.error("[ThreadedDocument] fetch single thread fail:", error);
+      }
+    };
+
+    fetchSingleThread();
+  }, [currentThread]);
+
   /*   useEffect(() => {
       const offlineDetector = createOfflineDetector();
       const removeListener = offlineDetector.addListener((offline) => {
@@ -298,29 +333,40 @@ export default function ThreadedDocument() {
   ); 
  
   // Add new thread
-  const addThread = useCallback(() => {
-    const newId = uuidv4();
+  const addThread = useCallback(async () => {
+    console.log("[addThread] start create thread");
+    try {
+      const res = await fetch("/api/threads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: "" }),
+      });
+      console.log("[addThread] after fetch, res.ok =", res.ok);
+      if (!res.ok) {
+        throw new Error("Failed to create thread");
+      }
+      const data = await res.json();
+      console.log("[addThread] after res.json(), data =", data);
   
-    const newThread: Thread = {
-      id: newId,
-      title: "",
-      messages: [],
-      isPinned: false,
-
-    };
-    setThreads((prev) => [...prev, newThread]);
-    setCurrentThread(newThread.id);
-    setEditingThreadTitle(newThread.id);
-    setOriginalThreadTitle("");
-    setNewThreadId(newThread.id);
-  }, [
+      const newThread: Thread = data.thread;
+      setThreads((prev) => [...prev, newThread]);
+      setCurrentThread(newThread.id);
+      setEditingThreadTitle(newThread.id);
+      setOriginalThreadTitle(newThread.title || "");
+      setNewThreadId(newThread.id);
+      console.log("[addThread] success, newThreadId =", newThread.id);
+    } catch (error) {
+      console.error("[addThread] error:", error);
+    }
+  }, [  
+    setThreads,
     setCurrentThread,
     setEditingThreadTitle,
     setOriginalThreadTitle,
-    setThreads,
-    setNewThreadId,
-  ]);
-
+    setNewThreadId
+  ]
+  );
+  
   // Add message to a thread
   const addMessage = useCallback(
     (
@@ -883,13 +929,19 @@ export default function ThreadedDocument() {
   );
 
   const deleteThread = useCallback(
-    (threadId: string) => {
-      setThreads((prev: Thread[]) => {
-        const updatedThreads = prev.filter((thread) => thread.id !== threadId);
+    async (threadId: string) => {
+      // 1) 在本地先保存一下旧数据 (oldThreads),
+      //    方便后面回滚（rollback）
+      const oldThreads = threads; // 注意: 这是一份“引用”，
+                                  // 如果需要深拷贝可自行处理
+                                  
+      // 2) 在本地先删除该 Thread (乐观更新)
+      setThreads((prev) => {
+        const updatedThreads = prev.filter((t) => t.id !== threadId);
+        
+        // 如果被删的刚好是 currentThread，就切换到别的 thread
         if (currentThread === threadId) {
-          const currentIndex = prev.findIndex(
-            (thread) => thread.id === threadId
-          );
+          const currentIndex = prev.findIndex((t) => t.id === threadId);
           const newIndex = currentIndex > 0 ? currentIndex - 1 : 0;
           setCurrentThread(
             updatedThreads.length > 0
@@ -897,34 +949,39 @@ export default function ThreadedDocument() {
               : null
           );
         }
+  
         return updatedThreads;
       });
-
-      const deleteThreadFromBackend = async () => {
-        if (!apiBaseUrl) {
-          return;
+  
+      // 3) 后端发请求，尝试删除
+      try {
+        const res = await fetch(`/api/threads/${threadId}`, {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+        });
+        if (!res.ok) {
+          throw new Error(`Failed to delete thread ${threadId}, status = ${res.status}`);
         }
-        try {
-          const response = await fetch(
-            `/api/threads/${threadId}`,
-            {
-              method: "DELETE",
-              headers: { "Content-Type": "application/json" },
-            }
-          );
-          if (!response.ok) {
-            throw new Error(`Failed to delete thread ${threadId}`);
-          }
-          // console.log(`Thread ${threadId} has been successfully deleted.`);
-        } catch (error) {
-          console.error(`Failed to delete thread ${threadId} data:`, error);
+        // 如果到这里没抛错，就代表删除成功
+        console.log(`Thread ${threadId} has been successfully deleted on the server.`);
+  
+      } catch (error) {
+        // 4) 若后端删除失败 => 回滚（把 oldThreads 再放回去）
+        console.error(`Failed to delete thread ${threadId} on the server:`, error);
+  
+        setThreads(oldThreads);
+        // 如果你刚才把 currentThread 改掉了，也需要把它设置回原来的值
+        // 这里简单做法：重新从 oldThreads 里找有没有 threadId
+        const stillExists = oldThreads.find((t) => t.id === threadId);
+        if (stillExists) {
+          // 表示其实本地原来是有它的，所以把 currentThread 也改回 threadId
+          setCurrentThread(threadId);
         }
-      };
-
-      deleteThreadFromBackend();
+      }
     },
-    [currentThread, setThreads, setCurrentThread]
+    [threads, setThreads, currentThread, setCurrentThread]
   );
+  
 
   // Update message content
   const updateMessageContent = useCallback(
@@ -1227,13 +1284,13 @@ export default function ThreadedDocument() {
   useEffect(() => {
     const loadThreads = async () => {
       try {
-        const cachedThreads = await storage.getLarge("threads");
+      /*   const cachedThreads = await storage.getLarge("threads");
         if (cachedThreads) {
           setThreads(cachedThreads);
           return;
-        }
+        } */
 
-        if (!apiBaseUrl) {
+        /* if (!apiBaseUrl) {
           const newId=uuidv4();
           const defaultThread = {
             id: newId,
@@ -1254,7 +1311,7 @@ export default function ThreadedDocument() {
           setThreads([defaultThread]);
           storage.set("threads", [defaultThread]);
           return;
-        }
+        } */
 
         const response = await fetch(`/api/threads`, {
           method: "GET",

@@ -122,6 +122,7 @@ const ThreadList: React.FC<ThreadListProps> = ({
                 `}
                 onClick={(e) => {
                   e.stopPropagation();
+                  console.log("Clicked thread:", thread.id); 
                   setCurrentThread(thread.id);
                 }}
               >

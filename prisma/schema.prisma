@@ -1,47 +1,45 @@
-// prisma/schema.prisma
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
-  url       = env("DATABASE_URL") // 指向 Supabase 的连接串
+  url       = env("DATABASE_URL") 
   directUrl = env("DIRECT_URL")
 }
 
 model UserProfile {
-  id        String   @id                  // Clerk 提供的 userId
-  username  String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt 
-
-  // 与 ThreadMembership 一对多关系
+  id          String             @id   // Clerk 提供的 userId
+  username    String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
   memberships ThreadMembership[]
 }
 
 model Thread {
-  id        String   @id
-  title     String
-  
-  updatedAt DateTime @updatedAt                // 每次 update 都自动更新
-  createdAt DateTime @default(now())
+  id         String   @id @default(uuid())
+  title      String
+  messages   Json?    @default(dbgenerated("'[]'::jsonb"))
+  updatedAt  DateTime @updatedAt
+  createdAt  DateTime @default(now())
+  // 新增字段 isDeleted，用于软删除标记
+  isDeleted  Boolean  @default(false)
 
-  // 与 ThreadMembership 一对多关系
   memberships ThreadMembership[]
 }
 
 model ThreadMembership {
   userId   String
   threadId String
-  //role     String?      // VIEWER / EDITOR / MANAGER / ...
+  // 在 membership 上加个 role，用于区分 "owner" / "editor" / "viewer" 等
+  role     String   @default("owner")
 
   joinedAt DateTime @default(now())
-  pinned         Boolean   @default(false)
+  pinned   Boolean  @default(false)
+
   // 外键关联
   userProfile UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
   thread      Thread      @relation(fields: [threadId], references: [id], onDelete: Cascade)
 
-  // 复合主键，不允许同一 (userId, threadId) 重复
-  @@id([userId, threadId])
+  @@id([userId, threadId])  // 复合主键
 }

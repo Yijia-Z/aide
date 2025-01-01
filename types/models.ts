@@ -1,27 +1,48 @@
 // types/models.ts
 
 export interface Thread {
-  id: string;             // String @id (主键)
-  title: string;          // 线程标题
-  isPinned?: boolean;     // 是否置顶(可选)
+  id: string;         
+  title: string;         
+      
   updatedAt?: string;     
   createdAt?: string;     
-  
+  messages?: Message[];  
 }
-
-//在完成supabase前临时用
+export interface Message {
+  id: string;
+  content: string | ContentPart[];
+  publisher: "user" | "ai";
+  modelId?: string;
+  modelConfig?: Partial<ModelData>;
+  replies: Message[];
+  isCollapsed: boolean;
+  userCollapsed: boolean;
+}
+export type ContentPart =
+  | {
+      type: "text";
+      text: string;
+    }
+  | {
+      type: "image_url";
+      image_url: {
+        url: string;
+        detail?: string;
+      };
+    };
 export interface ThreadData {
   threadId: string;
-  thread: Record<string, any>; // 或者更具体一些
+  thread: Record<string, any>; 
   // ...
 }
 export type ThreadUpdateData = Partial<Thread>;
+
   export interface ModelData {
     id: string;
     name: string;
     baseModel: string;
     systemPrompt: string;
-    parameters: Record<string, any>; 
+    parameters: Record<string, unknown>; 
   }
   
   export interface Tool {
@@ -32,13 +53,13 @@ export type ThreadUpdateData = Partial<Thread>;
     function: {
       name: string;
       description: string;
-      parameters: Record<string, any>;
+      parameters: Record<string, unknown>;
     };
   }
   
   export interface ToolUseRequest {
     tool_name: string;
-    tool_args: Record<string, any>;
+    tool_args: Record<string, unknown>;
     tool_call_id: string;
   }
   

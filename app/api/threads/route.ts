@@ -1,100 +1,101 @@
 // app/api/threads/route.ts
-import { NextRequest, NextResponse } from 'next/server'
-import { getDB } from '@/lib/db/mongo'
-import { ThreadData } from '@/types/models'
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/db/prismadb"; 
+import { auth } from "@clerk/nextjs/server";
+import { randomUUID } from "crypto";
 
-/**
- * POST /api/threads => Save Thread
- * 由于原Python是 /save_thread，但 NextJS Route Handler 
- * 不支持像 /api/threads/save_thread, 你可以改成 HTTP POST /api/threads
- */
-export async function POST(req: NextRequest) {
-  try {
-    const body = await req.json() as ThreadData;
-    const threadId = body.threadId;
-    const thread = body.thread;
-    
-    if (!threadId || !thread) {
-      return NextResponse.json({ error: "Invalid thread data" }, { status: 400 });
-    }
-
-    const db = await getDB();
-    const collectionName = `thread_${threadId}`;
-    const collection = db.collection(collectionName);
-
-    await collection.updateOne(
-      { threadId },
-      { $set: thread },
-      { upsert: true }
-    );
-
-    console.log(`Successfully saved thread ${threadId}.`);
-    return NextResponse.json({ status: "success" });
-  } catch (e: any) {
-    console.error("Failed to save thread:", e);
-    return NextResponse.json({ error: "Failed to save thread." }, { status: 500 });
-  }
-}
-
-/**
- * GET /api/threads => load all threads
- */
+// [GET]  获取用户所有 Thread 的简要列表（只包含 id, title, updatedAt, isPinned）
 export async function GET() {
+  const { userId } = await auth();
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  
   try {
-    const db = await getDB();
-    const collections = await db.listCollections().toArray();
+    // 查询 Thread 并联表拿到 pinned
+    // 其中 pinned 存在 membership 里，而 membership 用 userId_threadId 做外键
+    const threads = await prisma.thread.findMany({
+      where: {
+        isDeleted: false,
 
-    let threads: any[] = [];
-    for (const collInfo of collections) {
-      if (collInfo.name.startsWith("thread_")) {
-        const collection = db.collection(collInfo.name);
-        const oneThread = await collection.findOne({}, { projection: { _id: 0 } });
-        if (oneThread) {
-          threads.push(oneThread);
-        }
-      }
-    }
+        memberships: {
+          
+          some: { userId },
+        },
+      },
+      orderBy: {
+        updatedAt: 'desc',
+      },
+      select: {
+        id: true,
+        title: true,
+        updatedAt: true,
+        // 如果只想要 id、title，不想要 messages，可以不 select messages
+        memberships: {
+          // 只查当前 userId 对应的 membership
+          where: { userId },
+          select: {
+            pinned: true,
+          },
+        },
+      },
+    });
 
-    console.log(`Successfully loaded ${threads.length} threads from MongoDB.`);
-    return NextResponse.json({ threads });
-  } catch (e: any) {
-    console.error("Failed to load threads:", e);
-    return NextResponse.json({ error: "Failed to load threads." }, { status: 500 });
+    // 将 membership[].pinned 提炼成 isPinned（表示该 user 是否 pin 了此 thread）
+    const mapped = threads.map(t => {
+      const pinnedValue = t.memberships?.[0]?.pinned ?? false;
+      return {
+        id: t.id,
+        title: t.title,
+        updatedAt: t.updatedAt,
+        isPinned: pinnedValue,
+      };
+    });
+
+    return NextResponse.json({ threads: mapped }, { status: 200 });
+  } catch (err: any) {
+    console.error("[GET /api/threads] Error:", err);
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
 
-/**
- * DELETE /api/threads?thread_id=xxx => Delete specific thread
- * 
- * 注: Next.js Route Handler 不支持 /threads/{id} 形式的 route param 
- *    只能用 /api/threads/[id] or query param. 
- *    这里演示 query approach: /api/threads?thread_id=xxx
- */
-export async function DELETE(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-  const threadId = searchParams.get("thread_id");
-  
-  if (!threadId) {
-    return NextResponse.json({ error: "Missing thread_id" }, { status: 400 });
+export async function POST(req: NextRequest) {
+  const { userId } = await auth();
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
-    const db = await getDB();
-    const collectionName = `thread_${threadId}`;
+    const { title } = await req.json();
+    // 也可以接收更多字段，比如 messages 等
 
-    const collectionNames = await db.listCollections().toArray();
-    const found = collectionNames.find((c) => c.name === collectionName);
+    // 1) 在 Thread 表里创建记录，数据库自动生成 id 或由 Prisma 生成
+    const newThread = await prisma.thread.create({
+      data: {
+        title: title ?? "Untitled Thread",
+        messages: [],
+      },
+    });
 
-    if (!found) {
-      console.warn(`Thread ${threadId} not found`);
-      return NextResponse.json({ error: "Thread not found." }, { status: 404 });
-    }
+    // 2) 同时在 ThreadMembership 插入一条，表示当前 user 拥有此 Thread
+    await prisma.threadMembership.create({
+      data: {
+        userId,
+        threadId: newThread.id,
+        role: "owner",
+      },
+    });
 
-    await db.dropCollection(collectionName);
-    console.log(`Successfully deleted thread ${threadId}.`);
-    return NextResponse.json({ status: "success" });
-  } catch (e: any) {
-    console.error("Failed to delete thread:", e);
-    return NextResponse.json({ error: "Failed to delete thread" }, { status: 500 });
+    // 3) 返回前端
+    const responseData = {
+      ...newThread,
+     
+      isPinned: false, 
+    };
+
+    return NextResponse.json({ thread: responseData }, { status: 200 });
+  } catch (error: any) {
+    console.error("POST /api/threads error:", error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
