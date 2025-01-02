@@ -1,6 +1,4 @@
-/**
- * 用来表示文本或图片等多模态内容的单个片段
- */
+
 export type ContentPart =
   | {
       type: "text";
@@ -17,6 +15,7 @@ export interface Message {
   id: string;
   content: string | ContentPart[];
   publisher: "user" | "ai";
+  userName?:string;
   modelId?: string;
   modelConfig?: Partial<Model>;
   replies: Message[];

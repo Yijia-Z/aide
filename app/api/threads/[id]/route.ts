@@ -49,7 +49,7 @@ export async function PATCH(
       where: { id: threadId },
       select: {
         id: true,
-        messages: true,
+        
       },
     });
 
@@ -60,16 +60,13 @@ export async function PATCH(
       update: {
         title: updatedData.title,
         // If the client sent updatedData.messages, we use that; otherwise fallback to existing
-        
-        messages: updatedData.messages
-        ? (updatedData.messages as any)
-        : existingThread?.messages ?? []
-        // you can also manually set updatedAt if your schema needs it
+       
+       
       },
       create: {
         id: threadId,
         title: updatedData.title ?? "Untitled Thread",
-        messages: (updatedData.messages as any) ?? [], // store empty array if none provided
+        
       },
     });
     console.log("[Backend] upsertedThread =>", upsertedThread);
@@ -120,7 +117,7 @@ export async function GET(
       select: {
         id: true,
         title: true,
-        messages: true,
+        
         updatedAt: true,
         isDeleted: true,
       },

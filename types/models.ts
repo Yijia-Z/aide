@@ -12,6 +12,7 @@ export interface Message {
   id: string;
   content: string | ContentPart[];
   publisher: "user" | "ai";
+  userName?:string;
   modelId?: string;
   modelConfig?: Partial<ModelData>;
   replies: Message[];

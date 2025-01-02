@@ -3,13 +3,19 @@ import { runCalculate } from './functions/calculate'
 import { runGetCurrentWeather } from './functions/get_current_weather'
 import { ToolUseRequest, ToolUseResponse } from '@/types/models'
 
+
 export async function processToolUseFunction(req: ToolUseRequest): Promise<ToolUseResponse> {
   const { tool_name, tool_args, tool_call_id } = req;
 
-  // “动态”加载也行，这里简单 if else
+  
   if (tool_name === 'calculate') {
     try {
-      const { operation, operand1, operand2 } = tool_args;
+   
+      const { operation, operand1, operand2 } = req.tool_args as {
+        operation: string;
+        operand1: number;
+        operand2: number;
+      };
       const result = runCalculate(operation, operand1, operand2);
       return {
         role: 'tool',
@@ -27,7 +33,10 @@ export async function processToolUseFunction(req: ToolUseRequest): Promise<ToolU
     }
   } else if (tool_name === 'get_current_weather') {
     try {
-      const { location, unit } = tool_args;
+      const { location, unit } = req.tool_args as{
+        location:string, 
+        unit: string
+      };
       const result = await runGetCurrentWeather(location, unit);
       return {
         role: 'tool',

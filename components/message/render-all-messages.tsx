@@ -222,7 +222,7 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
           </div>
           <ScrollArea className="flex-gro md:pr-2" onClick={() => setSelectedMessages((prev) => ({ ...prev, [String(currentThread)]: null }))}>
             <div onClick={(e) => e.stopPropagation()}>
-              {currentThreadData?.messages.map((message: Message) => (
+              {(currentThreadData?.messages?? []).map((message: Message) => (
                 <RenderMessage
                   key={message.id}
                   message={message}

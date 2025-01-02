@@ -4,6 +4,7 @@
  * @interface RenderMessageProps
  * @property {Message} message - The message object to render.
  * @property {string} threadId - The ID of the thread containing the message.
+ * 
  * @property {number} [depth=0] - The depth of the message in the thread hierarchy.
  * @property {string | null} [parentId=null] - The ID of the parent message, if any.
  * @property {Thread[]} threads - The list of all threads.
@@ -491,7 +492,7 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
                       message.publisher === "user"
                         ? message.publisher === "ai"
                           ? modelDetails?.name || "AI"
-                          : "user"
+                          : message.userName
                         : null}
                     </span>
 

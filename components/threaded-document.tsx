@@ -22,6 +22,7 @@ import { useMessages } from "./hooks/use-messages";
 import { useUser, useClerk } from "@clerk/nextjs";
 import { SettingsPanel } from "./settings/settings-panel"
 import { useTools } from "./hooks/use-tools";
+import { useUserProfile } from "./hooks/use-userprofile";
 import { AlignJustify, MessageSquare, Sparkle, Settings, Package } from "lucide-react";
 import { v4 as uuidv4 } from 'uuid';
 const DEFAULT_MODEL: Model = {
@@ -40,6 +41,7 @@ const apiBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 
 export default function ThreadedDocument() {
   const { isSignedIn } = useUser();
+  const { username } = useUserProfile();
   // const [isOffline, setIsOffline] = useState(false);
   const [activeTab, setActiveTab] = useState<"threads" | "messages" | "models" | "tools" | "settings">(
     (storage.get('activeTab') || "threads") as "threads" | "messages" | "models" | "tools" | "settings"
@@ -153,34 +155,51 @@ export default function ThreadedDocument() {
       console.log("[ThreadedDocument] currentThread = null, 跳过 fetch");
       return;
     }
-
+  
     const fetchSingleThread = async () => {
       try {
-        const res = await fetch(`/api/threads/${currentThread}`);
-        if (!res.ok) throw new Error("get single thread fail,first check currentthreadid been seted in threadlist on click thread, then check the api in threads id file. check or eidt ur data format.");
-        const data = await res.json();
-        //its thread details in data.
-        const fetchedThread: Thread = data.thread;
-        //insert thread details to thread[];
-        setThreads(prev => {
-          const idx = prev.findIndex(t => t.id === currentThread);
+        // 1) 获取 thread 基本信息
+        const resThread = await fetch(`/api/threads/${currentThread}`);
+        if (!resThread.ok) {
+          throw new Error("Failed to fetch thread info");
+        }
+        const dataThread = await resThread.json();
+        // dataThread.thread = { id, title, ... } (不再包含 messages)
+  
+        // 2) 获取 messages 列表
+        const resMessages = await fetch(`/api/messages?threadId=${currentThread}`);
+        if (!resMessages.ok) {
+          throw new Error("Failed to fetch messages for thread");
+        }
+        const dataMessages = await resMessages.json();
+        // dataMessages.messages = [ { id, content, parentId, ... }, ... ]
+  
+        // 3) 合并到一个对象上
+        const fetchedThread = {
+          ...dataThread.thread,          // 例如 { id, title, isPinned, ... }
+          messages: dataMessages.messages ?? [] // 自己把消息列表挂到 thread.messages
+        };
+  
+        // 4) 更新前端 threads 状态
+        setThreads((prev) => {
+          // 如果 threads 里还没有 currentThread，就 push；否则替换
+          const idx = prev.findIndex((t) => t.id === currentThread);
           if (idx === -1) {
-            
             return [...prev, fetchedThread];
           } else {
-          
             const newThreads = [...prev];
             newThreads[idx] = fetchedThread;
             return newThreads;
           }
         });
       } catch (error) {
-        console.error("[ThreadedDocument] fetch single thread fail:", error);
+        console.error("[fetchSingleThread] error:", error);
       }
     };
-
+  
     fetchSingleThread();
-  }, [currentThread]);
+  }, [currentThread, setThreads]);
+  
 
   /*   useEffect(() => {
       const offlineDetector = createOfflineDetector();
@@ -377,44 +396,87 @@ export default function ThreadedDocument() {
       newMessageId?: string,
       modelDetails?: Model
     ) => {
+      const realId = uuidv4();
+      // 1) 先在前端插入临时消息
       setThreads((prev) =>
         prev.map((thread) => {
           if (thread.id !== threadId) return thread;
-          const newId=uuidv4();
+  
+          // a) 生成一个临时 ID
+          
+  
+          // b) 构造本地消息对象
           const newMessage: Message = {
-            id: newMessageId || newId,
+            id: newMessageId||realId,
             content,
             publisher,
+  
+            // 如果是用户，就带上本地用户名；如果是 AI，就带上 model 信息
+            userName: publisher === "user"?(username ?? undefined) : undefined,
             modelId: publisher === "ai" ? modelDetails?.id : undefined,
             modelConfig: publisher === "ai" ? { ...modelDetails } : undefined,
+  
             replies: [],
             isCollapsed: false,
             userCollapsed: false,
           };
+  
+          // 选中这条消息
           setSelectedMessages((prev) => ({ ...prev, [String(currentThread)]: newMessage.id }));
-
-          const addReplyToMessage = (message: Message): Message => {
-            if (message.id === parentId) {
-              return { ...message, replies: [...message.replies, newMessage] };
+  
+          // c) 插入树形结构
+          function addReplyToMessage(msg: Message): Message {
+            if (msg.id === parentId) {
+              return { ...msg, replies: [...msg.replies, newMessage] };
             }
             return {
-              ...message,
-              replies: message.replies.map(addReplyToMessage),
+              ...msg,
+              replies: msg.replies.map(addReplyToMessage),
             };
-          };
-
+          }
+  
+          // 如果没有 parentId，就插在根节点
           if (!parentId) {
             return { ...thread, messages: [...thread.messages, newMessage] };
           }
+  
+          // 否则找到 parentId 在它的 replies 里插入
           return {
             ...thread,
             messages: thread.messages.map(addReplyToMessage),
           };
         })
       );
+  
+      // 2) 调后端 /api/messages 写入数据库
+      (async () => {
+        try {
+          const response = await fetch("/api/messages", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              id:realId, 
+              threadId,
+              parentId,
+              publisher,
+              content,
+              
+            }),
+          });
+  
+          if (!response.ok) {
+            throw new Error("Failed to create message");
+          }
+  
+        } catch (error) {
+          console.error("addMessage failed:", error);
+          // 如果想回滚插入的临时消息，可在这里做 setThreads() 移除 tempId
+        }
+      })();
     },
-    [setSelectedMessages, currentThread, setThreads]
+    [setThreads, setSelectedMessages, currentThread,username]
   );
+  
 
   // Change the model
   const handleModelChange = useCallback(
@@ -621,11 +683,10 @@ export default function ThreadedDocument() {
     (threadId: string, parentId: string | null) => {
       const newId=uuidv4();
 
-      const newMessageId = newId.toString();
-      addMessage(threadId, parentId, "", "user", newMessageId);
+      addMessage(threadId, parentId, "", "user", newId);
 
       startEditingMessage({
-        id: newMessageId,
+        id: newId,
         content: "",
         publisher: "user",
         replies: [],
@@ -634,7 +695,7 @@ export default function ThreadedDocument() {
       });
 
       const newMessageElement = document.getElementById(
-        `message-${newMessageId}`
+        `message-${newId}`
       );
       if (newMessageElement) {
         newMessageElement.scrollIntoView({
@@ -930,57 +991,46 @@ export default function ThreadedDocument() {
 
   const deleteThread = useCallback(
     async (threadId: string) => {
-      // 1) 在本地先保存一下旧数据 (oldThreads),
-      //    方便后面回滚（rollback）
-      const oldThreads = threads; // 注意: 这是一份“引用”，
-                                  // 如果需要深拷贝可自行处理
-                                  
-      // 2) 在本地先删除该 Thread (乐观更新)
-      setThreads((prev) => {
-        const updatedThreads = prev.filter((t) => t.id !== threadId);
-        
-        // 如果被删的刚好是 currentThread，就切换到别的 thread
-        if (currentThread === threadId) {
-          const currentIndex = prev.findIndex((t) => t.id === threadId);
-          const newIndex = currentIndex > 0 ? currentIndex - 1 : 0;
-          setCurrentThread(
-            updatedThreads.length > 0
-              ? updatedThreads[newIndex]?.id || null
-              : null
-          );
-        }
-  
-        return updatedThreads;
-      });
-  
-      // 3) 后端发请求，尝试删除
+      // 1) 先发请求到后端，“真正”删除
+      let ok = false;
       try {
-        const res = await fetch(`/api/threads/${threadId}`, {
+        const res = await fetch(`/api/delete_thread/${threadId}`, {
           method: "DELETE",
           headers: { "Content-Type": "application/json" },
         });
         if (!res.ok) {
           throw new Error(`Failed to delete thread ${threadId}, status = ${res.status}`);
         }
-        // 如果到这里没抛错，就代表删除成功
-        console.log(`Thread ${threadId} has been successfully deleted on the server.`);
-  
+        // 如果成功就标记 ok = true
+        ok = true;
+        console.log(`[deleteThread] server delete success, threadId=${threadId}`);
       } catch (error) {
-        // 4) 若后端删除失败 => 回滚（把 oldThreads 再放回去）
-        console.error(`Failed to delete thread ${threadId} on the server:`, error);
+        console.error(`[deleteThread] server delete fail, threadId=${threadId}:`, error);
+      }
   
-        setThreads(oldThreads);
-        // 如果你刚才把 currentThread 改掉了，也需要把它设置回原来的值
-        // 这里简单做法：重新从 oldThreads 里找有没有 threadId
-        const stillExists = oldThreads.find((t) => t.id === threadId);
-        if (stillExists) {
-          // 表示其实本地原来是有它的，所以把 currentThread 也改回 threadId
-          setCurrentThread(threadId);
-        }
+      // 2) 如果后端成功，再更新前端 threads
+      if (ok) {
+        setThreads((prevThreads) => {
+          const updatedThreads = prevThreads.filter((t) => t.id !== threadId);
+  
+          // 如果正好是当前选中，换到别的
+          if (currentThread === threadId) {
+            const currentIndex = prevThreads.findIndex((t) => t.id === threadId);
+            const newIndex = currentIndex > 0 ? currentIndex - 1 : 0;
+            setCurrentThread(
+              updatedThreads.length > 0
+                ? updatedThreads[newIndex]?.id || null
+                : null
+            );
+          }
+  
+          return updatedThreads;
+        });
       }
     },
-    [threads, setThreads, currentThread, setCurrentThread]
+    [currentThread, setThreads, setCurrentThread]
   );
+  
   
 
   // Update message content

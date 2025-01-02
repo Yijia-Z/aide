@@ -19,13 +19,14 @@ model UserProfile {
 model Thread {
   id         String   @id @default(uuid())
   title      String
-  messages   Json?    @default(dbgenerated("'[]'::jsonb"))
+
   updatedAt  DateTime @updatedAt
   createdAt  DateTime @default(now())
   // 新增字段 isDeleted，用于软删除标记
   isDeleted  Boolean  @default(false)
 
   memberships ThreadMembership[]
+  messages    Message[] 
 }
 
 model ThreadMembership {
@@ -42,4 +43,21 @@ model ThreadMembership {
   thread      Thread      @relation(fields: [threadId], references: [id], onDelete: Cascade)
 
   @@id([userId, threadId])  // 复合主键
+}
+
+model Message {
+  id         String   @id
+  threadId   String
+  parentId   String?       // 该消息的父消息 ID；null 表示是最顶层
+  publisher  String        // "user" | "ai" ...
+  userId     String?       // 当 publisher="user" 时，记录是哪位用户
+  ownerId    String?       // 当 publisher="ai" 时，也可用 ownerId 表示谁可以编辑 AI 消息
+  content    Json?    @default(dbgenerated("'[]'::jsonb"))      // 或者可以换成 Json
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // 关系
+  thread Thread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  @@index([threadId])
+  @@index([parentId])
 }

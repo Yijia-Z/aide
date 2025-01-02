@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { storage } from "@/components/store";
+import { useUserProfile } from "../hooks/use-userprofile";
+
 
 /**
  * The `SettingsPanel` component renders a settings interface for the user.
@@ -20,9 +22,10 @@ export function SettingsPanel() {
   const { user, isSignedIn } = useUser();
 
   // --- (A) State for the "custom username" from our own DB (via /api/user/profile).
-  const [userNameLocal, setUserNameLocal] = useState<string | null>(null);
-  const [isEditingUsername, setIsEditingUsername] = useState(false);
+  const { username, saveUsername } = useUserProfile();
 
+  const [isEditingUsername, setIsEditingUsername] = useState(false);
+  const [userNameLocal, setUserNameLocal] = useState<string | null>(null);
   // --- (B) State for the "OpenRouter API Key" (unchanged).
   const [apiKey, setApiKey] = useState("");
   const [isEditingApiKey, setIsEditingApiKey] = useState(false);
@@ -41,45 +44,16 @@ export function SettingsPanel() {
     storage.set("openrouter_api_key", newKey);
   };
 
-  // --- (C) 当用户登录后，从 /api/user/profile 拉取 username
-  useEffect(() => {
-    const fetchUsername = async () => {
-      try {
-        const res = await fetch("/api/user/profile");
-        if (!res.ok) {
-          console.warn("Failed to fetch username, maybe user not found or not signed in");
-          return;
-        }
-        const data = await res.json();
-        setUserNameLocal(data.username); // e.g. { username: "someName" } or null
-      } catch (err) {
-        console.error("Error fetching username:", err);
-      }
-    };
-    if (isSignedIn) {
-      fetchUsername();
-    }
-  }, [isSignedIn]);
+  React.useEffect(() => {
+    setUserNameLocal(username);
+  }, [username]);
 
-  // --- (D) 提交更新 username
+  // 保存时，调用 saveUsername(...) 更新后端 + Hook state
   const handleSaveUsername = async () => {
-    try {
-      const res = await fetch("/api/user/profile", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: userNameLocal }),
-      });
-      if (!res.ok) {
-        console.error("Failed to update username");
-        return;
-      }
-      const data = await res.json();
-      console.log("Updated username:", data.username);
-    } catch (err) {
-      console.error("Error updating username:", err);
-    } finally {
-      setIsEditingUsername(false);
+    if (userNameLocal) {
+      await saveUsername(userNameLocal);
     }
+    setIsEditingUsername(false);
   };
 
   return (

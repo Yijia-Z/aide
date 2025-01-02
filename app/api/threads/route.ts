@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
     const newThread = await prisma.thread.create({
       data: {
         title: title ?? "Untitled Thread",
-        messages: [],
+        
       },
     });
 
