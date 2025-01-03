@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-
+  
   try {
     // 2) 解析请求体
     const { id,threadId, parentId, publisher, content } = await req.json() as {
@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
       content: string | any[]; 
       // content 可能是 string 或 ContentPart[]，视你需求
     };
-
+    console.log("[POST /api/messages] incoming content =>", content);
     // 3) 查看用户是否在此 thread 有 membership
     const membership = await prisma.threadMembership.findUnique({
       where: { userId_threadId: { userId, threadId } },
@@ -27,7 +27,8 @@ export async function POST(req: NextRequest) {
     if (!membership) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
-
+    const finalContent = Array.isArray(content) ? content : [content];
+    console.log("[POST /api/messages] finalContent =>", finalContent);
     // 4) 创建消息
     // 如果 publisher="user"，就设置 userId；若是 "ai"，可以不设
     const newMsg = await prisma.message.create({
@@ -39,11 +40,11 @@ export async function POST(req: NextRequest) {
         userId: publisher === "user" ? userId : null,
         
         // content 存储到 Json 字段
-        content: Array.isArray(content) ? content : [content], 
+        content: finalContent,
       },
       // 也可以 `select` 一些字段
     });
-
+    console.log("[POST /api/messages] created message:", newMsg);
 
     // 6) 返回前端
     //    带上 newMsg 以及 username
@@ -81,17 +82,50 @@ export async function GET(req: NextRequest) {
     }
 
     // 3) 查询该 thread 下的所有 messages
-    const messages = await prisma.message.findMany({
-      where: {
-        threadId,
+    const rawMessages = await prisma.message.findMany({
+      where: { threadId },
+      orderBy: { createdAt: "asc" },  // 比如按时间排序
+      select: {
+        id: true,
+        parentId: true,
+        publisher: true,
+        userId: true,
+        content: true,
+        createdAt: true,
+        updatedAt: true,
       },
-      // 如果想按照创建时间、或其它字段排序，可以加一个 orderBy
-      // orderBy: { createdAt: "asc" },
     });
+    function buildTree(messages: typeof rawMessages) {
+      const map: Record<string, typeof rawMessages[number] & { replies: any[] }> = {};
+      const roots: (typeof rawMessages[number] & { replies: any[] })[] = [];
 
+      // 所有 message 放到 map 里，并加个 replies: []
+      for (const m of messages) {
+        map[m.id] = { ...m, replies: [] };
+      }
+
+      // parentId === null => 顶层；否则往 parent 的 replies 里插
+      for (const m of messages) {
+        if (!m.parentId) {
+          roots.push(map[m.id]);
+        } else {
+          if (map[m.parentId]) {
+            map[m.parentId].replies.push(map[m.id]);
+          } else {
+            console.warn(`[buildTree] cannot find parent for message ${m.id}`);
+          }
+        }
+      }
+
+      return roots;
+    }
+
+    // 构建树状结构
+    const nestedMessages = buildTree(rawMessages);
+    console.log("[GET /api/messages] nestedMessages =>", nestedMessages);
     // 4) 返回给前端
     //    前端会把这里的 messages 合并进 thread 对象
-    return NextResponse.json({ messages }, { status: 200 });
+    return NextResponse.json({messages: nestedMessages}, { status: 200 });
   } catch (error: any) {
     console.error("[GET /api/messages] error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });

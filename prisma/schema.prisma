@@ -17,7 +17,7 @@ model UserProfile {
 }
 
 model Thread {
-  id         String   @id @default(uuid())
+  id         String   @id 
   title      String
 
   updatedAt  DateTime @updatedAt

@@ -66,12 +66,15 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { title } = await req.json();
-    // 也可以接收更多字段，比如 messages 等
+    const { id, title } = await req.json() as {
+      id: string; 
+      title?: string;
+    };
 
     // 1) 在 Thread 表里创建记录，数据库自动生成 id 或由 Prisma 生成
     const newThread = await prisma.thread.create({
       data: {
+        id,
         title: title ?? "Untitled Thread",
         
       },
