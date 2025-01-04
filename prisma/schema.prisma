@@ -14,6 +14,7 @@ model UserProfile {
   createdAt   DateTime           @default(now())
   updatedAt   DateTime           @updatedAt
   memberships ThreadMembership[]
+  models       Model[]  
 }
 
 model Thread {
@@ -55,9 +56,27 @@ model Message {
   content    Json?    @default(dbgenerated("'[]'::jsonb"))      // 或者可以换成 Json
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
-
+  modelId    String?
   // 关系
+  model Model? @relation(fields: [modelId], references: [id], onDelete: Cascade)
   thread Thread @relation(fields: [threadId], references: [id], onDelete: Cascade)
   @@index([threadId])
   @@index([parentId])
+  @@index([modelId]) 
+}
+model Model {
+  id           String   @id
+  name         String
+  baseModel    String
+  systemPrompt String
+  parameters   Json
+
+  createdBy    String   // 指向 userProfile.id
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  isDeleted    Boolean  @default(false)
+  deletedAt    DateTime?
+  userProfile  UserProfile @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  messages     Message[] 
+  @@index([createdBy])
 }

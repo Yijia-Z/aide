@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useCallback, useRef, useEffect, useMemo } from "react";
@@ -25,17 +26,7 @@ import { useTools } from "./hooks/use-tools";
 import { useUserProfile } from "./hooks/use-userprofile";
 import { AlignJustify, MessageSquare, Sparkle, Settings, Package } from "lucide-react";
 import { v4 as uuidv4 } from 'uuid';
-const DEFAULT_MODEL: Model = {
-  id: "default",
-  name: "Default Model",
-  baseModel: "meta-llama/llama-3.2-3b-instruct:free",
-  systemPrompt: "You are a helpful assistant.",
-  parameters: {
-    temperature: 1.3,
-    top_p: 1,
-    max_tokens: 1000,
-  },
-};
+
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 
@@ -1034,7 +1025,7 @@ const confirmEditingMessage = useCallback(
         );
       }
       const data = await response.json();
-
+//导致数据库模型参数混乱的主要原因。
       // Find the corresponding model in availableModels to get the max_output
       const selectedModel = availableModels.find(
         (model) => model.id === modelId
@@ -1042,7 +1033,7 @@ const confirmEditingMessage = useCallback(
       if (selectedModel && selectedModel.parameters?.max_output) {
         data.max_output = selectedModel.parameters.max_output;
       }
-
+console.log("fetch model parameter: ", data);
       return data;
     } catch (error) {
       console.error("Error fetching model parameters:", error);
@@ -1068,34 +1059,94 @@ const confirmEditingMessage = useCallback(
   }, [editingModel, setEditingModel, setModels]);
 
   const deleteModel = useCallback(
-    (id: string) => {
-      setModels((prev: any[]) =>
-        prev.filter((model: { id: string }) => model.id !== id)
-      );
-      // If the deleted model was selected, switch to the first available model
+    async (id: string) => {
+      // 1) 先把当前的前端状态记录下来，以便失败后回滚
+      const oldModels = structuredClone(models);
+      const oldSelected = [...selectedModels];
+  
+      // 2) 前端先行移除
+      setModels((prev) => prev.filter((model) => model.id !== id));
       if (selectedModels.includes(id)) {
-        setSelectedModels(models[0] ? [models[0].id] : []);
+        // 先把 id 从 selectedModels 里移除
+        const newSelected = selectedModels.filter((mid) => mid !== id);
+
+        // 如果还有别的 model，就选一下别的
+        // 这里示例：如果原本 models.length > 1，就选第一个没删的
+        const remainingModels = oldModels.filter((m) => m.id !== id);
+        if (remainingModels.length > 0) {
+          newSelected.push(remainingModels[0].id);
+        }
+
+        setSelectedModels(newSelected);
+      }
+      // 3) 发起后端请求
+      try {
+        const res = await fetch(`/api/models/${id}`, { method: "DELETE" });
+        if (!res.ok) {
+          throw new Error(`Server fail, status = ${res.status}`);
+        }
+        // 如果删除成功，这里什么都不用做
+        console.log(`[deleteModel] success => removed from backend`);
+      } catch (err) {
+        console.error(`[deleteModel] error =>`, err);
+        // 4) 若后端失败，前端回滚
+        setModels(oldModels);
+        setSelectedModels(oldSelected);
       }
     },
     [models, selectedModels, setModels, setSelectedModels]
   );
+// 假设在外层你已导入/定义:
+//   import { v4 as uuidv4 } from 'uuid';
+//   interface Model { ... } // your Model interface
 
-  const addNewModel = useCallback(() => {
-    const newId = uuidv4();
-    const newModel: Model = {
-      id: newId,
-      name: "New Model",
-      baseModel: "none",
-      systemPrompt: "You are a helpful assistant.",
-      parameters: {
-        temperature: 1,
-        top_p: 1,
-        max_tokens: 2000,
-      },
-    };
-    setModels((prev: any) => [...prev, newModel]);
+const addNewModel = useCallback(async () => {
+  const newId = uuidv4();
+  const newModel: Model = {
+    id: newId,
+    name: "New Model",
+    baseModel: "none",
+    systemPrompt: "You are a helpful assistant.",
+    parameters: {
+      temperature: 1,
+      top_p: 1,
+      max_tokens: 2000,
+    },
+  };
+
+  // 1) 先“乐观”地插入到前端，并让用户可以编辑
+  setModels((prev) => [...prev, newModel]);
+  
+
+  try {
+    // 2) 调用后端插入接口（只插 1 条）
+    const response = await fetch("/api/models", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model: newModel }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to create new model");
+    }
+
+    // 3) 后端创建成功 -> 不用做额外操作
+    const data = await response.json();
     setEditingModel(newModel);
-  }, [setEditingModel, setModels]);
+    console.log("[addNewModel] server created =>", data.model);
+    // 如果后端对 newModel 有做二次处理（比如 ID 重写），
+    // 也可在这里同步回前端:
+    // setModels(prev => prev.map(m => m.id === newId ? {...m, id: data.model.id} : m));
+
+  } catch (err) {
+    console.error("[addNewModel] error =>", err);
+
+    // 4) 如果后端失败 => 回滚
+    setModels((prev) => prev.filter((m) => m.id !== newId));
+    setEditingModel(null);
+    // 根据需要，你也可以给用户弹个报错提示
+  }
+}, [setModels, setEditingModel]);
 
   const toggleThreadPin = useCallback(async (threadId: string) => {
     console.log("[toggleThreadPin] clicked => threadId=", threadId);
@@ -1449,6 +1500,27 @@ const confirmEditingMessage = useCallback(
               );
             } finally {
               setIsGenerating((prev) => ({ ...prev, [newId]: false }));
+              if (fullResponse.trim()) {
+                try {
+                  const patchRes = await fetch(`/api/messages/${newId}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      content: [
+                        {
+                          type: "text",
+                          text: fullResponse.trim(),
+                        },
+                      ],
+                    }),
+                  });
+                  if (!patchRes.ok) {
+                    throw new Error("Failed to update AI message in DB");
+                  }
+                } catch (err) {
+                  console.error("Patch AI message fail:", err);
+                }
+              }
             }
           });
           await Promise.all(promises);
@@ -1662,27 +1734,22 @@ const confirmEditingMessage = useCallback(
     }
   }, [selectedMessages, currentThread]);
 
+  function createDefaultModel(): Model {
+    return {
+      id: uuidv4(),
+      name: "Default Model",
+      baseModel: "meta-llama/llama-3.2-3b-instruct (free)",
+      systemPrompt: "You are a helpful assistant.",
+      parameters: {
+        temperature: 1.3,
+        top_p: 1,
+        max_tokens: 1000,
+      },
+    };}
   // Add new thread
   useEffect(() => {
     const loadModels = async () => {
-      // First, try to load models from cache
-      const cachedModels = storage.get("models");
-      if (cachedModels) {
-        setModels(cachedModels);
-        setModelsLoaded(true);
-        // Don't override selectedModels from cache since useModels handles that
-      }
-
-      if (!apiBaseUrl) {
-        // If no apiBaseUrl, ensure default model is set
-        if (!cachedModels) {
-          setModels([DEFAULT_MODEL]);
-          setModelsLoaded(true);
-          setSelectedModels([DEFAULT_MODEL.id]);
-        }
-        return;
-      }
-
+     
       try {
         const response = await fetch(`/api/models`, {
           method: "GET",
@@ -1693,47 +1760,31 @@ const confirmEditingMessage = useCallback(
 
           // If no models are loaded, add the default model
           if (loadedModels.length === 0) {
-            loadedModels = [DEFAULT_MODEL];
+            
+            loadedModels =[createDefaultModel()];
           }
-
           setModels(loadedModels);
           setModelsLoaded(true);
-          // Let useModels handle selectedModels initialization
-
-          // Update cache with the newly fetched models
-          storage.set("models", loadedModels);
         } else {
           console.error("Failed to load models from backend.");
           // Ensure default model is set if loading fails and no cache exists
-          if (!cachedModels) {
-            setModels([DEFAULT_MODEL]);
+          
+            setModels([createDefaultModel()]);
             setModelsLoaded(true);
-            // Let useModels handle selectedModels initialization
-          }
+         
         }
       } catch (error) {
         console.error("Error loading models:", error);
-        // Ensure default model is set if an error occurs and no cache exists
-        if (!cachedModels) {
-          setModels([DEFAULT_MODEL]);
-          setModelsLoaded(true);
-          // Let useModels handle selectedModels initialization
-        }
+       
       }
     };
 
     loadModels();
   }, [setModels, setModelsLoaded, setSelectedModels]);
 
-  // fetch available models
+ /*  // fetch available models
   useEffect(() => {
     const saveModels = async () => {
-      if (!apiBaseUrl) {
-        // Cache models to browser storage if apiBaseUrl is not present
-        storage.set("models", models);
-        return;
-      }
-
       try {
         await fetch(`/api/models`, {
           method: "POST",
@@ -1749,7 +1800,7 @@ const confirmEditingMessage = useCallback(
       saveModels();
     }
   }, [models, modelsLoaded]);
-
+ */
   useEffect(() => {
     fetchAvailableModels();
   }, [fetchAvailableModels]);
