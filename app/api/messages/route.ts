@@ -11,12 +11,13 @@ export async function POST(req: NextRequest) {
   
   try {
     // 2) 解析请求体
-    const { id,threadId, parentId, publisher, content } = await req.json() as {
+    const { id,threadId, parentId, publisher, content,modelConfig,  } = await req.json() as {
       id:string,
       threadId: string;
       parentId?: string | null;
       publisher: "user" | "ai";
       content: string | any[]; 
+      modelConfig?: any;
       // content 可能是 string 或 ContentPart[]，视你需求
     };
     console.log("[POST /api/messages] incoming content =>", content);
@@ -41,6 +42,7 @@ export async function POST(req: NextRequest) {
         
         // content 存储到 Json 字段
         content: finalContent,
+        modelConfig: modelConfig ?? null,
       },
       // 也可以 `select` 一些字段
     });
@@ -91,8 +93,14 @@ export async function GET(req: NextRequest) {
         publisher: true,
         userId: true,
         content: true,
+        modelConfig: true,
         createdAt: true,
         updatedAt: true,
+        userProfile: {
+          select: {
+            username: true,
+          },
+        },
       },
     });
     function buildTree(messages: typeof rawMessages) {
@@ -121,7 +129,10 @@ export async function GET(req: NextRequest) {
     }
 
     // 构建树状结构
-    const nestedMessages = buildTree(rawMessages);
+    const nestedMessages = buildTree(rawMessages.map(msg => ({
+      ...msg,
+      userName: msg.userProfile?.username ?? null, //  <-- 拍平
+    })))
     console.log("[GET /api/messages] nestedMessages =>", nestedMessages);
     // 4) 返回给前端
     //    前端会把这里的 messages 合并进 thread 对象

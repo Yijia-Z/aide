@@ -15,6 +15,7 @@ model UserProfile {
   updatedAt   DateTime           @updatedAt
   memberships ThreadMembership[]
   models       Model[]  
+  messages    Message[] 
 }
 
 model Thread {
@@ -52,17 +53,21 @@ model Message {
   parentId   String?       // 该消息的父消息 ID；null 表示是最顶层
   publisher  String        // "user" | "ai" ...
   userId     String?       // 当 publisher="user" 时，记录是哪位用户
+  userProfile UserProfile? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+
   ownerId    String?       // 当 publisher="ai" 时，也可用 ownerId 表示谁可以编辑 AI 消息
   content    Json?    @default(dbgenerated("'[]'::jsonb"))      // 或者可以换成 Json
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
-  modelId    String?
+  modelConfig Json?
   // 关系
-  model Model? @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  
   thread Thread @relation(fields: [threadId], references: [id], onDelete: Cascade)
   @@index([threadId])
   @@index([parentId])
-  @@index([modelId]) 
+  @@index([userId])
+   
 }
 model Model {
   id           String   @id
@@ -77,6 +82,6 @@ model Model {
   isDeleted    Boolean  @default(false)
   deletedAt    DateTime?
   userProfile  UserProfile @relation(fields: [createdBy], references: [id], onDelete: Cascade)
-  messages     Message[] 
+ 
   @@index([createdBy])
 }

@@ -421,7 +421,7 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
       })
     );
   }
-
+ 
   return (
     <motion.div
       ref={ref}

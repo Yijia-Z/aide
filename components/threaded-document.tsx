@@ -499,6 +499,7 @@ const confirmEditingMessage = useCallback(
         realId,
         newMessageId,
         content,
+        modelDetails,
       });
       setThreads((prev) =>
         prev.map((thread) => {
@@ -512,8 +513,18 @@ const confirmEditingMessage = useCallback(
             // 如果是用户，就带上本地用户名；如果是 AI，就带上 model 信息
             userName: publisher === "user"?(username ?? undefined) : undefined,
             modelId: publisher === "ai" ? modelDetails?.id : undefined,
-            modelConfig: publisher === "ai" ? { ...modelDetails } : undefined,
-  
+            modelConfig:
+            publisher === "ai"
+              ? {
+                  id: modelDetails?.id,
+                  name: modelDetails?.name,
+                  baseModel: modelDetails?.baseModel,
+                  systemPrompt: modelDetails?.systemPrompt,
+                  parameters: {
+                    ...modelDetails?.parameters,
+                  },
+                }
+              : undefined,
             replies: [],
             isCollapsed: false,
             userCollapsed: false,
@@ -560,7 +571,16 @@ const confirmEditingMessage = useCallback(
               parentId,
               publisher,
               content,
-              
+              modelConfig:
+              publisher === "ai"
+                ? {
+                    id: modelDetails?.id,
+                    name: modelDetails?.name,
+                    baseModel: modelDetails?.baseModel,
+                    systemPrompt: modelDetails?.systemPrompt,
+                    parameters: modelDetails?.parameters,
+                  }
+                : null,
             }),
           });
           console.log("[addMessage] got response status =", response.status);
@@ -1041,7 +1061,7 @@ console.log("fetch model parameter: ", data);
     }
   };
 
-  const saveModelChanges = useCallback(() => {
+  const saveModelChanges = useCallback(async () => {
     if (editingModel) {
       const updatedModel = {
         ...editingModel,
@@ -1054,6 +1074,25 @@ console.log("fetch model parameter: ", data);
       setModels((prev) =>
         prev.map((model) => model.id === editingModel.id ? updatedModel : model)
       );
+
+      try {
+        // 3) 发起对后端的 PATCH 请求
+        const res = await fetch(`/api/models/${editingModel.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: updatedModel.name,
+            baseModel: updatedModel.baseModel,
+            systemPrompt: updatedModel.systemPrompt,
+            parameters: updatedModel.parameters,
+          }),
+        });
+        if (!res.ok) {
+          throw new Error(`Failed to update model ${editingModel.id}`);
+        } } catch (err) {
+          console.error("[saveModelChanges] error =>", err);
+         
+        }
       setEditingModel(null);
     }
   }, [editingModel, setEditingModel, setModels]);
@@ -1072,11 +1111,11 @@ console.log("fetch model parameter: ", data);
 
         // 如果还有别的 model，就选一下别的
         // 这里示例：如果原本 models.length > 1，就选第一个没删的
-        const remainingModels = oldModels.filter((m) => m.id !== id);
+      /*   const remainingModels = oldModels.filter((m) => m.id !== id);
         if (remainingModels.length > 0) {
           newSelected.push(remainingModels[0].id);
         }
-
+ */
         setSelectedModels(newSelected);
       }
       // 3) 发起后端请求
@@ -1271,7 +1310,7 @@ const addNewModel = useCallback(async () => {
       const newId=uuidv4();
 
       const messageToPaste = clipboardMessage?.message || {
-        id: newId + Math.random().toString(36).slice(2),
+        id: newId,
         content: "", // Initialize with empty string
         isCollapsed: false,
         userCollapsed: false,
@@ -1350,6 +1389,33 @@ const addNewModel = useCallback(async () => {
         });
       });
 
+ (async () => {
+      try {
+        // 只在有 clipboardMessage 情况下发请求，
+        // 或者你也可以写成“无论如何都发”，看需求
+        if (clipboardMessage) {
+          const response = await fetch("/api/messages", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              id: newId,
+              threadId: threadId,
+              parentId: parentId,
+              publisher: messageToPaste.publisher,
+              content: messageToPaste.content,
+              modelConfig: messageToPaste.modelConfig ?? null,
+            }),
+          });
+          if (!response.ok) {
+            throw new Error("Failed to create pasted message in DB");
+          }
+          console.log("[pasteMessage] success => server stored new message", newId);
+        }
+      } catch (err) {
+        console.error("[pasteMessage] error => server store fail:", err);
+        // 如需回滚可在此执行 setThreads(...) 删除临时消息
+      }
+    })();
       if (currentThread) {
         setSelectedMessages((prev) => ({
           ...prev,
