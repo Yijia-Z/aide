@@ -2,6 +2,7 @@ import React, { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { PackageMinus, PackagePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { addNewToolDialog } from "./addNewTooldialog"; 
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
     Dialog,
@@ -69,7 +70,7 @@ interface ToolManagerProps {
  */
 export function ToolManager({ tools, setTools, availableTools, setAvailableTools, isLoading, error }: ToolManagerProps) {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
-
+    
 
     const handleAddTool = useCallback((tool: Tool) => {
         setAvailableTools([...availableTools, tool]);
@@ -81,7 +82,32 @@ export function ToolManager({ tools, setTools, availableTools, setAvailableTools
     const handleRemoveTool = useCallback((tool: Tool) => {
         setAvailableTools(availableTools.filter(t => t.function.name !== tool.function.name));
     }, [availableTools, setAvailableTools]);
-
+    
+    const handleSaveTool = useCallback(async (tool: any) => {
+        // tool => { name, description, type, function: {...} }
+    
+        // 1) 先前端插入
+        // 这里随意决定要不要插到 availableTools / tools
+        const newTools = [...availableTools, tool];
+        setAvailableTools(newTools);
+    
+        // 2) 发请求到后端
+        try {
+          const res = await fetch("/api/tools", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ tool }),
+          });
+          if (!res.ok) {
+            throw new Error("Failed to create new tool");
+          }
+          console.log("New tool saved to backend!");
+        } catch (err) {
+          console.error("Tool creation error =>", err);
+        }
+      }, [availableTools, setAvailableTools]);
+    
+    
     return (
         <div className="flex flex-col relative h-[calc(97vh)] overflow-clip select-none">
             <div

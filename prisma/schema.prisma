@@ -16,6 +16,7 @@ model UserProfile {
   memberships ThreadMembership[]
   models       Model[]  
   messages    Message[] 
+  tools Tool[]
 }
 
 model Thread {
@@ -53,6 +54,7 @@ model Message {
   parentId   String?       // 该消息的父消息 ID；null 表示是最顶层
   publisher  String        // "user" | "ai" ...
   userId     String?       // 当 publisher="user" 时，记录是哪位用户
+
   userProfile UserProfile? @relation(fields: [userId], references: [id], onDelete: Cascade)
 
 
@@ -84,4 +86,22 @@ model Model {
   userProfile  UserProfile @relation(fields: [createdBy], references: [id], onDelete: Cascade)
  
   @@index([createdBy])
+}
+model Tool {
+  id          String   @id
+  name        String
+  description String
+  type        String?     
+  function    Json?       // JSON 形式保存函数签名
+
+  createdBy   String      // 谁创建了这个 Tool
+  userProfile UserProfile @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  isDeleted   Boolean  @default(false)
+  deletedAt   DateTime?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([createdBy])
+  @@index([name])
 }
