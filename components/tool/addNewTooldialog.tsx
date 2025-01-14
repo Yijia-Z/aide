@@ -35,7 +35,7 @@ interface AddNewToolDialogProps {
 /**
  * AddNewToolDialog - “添加新Tool”的对话框组件
  */
-export function addNewToolDialog({ onSaveTool }: AddNewToolDialogProps) {
+export function AddNewToolDialog({ onSaveTool }: AddNewToolDialogProps) {
   const [open, setOpen] = useState(false);
 
   // 基本字段
@@ -48,7 +48,7 @@ export function addNewToolDialog({ onSaveTool }: AddNewToolDialogProps) {
 
   // 添加一个空的 parameter
   const handleAddParameter = () => {
-    const newId=uuidv4();
+    const newId = uuidv4();
     setParameters((prev) => [
       ...prev,
       {
@@ -94,7 +94,7 @@ export function addNewToolDialog({ onSaveTool }: AddNewToolDialogProps) {
       }
     });
 
-    // 组装完成后的 “tool” 对象
+    // 组装完成后的 "tool" 对象
     const newTool = {
       name: toolName,
       description: toolDesc,

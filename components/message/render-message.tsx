@@ -67,6 +67,7 @@ import "katex/dist/katex.min.css";
 import { Prism, SyntaxHighlighterProps } from "react-syntax-highlighter";
 import { gruvboxDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { cn } from "@/lib/utils";
+import Image from "next/image";
 
 import {
   ArrowUp,
@@ -318,9 +319,8 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
             code({ node, inline, className, children, ...props }: any) {
               const match = /language-(\w+)/.exec(className || "");
               const codeString = String(children).replace(/\n$/, "");
-              const codeBlockId = `${message.id}-${
-                match?.[1] || "unknown"
-              }-${codeString.slice(0, 32)}`;
+              const codeBlockId = `${message.id}-${match?.[1] || "unknown"
+                }-${codeString.slice(0, 32)}`;
               return !inline && match ? (
                 <div className="relative">
                   <div className="absolute -top-7 w-full flex justify-between items-center p-1 pl-3 rounded-t-lg border-b-[1.5px] text-[14px] font-[Consolas] border-[#A8998480] bg-[#1D2021] text-[#A89984]">
@@ -382,9 +382,11 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
             } else if (part.type === "image_url") {
               return (
                 <div key={idx} className="my-2">
-                  <img
+                  <Image
                     src={part.image_url.url}
                     alt={part.image_url.detail || "image"}
+                    width={500}
+                    height={300}
                     className="max-w-[50%] rounded shadow-sm"
                   />
                   {part.image_url.detail && (
@@ -421,7 +423,7 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
       })
     );
   }
- 
+
   return (
     <motion.div
       ref={ref}
@@ -483,13 +485,13 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
                       )}
                     >
                       {parentId === null ||
-                      (message.publisher === "ai" &&
-                        modelDetails?.id !==
+                        (message.publisher === "ai" &&
+                          modelDetails?.id !==
                           findMessageById(
                             threads.find((tt) => tt.id === currentThread)?.messages || [],
                             parentId
                           )?.modelConfig?.id) ||
-                      message.publisher === "user"
+                        message.publisher === "user"
                         ? message.publisher === "ai"
                           ? modelDetails?.name || "AI"
                           : message.userName
@@ -501,15 +503,15 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
                       <div className="flex items-center space-x-1">
                         {(!parentId ||
                           modelDetails?.id !==
-                            findMessageById(
-                              threads.find((t) => t.id === currentThread)?.messages || [],
-                              parentId
-                            )?.modelConfig?.id) && (
-                          <Badge variant="outline" className="select-none text-muted-foreground">
-                            <Bot className="w-3 h-3 mr-1" />
-                            {modelDetails.baseModel?.split("/").pop()?.split("-")[0]}
-                          </Badge>
-                        )}
+                          findMessageById(
+                            threads.find((t) => t.id === currentThread)?.messages || [],
+                            parentId
+                          )?.modelConfig?.id) && (
+                            <Badge variant="outline" className="select-none text-muted-foreground">
+                              <Bot className="w-3 h-3 mr-1" />
+                              {modelDetails.baseModel?.split("/").pop()?.split("-")[0]}
+                            </Badge>
+                          )}
                         {modelDetails.parameters?.tools &&
                           modelDetails.parameters.tools.length > 0 &&
                           modelDetails.parameters.tool_choice !== "none" && (
@@ -635,12 +637,12 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
                       !selectedMessage && parentId === null
                         ? ""
                         : isSelectedOrParent || siblingsArr.some((s) => s.id === selectedMessage)
-                        ? ""
-                        : message.replies.length > 0
-                        ? message.isCollapsed
-                          ? "border-l-2 rounded-bl-lg border-b-2 border-dashed ml-3"
-                          : "border-l-2 ml-3"
-                        : "ml-3.5"
+                          ? ""
+                          : message.replies.length > 0
+                            ? message.isCollapsed
+                              ? "border-l-2 rounded-bl-lg border-b-2 border-dashed ml-3"
+                              : "border-l-2 ml-3"
+                            : "ml-3.5"
                     )}
                     onDoubleClick={() => {
                       cancelEditingMessage();
@@ -652,16 +654,15 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
                         <div>
                           {typeof message.content === "string"
                             ? message.content
-                                .split("\n")[0]
-                                .slice(0, 50) +
-                              (message.content.length > 50 ? "..." : "")
+                              .split("\n")[0]
+                              .slice(0, 50) +
+                            (message.content.length > 50 ? "..." : "")
                             : JSON.stringify(message.content).slice(0, 50)}
                         </div>
                         {getTotalReplies(message) > 0 && (
                           <span className="dark:text-yellow-600 text-yellow-800">
-                            {`(${getTotalReplies(message)} ${
-                              getTotalReplies(message) === 1 ? "reply" : "replies"
-                            })`}
+                            {`(${getTotalReplies(message)} ${getTotalReplies(message) === 1 ? "reply" : "replies"
+                              })`}
                           </span>
                         )}
                       </div>
@@ -832,8 +833,8 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
                               {clipboardMessage?.operation === "cut"
                                 ? "Cutting"
                                 : clipboardMessage
-                                ? "Copying"
-                                : "Copy"}
+                                  ? "Copying"
+                                  : "Copy"}
                             </span>
                           </MenubarTrigger>
                           <MenubarContent className="custom-shadow">
@@ -1020,13 +1021,13 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
                 className={cn(
                   "ml-4",
                   !isParentOfSelected &&
-                    cn(
-                      "relative",
-                      "before:absolute before:left-0 before:-top-2 before:w-[17px] before:h-10",
-                      "before:border-b-2 before:border-l-2 before:border-border before:rounded-bl-lg",
-                      getSiblings(message.replies, reply.id).slice(-1)[0].id !== reply.id &&
-                        "after:absolute after:left-0 after:top-5 after:-bottom-0 after:border-l-2 after:border-border"
-                    )
+                  cn(
+                    "relative",
+                    "before:absolute before:left-0 before:-top-2 before:w-[17px] before:h-10",
+                    "before:border-b-2 before:border-l-2 before:border-border before:rounded-bl-lg",
+                    getSiblings(message.replies, reply.id).slice(-1)[0].id !== reply.id &&
+                    "after:absolute after:left-0 after:top-5 after:-bottom-0 after:border-l-2 after:border-border"
+                  )
                 )}
               >
                 {/* 递归调用 RenderMessage */}

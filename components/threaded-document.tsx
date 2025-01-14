@@ -151,14 +151,14 @@ export default function ThreadedDocument() {
       try {
         console.log("[fetchSingleThread] start => threadId =", currentThread);
 
-     /*    // 1) 获取 thread 基本信息
-        const resThread = await fetch(`/api/threads/${currentThread}`);
-        if (!resThread.ok) {
-          throw new Error("Failed to fetch thread info");
-        }
-        const dataThread = await resThread.json();
-        console.log("[fetchSingleThread] dataThread=", dataThread);
- */
+        /*    // 1) 获取 thread 基本信息
+           const resThread = await fetch(`/api/threads/${currentThread}`);
+           if (!resThread.ok) {
+             throw new Error("Failed to fetch thread info");
+           }
+           const dataThread = await resThread.json();
+           console.log("[fetchSingleThread] dataThread=", dataThread);
+    */
         // 2) 获取 messages
         const resMessages = await fetch(`/api/messages?threadId=${currentThread}`);
         if (!resMessages.ok) {
@@ -178,11 +178,11 @@ export default function ThreadedDocument() {
             return msg;
           });
         }
-  
+
         const initMessages = Array.isArray(dataMessages.messages)
           ? initCollapse(dataMessages.messages)
           : [];
-  
+
         // 4) setThreads
         setThreads((prevThreads) =>
           prevThreads.map((th) => {
@@ -234,24 +234,33 @@ export default function ThreadedDocument() {
     };
   };
 
-// 你的 confirmEditingMessage
-const confirmEditingMessage = useCallback(
-  async (threadId: string, messageId: string) => {
-    console.log("[confirmEditingMessage] start, messageId =", messageId);
+  // 你的 confirmEditingMessage
+  const confirmEditingMessage = useCallback(
+    async (threadId: string, messageId: string) => {
+      console.log("[confirmEditingMessage] start, messageId =", messageId);
 
-    let finalContent: ContentPart[];
+      let finalContent: ContentPart[];
 
-    try {
-      // 先尝试把编辑框内容 JSON.parse
-      const maybeJson = JSON.parse(editingContent);
+      try {
+        // 先尝试把编辑框内容 JSON.parse
+        const maybeJson = JSON.parse(editingContent);
 
-      if (Array.isArray(maybeJson)) {
-        // 如果 parse 后确实是数组 => 说明用户在编辑框里就是写的完整 JSON
-        // 这时就直接用它
-        finalContent = maybeJson;
-      } else {
-        // 如果不是数组 => 就当纯字符串
-        // 并包成 ContentPart[] 
+        if (Array.isArray(maybeJson)) {
+          // 如果 parse 后确实是数组 => 说明用户在编辑框里就是写的完整 JSON
+          // 这时就直接用它
+          finalContent = maybeJson;
+        } else {
+          // 如果不是数组 => 就当纯字符串
+          // 并包成 ContentPart[] 
+          finalContent = [
+            {
+              type: "text",
+              text: editingContent.trim(),
+            },
+          ];
+        }
+      } catch (err) {
+        // 如果 JSON.parse 失败 => 说明用户输入的是纯文本
         finalContent = [
           {
             type: "text",
@@ -259,62 +268,53 @@ const confirmEditingMessage = useCallback(
           },
         ];
       }
-    } catch (err) {
-      // 如果 JSON.parse 失败 => 说明用户输入的是纯文本
-      finalContent = [
-        {
-          type: "text",
-          text: editingContent.trim(),
-        },
-      ];
-    }
 
-    // 更新前端的 thread 数据（乐观更新）
-    setThreads((prev: Thread[]) =>
-      prev.map((thread) => {
-        if (thread.id !== threadId) return thread;
+      // 更新前端的 thread 数据（乐观更新）
+      setThreads((prev: Thread[]) =>
+        prev.map((thread) => {
+          if (thread.id !== threadId) return thread;
 
-        const editMessage = (messages: Message[]): Message[] => {
-          return messages.map((message) => {
-            if (message.id === messageId) {
-              // 注意，这里 message.content 直接写 finalContent
-              return { ...message, content: finalContent };
-            }
-            return {
-              ...message,
-              replies: editMessage(message.replies),
-            };
-          });
-        };
+          const editMessage = (messages: Message[]): Message[] => {
+            return messages.map((message) => {
+              if (message.id === messageId) {
+                // 注意，这里 message.content 直接写 finalContent
+                return { ...message, content: finalContent };
+              }
+              return {
+                ...message,
+                replies: editMessage(message.replies),
+              };
+            });
+          };
 
-        return { ...thread, messages: editMessage(thread.messages) };
-      })
-    );
+          return { ...thread, messages: editMessage(thread.messages) };
+        })
+      );
 
-    setEditingMessage(null);
-    setEditingContent("");
+      setEditingMessage(null);
+      setEditingContent("");
 
-    // 发送给后端
-    try {
-      console.log("[confirmEditingMessage] sending PATCH /api/messages/", messageId);
-      const res = await fetch(`/api/messages/${messageId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          content: finalContent, // 这时后端就能拿到一个 ContentPart[] 
-        }),
-      });
-      console.log("[confirmEditingMessage] response status =", res.status);
-      if (!res.ok) {
-        throw new Error("Failed to update message content");
+      // 发送给后端
+      try {
+        console.log("[confirmEditingMessage] sending PATCH /api/messages/", messageId);
+        const res = await fetch(`/api/messages/${messageId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            content: finalContent, // 这时后端就能拿到一个 ContentPart[] 
+          }),
+        });
+        console.log("[confirmEditingMessage] response status =", res.status);
+        if (!res.ok) {
+          throw new Error("Failed to update message content");
+        }
+        console.log("Message content updated in DB!");
+      } catch (e) {
+        console.error("confirmEditingMessage error:", e);
       }
-      console.log("Message content updated in DB!");
-    } catch (e) {
-      console.error("confirmEditingMessage error:", e);
-    }
-  },
-  [editingContent, setEditingContent, setEditingMessage, setThreads]
-);
+    },
+    [editingContent, setEditingContent, setEditingMessage, setThreads]
+  );
 
 
   // Fetch available models from the API or cache
@@ -391,7 +391,7 @@ const confirmEditingMessage = useCallback(
   }, [setAvailableModels]);
 
   // Save threads to storage and backend
- const saveThreads = useCallback(async (threadsToSave: Thread[]) => {
+  const saveThreads = useCallback(async (threadsToSave: Thread[]) => {
     try {
       // Always save to local storage/IndexedDB
       await storage.setLarge("threads", threadsToSave);
@@ -410,19 +410,19 @@ const confirmEditingMessage = useCallback(
     } catch (error) {
       console.error("Failed to save threads:", error);
     }
-  }, [apiBaseUrl]);
+  }, []);
 
   // Debounce saveThreads to avoid frequent saves
   const debouncedSaveThreads = useMemo(
     () => debounce(saveThreads, 2000),
     [saveThreads]
-  ); 
- 
+  );
+
   const addThread = useCallback(async () => {
     // 1) 先生成前端 ID
     const frontEndId = uuidv4();
     console.log("[addThread] start create thread => frontEndId =", frontEndId);
-  
+
     // 2) 创建一个乐观的 thread（如果你想插入一个“空白”或“占位”的对象）
     //    或者也可以只等后端成功后再来 setThreads
     const optimisticThread: Thread = {
@@ -434,7 +434,7 @@ const confirmEditingMessage = useCallback(
     };
     // 先插入到前端
     setThreads((prev) => [...prev, optimisticThread]);
-  
+
     try {
       // 3) 发起后端请求，写入数据库
       const res = await fetch("/api/threads", {
@@ -445,30 +445,30 @@ const confirmEditingMessage = useCallback(
       if (!res.ok) {
         throw new Error("Failed to create thread");
       }
-  
+
       const data = await res.json();
       console.log("[addThread] server returned data =", data);
-  
+
       // 4) 这里你可以“更新” 或 “替换” 前端状态中的这个 thread，
       //    也可直接把后端返回的“新 thread”再合并/覆盖一次
       const returnedThread: Thread = data.thread;
       setThreads((prev) =>
         prev.map((t) => (t.id === frontEndId ? returnedThread : t))
       );
-  
+
       // 5) 如果需要从后端再 fetch 额外数据(例如它的 messages等)，可以在这儿 fetch
       //    fetchSingleThread(returnedThread.id);
-  
+
       // 6) 最后再选中它
       setCurrentThread(returnedThread.id);
       setEditingThreadTitle(returnedThread.id);
       setOriginalThreadTitle(returnedThread.title || "");
       setNewThreadId(returnedThread.id);
-  
+
       console.log("[addThread] success => newThreadId =", returnedThread.id);
     } catch (error) {
       console.error("[addThread] error =>", error);
-  
+
       // 如果后端失败 => 可考虑回滚
       setThreads((prev) => prev.filter((t) => t.id !== frontEndId));
     }
@@ -479,7 +479,7 @@ const confirmEditingMessage = useCallback(
     setOriginalThreadTitle,
     setNewThreadId
   ]);
-  
+
   // Add message to a thread
   const addMessage = useCallback(
     (
@@ -504,18 +504,18 @@ const confirmEditingMessage = useCallback(
       setThreads((prev) =>
         prev.map((thread) => {
           if (thread.id !== threadId) return thread;
-  
+
           const newMessage: Message = {
-            id: newMessageId||realId,
+            id: newMessageId || realId,
             content,
             publisher,
-  
+
             // 如果是用户，就带上本地用户名；如果是 AI，就带上 model 信息
-            userName: publisher === "user"?(username ?? undefined) : undefined,
+            userName: publisher === "user" ? (username ?? undefined) : undefined,
             modelId: publisher === "ai" ? modelDetails?.id : undefined,
             modelConfig:
-            publisher === "ai"
-              ? {
+              publisher === "ai"
+                ? {
                   id: modelDetails?.id,
                   name: modelDetails?.name,
                   baseModel: modelDetails?.baseModel,
@@ -524,15 +524,15 @@ const confirmEditingMessage = useCallback(
                     ...modelDetails?.parameters,
                   },
                 }
-              : undefined,
+                : undefined,
             replies: [],
             isCollapsed: false,
             userCollapsed: false,
           };
-  
+
           // 选中这条消息
           setSelectedMessages((prev) => ({ ...prev, [String(currentThread)]: newMessage.id }));
-  
+
           // c) 插入树形结构
           function addReplyToMessage(msg: Message): Message {
             if (msg.id === parentId) {
@@ -543,60 +543,60 @@ const confirmEditingMessage = useCallback(
               replies: msg.replies.map(addReplyToMessage),
             };
           }
-  
+
           // 如果没有 parentId，就插在根节点
           if (!parentId) {
             return { ...thread, messages: [...thread.messages, newMessage] };
           }
-  
+
           // 否则找到 parentId 在它的 replies 里插入
           return {
             ...thread,
             messages: thread.messages.map(addReplyToMessage),
           };
         })
-    );
-  
+      );
+
       // 2) 调后端 /api/messages 写入数据库
       (async () => {
         try {
 
-        console.log("[addMessage] sending POST /api/messages with id=", realId);
+          console.log("[addMessage] sending POST /api/messages with id=", realId);
           const response = await fetch("/api/messages", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              id:realId, 
+              id: realId,
               threadId,
               parentId,
               publisher,
               content,
               modelConfig:
-              publisher === "ai"
-                ? {
+                publisher === "ai"
+                  ? {
                     id: modelDetails?.id,
                     name: modelDetails?.name,
                     baseModel: modelDetails?.baseModel,
                     systemPrompt: modelDetails?.systemPrompt,
                     parameters: modelDetails?.parameters,
                   }
-                : null,
+                  : null,
             }),
           });
           console.log("[addMessage] got response status =", response.status);
           if (!response.ok) {
             throw new Error("Failed to create message");
           }
-  
+
         } catch (error) {
           console.error("addMessage failed:", error);
           // 如果想回滚插入的临时消息，可在这里做 setThreads() 移除 tempId
         }
       })();
     },
-    [setThreads, setSelectedMessages, currentThread,username]
+    [setThreads, setSelectedMessages, currentThread, username]
   );
-  
+
 
   // Change the model
   const handleModelChange = useCallback(
@@ -672,44 +672,44 @@ const confirmEditingMessage = useCallback(
   );
 
   // Save thread to backend
-/*   const saveThreadToBackend = useCallback(
-    async (threadId: string, updatedData: Partial<Thread>) => {
-      try {
-        // Cache the thread data to local storage
-        const cachedThreads = storage.get("threads") || "[]"
-        const updatedThreads = cachedThreads.map((thread: Thread) =>
-          thread.id === threadId ? { ...thread, ...updatedData } : thread
-        );
-        storage.set("threads", updatedThreads);
-
-        // Only update the backend if apiBaseUrl is available
-        if (apiBaseUrl) {
-          const lastUpdateTime = parseInt(
-            storage.get("lastThreadUpdateTime") || "0"
+  /*   const saveThreadToBackend = useCallback(
+      async (threadId: string, updatedData: Partial<Thread>) => {
+        try {
+          // Cache the thread data to local storage
+          const cachedThreads = storage.get("threads") || "[]"
+          const updatedThreads = cachedThreads.map((thread: Thread) =>
+            thread.id === threadId ? { ...thread, ...updatedData } : thread
           );
-          const currentTime = Date.now();
-          if (currentTime - lastUpdateTime > 60000) {
-            // Update every 60 seconds
-            const response = await fetch(`/api/threads`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ threadId, thread: { ...updatedData } }),
-            });
-            if (!response.ok) {
-              throw new Error(`editthread ${threadId} fail`);
-            }
-            storage.set(
-              "lastThreadUpdateTime",
-              currentTime.toString()
+          storage.set("threads", updatedThreads);
+  
+          // Only update the backend if apiBaseUrl is available
+          if (apiBaseUrl) {
+            const lastUpdateTime = parseInt(
+              storage.get("lastThreadUpdateTime") || "0"
             );
+            const currentTime = Date.now();
+            if (currentTime - lastUpdateTime > 60000) {
+              // Update every 60 seconds
+              const response = await fetch(`/api/threads`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ threadId, thread: { ...updatedData } }),
+              });
+              if (!response.ok) {
+                throw new Error(`editthread ${threadId} fail`);
+              }
+              storage.set(
+                "lastThreadUpdateTime",
+                currentTime.toString()
+              );
+            }
           }
+        } catch (error) {
+          console.error(`update ${threadId} datafail:`, error);
         }
-      } catch (error) {
-        console.error(`update ${threadId} datafail:`, error);
-      }
-    },
-    []
-  ); */
+      },
+      []
+    ); */
   const SaveThreadToBackend = useCallback(async (threadId: string, updatedData: Partial<Thread>) => {
     console.log("Front-end: calling fetch PATCH /api/threads/[id]", { threadId, updatedData });
     try {
@@ -730,7 +730,7 @@ const confirmEditingMessage = useCallback(
       throw error;
     }
   }, []);
-  
+
 
   const debouncedSaveThreadToBackend = useMemo(() => {
     return debounce(
@@ -755,7 +755,7 @@ const confirmEditingMessage = useCallback(
         threadId,
         newTitle,
       });
-  
+
       debouncedSaveThreadToBackend(threadId, { title: newTitle });
     },
     [
@@ -769,7 +769,7 @@ const confirmEditingMessage = useCallback(
   const startEditingMessage = useCallback(
     (message: Message) => {
       setEditingMessage(message.id);
-  
+
       if (Array.isArray(message.content)) {
         // 只把 text 的部分拼起来
         // （也可以只取第一个 textPart，或把它们加上分隔符拼一起）
@@ -777,8 +777,8 @@ const confirmEditingMessage = useCallback(
           .filter((part) => part.type === "text")
           .map((part) => part.text)
           .join("\n\n");
-  
-        setEditingContent(textParts || ""); 
+
+        setEditingContent(textParts || "");
       } else if (typeof message.content === "string") {
         // 老的情况，直接把 string 显示
         setEditingContent(message.content);
@@ -789,7 +789,7 @@ const confirmEditingMessage = useCallback(
     },
     [setEditingContent, setEditingMessage]
   );
-  
+
 
   const cancelEditThreadTitle = useCallback(() => {
     if (editingThreadTitle) {
@@ -812,7 +812,7 @@ const confirmEditingMessage = useCallback(
   // Add a new message
   const addEmptyReply = useCallback(
     (threadId: string, parentId: string | null) => {
-      const newId=uuidv4();
+      const newId = uuidv4();
 
       addMessage(threadId, parentId, "", "user", newId);
 
@@ -840,7 +840,7 @@ const confirmEditingMessage = useCallback(
 
   // Delete a message
   const deleteMessage = useCallback(
-    async(threadId: string, messageId: string, deleteOption: boolean | 'clear') => {
+    async (threadId: string, messageId: string, deleteOption: boolean | 'clear') => {
       const oldThreads = structuredClone(threads);
       setThreads((prev: Thread[]) =>
         prev.map((thread) => {
@@ -928,7 +928,7 @@ const confirmEditingMessage = useCallback(
         setThreads(oldThreads);
       }
     },
-    [setSelectedMessages, findMessageAndParents, currentThread, setThreads]
+    [setSelectedMessages, findMessageAndParents, threads, currentThread, setThreads]
   );
 
   // Toggle message collapse state
@@ -1017,7 +1017,7 @@ const confirmEditingMessage = useCallback(
               deleteMessage(thread.id, message.id, false);
               return acc;
             }
-            return [...acc,{...message, replies: removeEmptyMessage(message.replies) }];
+            return [...acc, { ...message, replies: removeEmptyMessage(message.replies) }];
           }, []);
         };
         return { ...thread, messages: removeEmptyMessage(thread.messages) };
@@ -1045,7 +1045,7 @@ const confirmEditingMessage = useCallback(
         );
       }
       const data = await response.json();
-//导致数据库模型参数混乱的主要原因。
+      //导致数据库模型参数混乱的主要原因。
       // Find the corresponding model in availableModels to get the max_output
       const selectedModel = availableModels.find(
         (model) => model.id === modelId
@@ -1053,7 +1053,7 @@ const confirmEditingMessage = useCallback(
       if (selectedModel && selectedModel.parameters?.max_output) {
         data.max_output = selectedModel.parameters.max_output;
       }
-console.log("fetch model parameter: ", data);
+      console.log("fetch model parameter: ", data);
       return data;
     } catch (error) {
       console.error("Error fetching model parameters:", error);
@@ -1089,10 +1089,11 @@ console.log("fetch model parameter: ", data);
         });
         if (!res.ok) {
           throw new Error(`Failed to update model ${editingModel.id}`);
-        } } catch (err) {
-          console.error("[saveModelChanges] error =>", err);
-         
         }
+      } catch (err) {
+        console.error("[saveModelChanges] error =>", err);
+
+      }
       setEditingModel(null);
     }
   }, [editingModel, setEditingModel, setModels]);
@@ -1102,7 +1103,7 @@ console.log("fetch model parameter: ", data);
       // 1) 先把当前的前端状态记录下来，以便失败后回滚
       const oldModels = structuredClone(models);
       const oldSelected = [...selectedModels];
-  
+
       // 2) 前端先行移除
       setModels((prev) => prev.filter((model) => model.id !== id));
       if (selectedModels.includes(id)) {
@@ -1111,11 +1112,11 @@ console.log("fetch model parameter: ", data);
 
         // 如果还有别的 model，就选一下别的
         // 这里示例：如果原本 models.length > 1，就选第一个没删的
-      /*   const remainingModels = oldModels.filter((m) => m.id !== id);
-        if (remainingModels.length > 0) {
-          newSelected.push(remainingModels[0].id);
-        }
- */
+        /*   const remainingModels = oldModels.filter((m) => m.id !== id);
+          if (remainingModels.length > 0) {
+            newSelected.push(remainingModels[0].id);
+          }
+   */
         setSelectedModels(newSelected);
       }
       // 3) 发起后端请求
@@ -1135,57 +1136,57 @@ console.log("fetch model parameter: ", data);
     },
     [models, selectedModels, setModels, setSelectedModels]
   );
-// 假设在外层你已导入/定义:
-//   import { v4 as uuidv4 } from 'uuid';
-//   interface Model { ... } // your Model interface
+  // 假设在外层你已导入/定义:
+  //   import { v4 as uuidv4 } from 'uuid';
+  //   interface Model { ... } // your Model interface
 
-const addNewModel = useCallback(async () => {
-  const newId = uuidv4();
-  const newModel: Model = {
-    id: newId,
-    name: "New Model",
-    baseModel: "none",
-    systemPrompt: "You are a helpful assistant.",
-    parameters: {
-      temperature: 1,
-      top_p: 1,
-      max_tokens: 2000,
-    },
-  };
+  const addNewModel = useCallback(async () => {
+    const newId = uuidv4();
+    const newModel: Model = {
+      id: newId,
+      name: "New Model",
+      baseModel: "none",
+      systemPrompt: "You are a helpful assistant.",
+      parameters: {
+        temperature: 1,
+        top_p: 1,
+        max_tokens: 2000,
+      },
+    };
 
-  // 1) 先“乐观”地插入到前端，并让用户可以编辑
-  setModels((prev) => [...prev, newModel]);
-  
+    // 1) 先“乐观”地插入到前端，并让用户可以编辑
+    setModels((prev) => [...prev, newModel]);
 
-  try {
-    // 2) 调用后端插入接口（只插 1 条）
-    const response = await fetch("/api/models", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model: newModel }),
-    });
 
-    if (!response.ok) {
-      throw new Error("Failed to create new model");
+    try {
+      // 2) 调用后端插入接口（只插 1 条）
+      const response = await fetch("/api/models", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: newModel }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to create new model");
+      }
+
+      // 3) 后端创建成功 -> 不用做额外操作
+      const data = await response.json();
+      setEditingModel(newModel);
+      console.log("[addNewModel] server created =>", data.model);
+      // 如果后端对 newModel 有做二次处理（比如 ID 重写），
+      // 也可在这里同步回前端:
+      // setModels(prev => prev.map(m => m.id === newId ? {...m, id: data.model.id} : m));
+
+    } catch (err) {
+      console.error("[addNewModel] error =>", err);
+
+      // 4) 如果后端失败 => 回滚
+      setModels((prev) => prev.filter((m) => m.id !== newId));
+      setEditingModel(null);
+      // 根据需要，你也可以给用户弹个报错提示
     }
-
-    // 3) 后端创建成功 -> 不用做额外操作
-    const data = await response.json();
-    setEditingModel(newModel);
-    console.log("[addNewModel] server created =>", data.model);
-    // 如果后端对 newModel 有做二次处理（比如 ID 重写），
-    // 也可在这里同步回前端:
-    // setModels(prev => prev.map(m => m.id === newId ? {...m, id: data.model.id} : m));
-
-  } catch (err) {
-    console.error("[addNewModel] error =>", err);
-
-    // 4) 如果后端失败 => 回滚
-    setModels((prev) => prev.filter((m) => m.id !== newId));
-    setEditingModel(null);
-    // 根据需要，你也可以给用户弹个报错提示
-  }
-}, [setModels, setEditingModel]);
+  }, [setModels, setEditingModel]);
 
   const toggleThreadPin = useCallback(async (threadId: string) => {
     console.log("[toggleThreadPin] clicked => threadId=", threadId);
@@ -1224,46 +1225,46 @@ const addNewModel = useCallback(async () => {
     }
   }, [threads, setThreads]);
 
- 
- // ------------------------------------------------
- const deleteThread = useCallback(async (threadId: string) => {
-  console.log("[deleteThread] clicked => threadId=", threadId);
-  const oldThreads = threads;
-  const oldCurrent = currentThread;
 
-  console.log("[deleteThread] oldThreads=", oldThreads);
+  // ------------------------------------------------
+  const deleteThread = useCallback(async (threadId: string) => {
+    console.log("[deleteThread] clicked => threadId=", threadId);
+    const oldThreads = threads;
+    const oldCurrent = currentThread;
 
-  // 先行移除
-  setThreads((prev) => {
-    console.log("[deleteThread] setThreads old =>", prev);
-    const newList = prev.filter((t) => t.id !== threadId);
-    console.log("[deleteThread] newList =>", newList);
-    return newList;
-  });
+    console.log("[deleteThread] oldThreads=", oldThreads);
 
-  if (currentThread === threadId) {
-    console.log("[deleteThread] removing currentThread => setCurrentThread(null)");
-    setCurrentThread(null);
-  }
-
-  try {
-    console.log("[deleteThread] fetch => /api/threads/", threadId);
-    const res = await fetch(`/api/threads/${threadId}`, {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
+    // 先行移除
+    setThreads((prev) => {
+      console.log("[deleteThread] setThreads old =>", prev);
+      const newList = prev.filter((t) => t.id !== threadId);
+      console.log("[deleteThread] newList =>", newList);
+      return newList;
     });
-    if (!res.ok) {
-      throw new Error(`[deleteThread] server fail, status=${res.status}`);
+
+    if (currentThread === threadId) {
+      console.log("[deleteThread] removing currentThread => setCurrentThread(null)");
+      setCurrentThread(null);
     }
-    console.log("[deleteThread] success => server removed");
-  } catch (err) {
-    console.error("[deleteThread] fail => revert local state, err=", err);
-    // 回滚
-    setThreads(oldThreads);
-    setCurrentThread(oldCurrent);
-  }
-}, [threads, currentThread, setThreads, setCurrentThread]);
-  
+
+    try {
+      console.log("[deleteThread] fetch => /api/threads/", threadId);
+      const res = await fetch(`/api/threads/${threadId}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!res.ok) {
+        throw new Error(`[deleteThread] server fail, status=${res.status}`);
+      }
+      console.log("[deleteThread] success => server removed");
+    } catch (err) {
+      console.error("[deleteThread] fail => revert local state, err=", err);
+      // 回滚
+      setThreads(oldThreads);
+      setCurrentThread(oldCurrent);
+    }
+  }, [threads, currentThread, setThreads, setCurrentThread]);
+
 
   // Update message content
   const updateMessageContent = useCallback(
@@ -1307,7 +1308,7 @@ const addNewModel = useCallback(async () => {
 
   const pasteMessage = useCallback(
     (threadId: string, parentId: string | null) => {
-      const newId=uuidv4();
+      const newId = uuidv4();
 
       const messageToPaste = clipboardMessage?.message || {
         id: newId,
@@ -1389,33 +1390,33 @@ const addNewModel = useCallback(async () => {
         });
       });
 
- (async () => {
-      try {
-        // 只在有 clipboardMessage 情况下发请求，
-        // 或者你也可以写成“无论如何都发”，看需求
-        if (clipboardMessage) {
-          const response = await fetch("/api/messages", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              id: newId,
-              threadId: threadId,
-              parentId: parentId,
-              publisher: messageToPaste.publisher,
-              content: messageToPaste.content,
-              modelConfig: messageToPaste.modelConfig ?? null,
-            }),
-          });
-          if (!response.ok) {
-            throw new Error("Failed to create pasted message in DB");
+      (async () => {
+        try {
+          // 只在有 clipboardMessage 情况下发请求，
+          // 或者你也可以写成“无论如何都发”，看需求
+          if (clipboardMessage) {
+            const response = await fetch("/api/messages", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                id: newId,
+                threadId: threadId,
+                parentId: parentId,
+                publisher: messageToPaste.publisher,
+                content: messageToPaste.content,
+                modelConfig: messageToPaste.modelConfig ?? null,
+              }),
+            });
+            if (!response.ok) {
+              throw new Error("Failed to create pasted message in DB");
+            }
+            console.log("[pasteMessage] success => server stored new message", newId);
           }
-          console.log("[pasteMessage] success => server stored new message", newId);
+        } catch (err) {
+          console.error("[pasteMessage] error => server store fail:", err);
+          // 如需回滚可在此执行 setThreads(...) 删除临时消息
         }
-      } catch (err) {
-        console.error("[pasteMessage] error => server store fail:", err);
-        // 如需回滚可在此执行 setThreads(...) 删除临时消息
-      }
-    })();
+      })();
       if (currentThread) {
         setSelectedMessages((prev) => ({
           ...prev,
@@ -1514,9 +1515,9 @@ const addNewModel = useCallback(async () => {
               alert(`Sign in to use ${model.baseModel}`);
               return;
             }
-            const newId=uuidv4();
+            const newId = uuidv4();
 
-         
+
             // Pass the model details when creating the message
             addMessage(threadId, messageId, "", "ai", newId, model);
             setIsGenerating((prev) => ({ ...prev, [newId]: true }));
@@ -1526,15 +1527,15 @@ const addNewModel = useCallback(async () => {
               const enabledTools = (model.parameters?.tool_choice !== "none" && model.parameters?.tool_choice !== undefined
                 ? model.parameters?.tools ?? []
                 : []) as Tool[];
-                let finalContent: string;
+              let finalContent: string;
 
-                if (typeof message.content === "string") {
-                  // 如果本来就是字符串，就直接保留
-                  finalContent = message.content;
-                } else {
-                  // 如果是 ContentPart[] 或别的，就转换
-                  finalContent = JSON.stringify(message.content);
-                }
+              if (typeof message.content === "string") {
+                // 如果本来就是字符串，就直接保留
+                finalContent = message.content;
+              } else {
+                // 如果是 ContentPart[] 或别的，就转换
+                finalContent = JSON.stringify(message.content);
+              }
               await generateAIResponse(
                 finalContent,
                 message.publisher,
@@ -1606,7 +1607,8 @@ const addNewModel = useCallback(async () => {
       addMessage,
       findMessageById,
       updateMessageContent,
-      isGenerating
+      isGenerating,
+      isSignedIn
     ]
   );
 
@@ -1614,11 +1616,11 @@ const addNewModel = useCallback(async () => {
   useEffect(() => {
     const loadThreads = async () => {
       try {
-      /*   const cachedThreads = await storage.getLarge("threads");
-        if (cachedThreads) {
-          setThreads(cachedThreads);
-          return;
-        } */
+        /*   const cachedThreads = await storage.getLarge("threads");
+          if (cachedThreads) {
+            setThreads(cachedThreads);
+            return;
+          } */
 
         /* if (!apiBaseUrl) {
           const newId=uuidv4();
@@ -1656,7 +1658,7 @@ const addNewModel = useCallback(async () => {
         }
       } catch (error) {
         console.error("Load failed:", error);
-        const newId=uuidv4();
+        const newId = uuidv4();
 
         const defaultThread = {
           id: newId,
@@ -1765,12 +1767,12 @@ const addNewModel = useCallback(async () => {
     }, [isConnected, lastAttemptTime]);
     */
   // Save threads
-/*   useEffect(() => {
-    debouncedSaveThreads(threads);
-    return () => {
-      debouncedSaveThreads.cancel();
-    };
-  }, [threads, debouncedSaveThreads]); */
+  /*   useEffect(() => {
+      debouncedSaveThreads(threads);
+      return () => {
+        debouncedSaveThreads.cancel();
+      };
+    }, [threads, debouncedSaveThreads]); */
 
   /*   useEffect(() => {
       const savedScroll = storage.get('scrollPosition');
@@ -1811,11 +1813,12 @@ const addNewModel = useCallback(async () => {
         top_p: 1,
         max_tokens: 1000,
       },
-    };}
+    };
+  }
   // Add new thread
   useEffect(() => {
     const loadModels = async () => {
-     
+
       try {
         const response = await fetch(`/api/models`, {
           method: "GET",
@@ -1826,47 +1829,47 @@ const addNewModel = useCallback(async () => {
 
           // If no models are loaded, add the default model
           if (loadedModels.length === 0) {
-            
-            loadedModels =[createDefaultModel()];
+
+            loadedModels = [createDefaultModel()];
           }
           setModels(loadedModels);
           setModelsLoaded(true);
         } else {
           console.error("Failed to load models from backend.");
           // Ensure default model is set if loading fails and no cache exists
-          
-            setModels([createDefaultModel()]);
-            setModelsLoaded(true);
-         
+
+          setModels([createDefaultModel()]);
+          setModelsLoaded(true);
+
         }
       } catch (error) {
         console.error("Error loading models:", error);
-       
+
       }
     };
 
     loadModels();
   }, [setModels, setModelsLoaded, setSelectedModels]);
 
- /*  // fetch available models
-  useEffect(() => {
-    const saveModels = async () => {
-      try {
-        await fetch(`/api/models`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ models }),
-        });
-      } catch (error) {
-        console.error("保存模型数据失败：", error);
-      }
-    };
-
-    if (modelsLoaded && models.length > 0) {
-      saveModels();
-    }
-  }, [models, modelsLoaded]);
- */
+  /*  // fetch available models
+   useEffect(() => {
+     const saveModels = async () => {
+       try {
+         await fetch(`/api/models`, {
+           method: "POST",
+           headers: { "Content-Type": "application/json" },
+           body: JSON.stringify({ models }),
+         });
+       } catch (error) {
+         console.error("保存模型数据失败：", error);
+       }
+     };
+ 
+     if (modelsLoaded && models.length > 0) {
+       saveModels();
+     }
+   }, [models, modelsLoaded]);
+  */
   useEffect(() => {
     fetchAvailableModels();
   }, [fetchAvailableModels]);
@@ -1876,34 +1879,34 @@ const addNewModel = useCallback(async () => {
       // 如果没有选中任何 thread，就直接 return
       return;
     }
-  
+
     // 如果根本不存在 selectedMessages[currentThread]，也无须展开
     if (!selectedMessages[currentThread]) {
       return;
     }
-  
+
     setThreads((prevThreads) =>
       prevThreads.map((thread) => {
         if (thread.id !== currentThread) {
           return thread;
         }
-  
+
         // 防御：如果 thread.messages 不是数组，则打印一下看看
         if (!Array.isArray(thread.messages)) {
           console.warn(
             "[collapseDeepChildren] thread.messages 不是数组，无法迭代，thread=",
             thread
           );
-          return thread; 
+          return thread;
           // 或者 return { ...thread, messages: [] }; 视实际需求决定
         }
-  
+
         // 调试：先输出一下 messages 长啥样
         console.log(
           "[collapseDeepChildren] currentThread messages =",
           thread.messages
         );
-  
+
         const findSelectedMessageBranch = (
           messages: Message[],
           depth: number = 0
@@ -1922,11 +1925,11 @@ const addNewModel = useCallback(async () => {
           }
           return [-1, []];
         };
-  
+
         const [selectedDepth, selectedBranch] = findSelectedMessageBranch(
           thread.messages
         );
-  
+
         return {
           ...thread,
           messages: thread.messages.map((msg) => {
@@ -1942,7 +1945,7 @@ const addNewModel = useCallback(async () => {
       })
     );
   }, [selectedMessages, currentThread, setThreads, collapseDeepChildren]);
-  
+
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
