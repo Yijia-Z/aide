@@ -1648,34 +1648,22 @@ const addNewModel = useCallback(async () => {
         });
         if (response.ok) {
           const data = await response.json();
-          const loadedThreads = data.threads || [];
-          setThreads(loadedThreads);
-          storage.set("threads", loadedThreads);
+         
+          if (data.threads?.length > 0) {
+            setThreads(data.threads);
+            storage.set("threads", data.threads);
+          } else {
+            // 这里调用你写好的 addThread，来创建“Welcome Thread” 而不是直接 setThreads
+            addThread(); 
+          }
         } else {
-          throw new Error("Failed to load threads from backend");
+          // 同理：后端报错时也可以再用 addThread()
+          addThread();
         }
       } catch (error) {
         console.error("Load failed:", error);
-        const newId=uuidv4();
-
-        const defaultThread = {
-          id: newId,
-          title: "Welcome Thread",
-          isPinned: false,
-          messages: [
-            {
-              id: newId,
-              content:
-                "Welcome to your new chat thread! You can start a conversation here or create a new thread.",
-              publisher: "ai" as const,
-              replies: [],
-              isCollapsed: false,
-              userCollapsed: false,
-            },
-          ],
-        };
-        setThreads([defaultThread]);
-        storage.set("threads", [defaultThread]);
+        // 也可以调用 addThread()
+        addThread();
       }
     };
 
@@ -1811,43 +1799,72 @@ const addNewModel = useCallback(async () => {
         top_p: 1,
         max_tokens: 1000,
       },
-    };}
-  // Add new thread
+    };
+  }
+  
+  // 在你的 useEffect 里，检测如果后端没有模型，就创建默认模型并同步到后端：
   useEffect(() => {
     const loadModels = async () => {
-     
       try {
-        const response = await fetch(`/api/models`, {
-          method: "GET",
-        });
-        if (response.ok) {
-          const data = await response.json();
-          let loadedModels = data.models || [];
-
-          // If no models are loaded, add the default model
-          if (loadedModels.length === 0) {
-            
-            loadedModels =[createDefaultModel()];
-          }
-          setModels(loadedModels);
-          setModelsLoaded(true);
-        } else {
+        const response = await fetch("/api/models", { method: "GET" });
+        if (!response.ok) {
           console.error("Failed to load models from backend.");
-          // Ensure default model is set if loading fails and no cache exists
-          
-            setModels([createDefaultModel()]);
-            setModelsLoaded(true);
-         
+          // 如果加载失败，也给一个默认模型
+          const defaultM = createDefaultModel();
+          setModels([defaultM]);
+          setModelsLoaded(true);
+          return;
         }
+  
+        const data = await response.json();
+        let loadedModels = data.models || [];
+  
+        // 如果后端没有任何模型，就创建一个默认模型
+        if (loadedModels.length === 0) {
+          const defaultM = createDefaultModel();
+          // 先放进前端 state
+          loadedModels = [defaultM];
+          // 然后立刻 POST 到后端，确保后续 patch 不会 404
+          try {
+            const res = await fetch("/api/models", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ model: defaultM }),
+            });
+            if (!res.ok) {
+              throw new Error("Failed to create default model in DB");
+            }
+            const postData = await res.json();
+            // 如果后端对这个 model 做了二次处理/重写了 id，这里可再次 setModels
+            if (postData.model && postData.model.id !== defaultM.id) {
+              // 同步更新到前端 state
+              defaultM.id = postData.model.id;
+              loadedModels = [defaultM];
+            }
+          } catch (err) {
+            console.error("[loadModels] failed to create default model =>", err);
+          }
+        }
+  
+        setModels(loadedModels);
+        setModelsLoaded(true);
       } catch (error) {
         console.error("Error loading models:", error);
-       
+        // 兜底：如果你想在这里也放个默认模型
+        const defaultM = createDefaultModel();
+        setModels([defaultM]);
+        setModelsLoaded(true);
       }
     };
-
+  
     loadModels();
   }, [setModels, setModelsLoaded, setSelectedModels]);
-
+  
+  // 如果你还要获取 openrouter.ai 的可选模型，可依旧用你的 fetchAvailableModels：
+  useEffect(() => {
+    fetchAvailableModels();
+  }, [fetchAvailableModels]);
+  
  /*  // fetch available models
   useEffect(() => {
     const saveModels = async () => {

@@ -68,6 +68,8 @@ export async function GET(req: NextRequest) {
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    console.log('ENV CHECK =>', process.env.DATABASE_URL);
+
     // e.g. /api/messages?threadId=xxxx
     const url = new URL(req.url);
     const threadId = url.searchParams.get("threadId");

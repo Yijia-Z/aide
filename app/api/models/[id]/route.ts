@@ -6,15 +6,17 @@ import { auth } from "@clerk/nextjs/server";
 
 
 export async function PATCH(req: NextRequest,
-    { params }: { params: Promise<{ id: string }> }) {
+    { params }: { params: Promise<{id: string }> }) {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
+    console.log("[PATCH] raw params =>", params);
     const { id: modelId } = await params;
- 
+    console.log("[PATCH] modelId =>", modelId);
     const body = await req.json();
     // 你可以只允许 name, systemPrompt, parameters 等字段
+    console.log("[PATCH] received body =>", body);
     const { name, baseModel, systemPrompt, parameters } = body;
 
     // 先确认是否存在
@@ -41,14 +43,15 @@ export async function PATCH(req: NextRequest,
 }
 
 export async function DELETE(req: NextRequest,
-    { params }: { params: Promise<{ id: string }> }) {
-  const { userId } = await auth();
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  { params }: { params: Promise<{id: string }> }) {
+    const { userId } = await auth();
+    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   
-  try {
-    const { id: modelId } = await params;
-    
-    // 先查
+    try {
+      console.log("[PATCH] raw params =>", params);
+      const { id: modelId } = await params;
+      console.log("[PATCH] modelId =>", modelId);
+      
     const exist = await prisma.model.findFirst({
       where: { id: modelId, createdBy: userId, isDeleted: false },
     });

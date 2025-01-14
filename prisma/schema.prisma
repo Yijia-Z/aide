@@ -4,73 +4,96 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url       = env("DATABASE_URL") 
+  url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
 
+//////////////////////////////////////////////////////
+//  UserProfile
+//////////////////////////////////////////////////////
 model UserProfile {
-  id          String             @id   // Clerk 提供的 userId
+  id          String   @id // Clerk 提供的 userId
   username    String?
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // 与 ThreadMembership 的一对多
   memberships ThreadMembership[]
-  models       Model[]  
-  messages    Message[] 
-  tools Tool[]
+  // 与 Model 的一对多
+  models      Model[]
+  // 与 Message 的一对多
+  messages    Message[]
+
+  // 可以创建多个 Tool (一对多)
+  createdTools Tool[] @relation("UserCreatedTools")
+
+  // 用户可启用多个 Tool => 通过 AvailableTool
+  availableTools AvailableTool[] @relation("UserAvailableTools")
 }
 
+//////////////////////////////////////////////////////
+//  Thread
+//////////////////////////////////////////////////////
 model Thread {
-  id         String   @id 
+  id         String   @id
   title      String
 
   updatedAt  DateTime @updatedAt
   createdAt  DateTime @default(now())
-  // 新增字段 isDeleted，用于软删除标记
-  isDeleted  Boolean  @default(false)
+  isDeleted  Boolean  @default(false) // 软删除标记
 
+  // 关系
   memberships ThreadMembership[]
-  messages    Message[] 
+  messages    Message[]
 }
 
+//////////////////////////////////////////////////////
+//  ThreadMembership (复合主键 + 中间表: user <-> thread)
+//////////////////////////////////////////////////////
 model ThreadMembership {
   userId   String
   threadId String
-  // 在 membership 上加个 role，用于区分 "owner" / "editor" / "viewer" 等
+  // role: "owner" / "editor" / "viewer" ...
   role     String   @default("owner")
 
   joinedAt DateTime @default(now())
   pinned   Boolean  @default(false)
 
-  // 外键关联
+  // 外键
   userProfile UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
   thread      Thread      @relation(fields: [threadId], references: [id], onDelete: Cascade)
 
-  @@id([userId, threadId])  // 复合主键
+  @@id([userId, threadId])
 }
 
+//////////////////////////////////////////////////////
+//  Message
+//////////////////////////////////////////////////////
 model Message {
   id         String   @id
   threadId   String
-  parentId   String?       // 该消息的父消息 ID；null 表示是最顶层
-  publisher  String        // "user" | "ai" ...
-  userId     String?       // 当 publisher="user" 时，记录是哪位用户
+  parentId   String?     // 父消息 ID；null表示顶层
+  publisher  String      // "user"|"ai"
+  userId     String?
 
-  userProfile UserProfile? @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-
-  ownerId    String?       // 当 publisher="ai" 时，也可用 ownerId 表示谁可以编辑 AI 消息
-  content    Json?    @default(dbgenerated("'[]'::jsonb"))      // 或者可以换成 Json
+  ownerId    String?
+  content    Json?   @default(dbgenerated("'[]'::jsonb"))
   createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  updatedAt  DateTime @default(now())
   modelConfig Json?
+
   // 关系
-  
-  thread Thread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  userProfile UserProfile? @relation(fields: [userId], references: [id], onDelete: Cascade)
+  thread      Thread       @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
   @@index([threadId])
   @@index([parentId])
   @@index([userId])
-   
 }
+
+//////////////////////////////////////////////////////
+//  Model
+//////////////////////////////////////////////////////
 model Model {
   id           String   @id
   name         String
@@ -78,30 +101,76 @@ model Model {
   systemPrompt String
   parameters   Json
 
-  createdBy    String   // 指向 userProfile.id
+  // 创建者
+  createdBy    String
   createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  updatedAt    DateTime @default(now())
   isDeleted    Boolean  @default(false)
   deletedAt    DateTime?
+
+  // 与UserProfile是一对多
   userProfile  UserProfile @relation(fields: [createdBy], references: [id], onDelete: Cascade)
- 
+
+  // 多对多 => 通过中间表 ModelTool
+  tools Tool[] @relation("ModelToolsRelation")
+  modelTools ModelTool[] @relation("ModelToolsRelation")
+
   @@index([createdBy])
 }
+
+//////////////////////////////////////////////////////
+//  Tool
+//////////////////////////////////////////////////////
 model Tool {
   id          String   @id
   name        String
   description String
-  type        String?     
-  function    Json?       // JSON 形式保存函数签名
+  type        String?
+  function    Json?
 
-  createdBy   String      // 谁创建了这个 Tool
-  userProfile UserProfile @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  createdBy   String?
   isDeleted   Boolean  @default(false)
   deletedAt   DateTime?
-
   createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  updatedAt   DateTime @default(now())
+
+  // 指向创建者UserProfile(一对多)
+  userProfile UserProfile? @relation("UserCreatedTools", fields: [createdBy], references: [id], onDelete: Cascade)
+
+  // 与 Model 多对多 => 通过 ModelTool
+  models Model[] @relation("ModelToolsRelation")
+  modelTools ModelTool[] @relation("ModelToolsRelation")
+
+  // 与 AvailableTool：用户启用关系
+  availableTools AvailableTool[] @relation("UserAvailableToolsForTool")
 
   @@index([createdBy])
   @@index([name])
+}
+
+//////////////////////////////////////////////////////
+//  ModelTool (中间表: Model <-> Tool)
+//////////////////////////////////////////////////////
+model ModelTool {
+  modelId String
+  toolId  String
+
+  model Model @relation("ModelToolsRelation", fields: [modelId], references: [id], onDelete: Cascade)
+  tool  Tool  @relation("ModelToolsRelation", fields: [toolId], references: [id], onDelete: Cascade)
+
+  @@id([modelId, toolId])
+}
+
+//////////////////////////////////////////////////////
+//  AvailableTool (中间表: UserProfile <-> Tool)
+//////////////////////////////////////////////////////
+model AvailableTool {
+  userId String
+  toolId String
+
+  // 外键
+  user UserProfile @relation("UserAvailableTools", fields: [userId], references: [id], onDelete: Cascade)
+  tool Tool        @relation("UserAvailableToolsForTool", fields: [toolId], references: [id], onDelete: Cascade)
+
+  @@id([userId, toolId])
 }

@@ -10,7 +10,7 @@ export async function GET() {
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  
+  console.log('ENV CHECK =>', process.env.aide_POSTGRES_URL);
   try {
     // 查询 Thread 并联表拿到 pinned
     // 其中 pinned 存在 membership 里，而 membership 用 userId_threadId 做外键
@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-
+  console.log('ENV CHECK =>', process.env.DATABASE_URL);
   try {
     const { id, title } = await req.json() as {
       id: string; 
@@ -83,6 +83,7 @@ export async function POST(req: NextRequest) {
     // 2) 同时在 ThreadMembership 插入一条，表示当前 user 拥有此 Thread
     await prisma.threadMembership.create({
       data: {
+        
         userId,
         threadId: newThread.id,
         role: "owner",
