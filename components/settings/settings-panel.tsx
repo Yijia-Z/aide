@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { storage } from "@/components/store";
 import { useUserProfile } from "../hooks/use-userprofile";
-
+import Image from "next/image";
 
 /**
  * The `SettingsPanel` component renders a settings interface for the user.
@@ -97,7 +97,7 @@ export function SettingsPanel() {
                         Access premium models<br />
                         Save chat history
                       </DialogDescription>
-                      <img
+                      <Image
                         src="/app.png"
                         alt="App Preview"
                         className="w-3/4 mx-auto rounded-lg shadow-lg"
@@ -160,11 +160,10 @@ export function SettingsPanel() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
             whileHover={isEditingApiKey ? undefined : { y: -2 }}
-            className={`group p-2 rounded-lg mb-2 ${
-              isEditingApiKey
+            className={`group p-2 rounded-lg mb-2 ${isEditingApiKey
                 ? "custom-shadow"
                 : "md:hover:shadow-[inset_0_0_10px_10px_rgba(128,128,128,0.2)] bg-background cursor-pointer"
-            }`}
+              }`}
             onDoubleClick={() => {
               if (isSignedIn && !isEditingApiKey) {
                 setIsEditingApiKey(true);

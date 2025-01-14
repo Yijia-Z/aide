@@ -10,6 +10,7 @@ export const metadata: Metadata = {
   title: "Aide",
   description: "A dynamic platform for musing and conversing language models",
   keywords: "chat, AI, LLM, thread, conversation, language models",
+  metadataBase: new URL('https://aide.zy-j.com'),
   authors: [
     { name: "yijia zhao" },
     { name: "jiawei weng" },
