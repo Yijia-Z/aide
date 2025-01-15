@@ -500,32 +500,61 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
 
                     {/* 如果此消息和上层 model 不同，就显示 model name / tool badges */}
                     {modelDetails && (
-                      <div className="flex items-center space-x-1">
+                      <div className="flex items-center gap-1 flex-wrap">
                         {(!parentId ||
                           modelDetails?.id !==
                           findMessageById(
                             threads.find((t) => t.id === currentThread)?.messages || [],
                             parentId
                           )?.modelConfig?.id) && (
-                            <Badge variant="outline" className="select-none text-muted-foreground">
-                              <Bot className="w-3 h-3 mr-1" />
-                              {modelDetails.baseModel?.split("/").pop()?.split("-")[0]}
+                            <Badge
+                              variant="outline"
+                              className="select-none text-muted-foreground cursor-pointer md:cursor-default gap-1"
+                              onClick={(e) => {
+                                // Only handle click on mobile
+                                if (window.innerWidth < 768) {
+                                  e.stopPropagation();
+                                  const text = e.currentTarget.querySelector('span');
+                                  if (text) {
+                                    if (!text.style.display) {
+                                      text.style.display = 'none';
+                                    }
+                                    text.style.display = text.style.display === 'none' ? 'inline' : 'none';
+                                  }
+                                }
+                              }}
+                            >
+                              <Bot className="w-3 h-3" />
+                              <span>{modelDetails.baseModel?.split("/").pop()?.split("-")[0]}</span>
                             </Badge>
                           )}
                         {modelDetails.parameters?.tools &&
                           modelDetails.parameters.tools.length > 0 &&
                           modelDetails.parameters.tool_choice !== "none" && (
-                            <div className="flex gap-1">
+                            <div className="flex gap-1 flex-wrap">
                               {modelDetails.parameters.tools.map((tl: Tool) => (
                                 <Badge
                                   key={tl.id}
                                   variant={
                                     modelDetails.parameters?.tool_choice === "auto" ? "outline" : "secondary"
                                   }
-                                  className="select-none"
+                                  className="select-none cursor-pointer md:cursor-default gap-1"
+                                  onClick={(e) => {
+                                    // Only handle click on mobile
+                                    if (window.innerWidth < 768) {
+                                      e.stopPropagation();
+                                      const text = e.currentTarget.querySelector('span');
+                                      if (text) {
+                                        if (!text.style.display) {
+                                          text.style.display = 'none';
+                                        }
+                                        text.style.display = text.style.display === 'none' ? 'inline' : 'none';
+                                      }
+                                    }
+                                  }}
                                 >
-                                  <Box className="w-3 h-3 mr-1" />
-                                  {tl.function.name}
+                                  <Box className="w-3 h-3" />
+                                  <span>{tl.function.name}</span>
                                 </Badge>
                               ))}
                             </div>
