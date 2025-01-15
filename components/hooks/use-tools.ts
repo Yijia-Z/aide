@@ -16,11 +16,6 @@ export function useTools() {
     });
     const [toolsLoading, setToolsLoading] = useState(false);
     const [toolsError, setToolsError] = useState("");
-    const [modelTools, setModelTools] = useState<{ [modelId: string]: string[] }>(() => {
-        // Load model tools from localStorage on initialization
-        const savedModelTools = storage.get("modelTools");
-        return savedModelTools ? savedModelTools : {};
-    });
 
     // Save tools to localStorage whenever they change
     useEffect(() => {
@@ -31,10 +26,6 @@ export function useTools() {
         storage.set("availableTools", availableTools);
     }, [availableTools]);
 
-    useEffect(() => {
-        storage.set("modelTools", modelTools);
-    }, [modelTools]);
-
     return {
         tools,
         setTools,
@@ -44,7 +35,5 @@ export function useTools() {
         setToolsLoading,
         toolsError,
         setToolsError,
-        modelTools,
-        setModelTools
     };
 }
