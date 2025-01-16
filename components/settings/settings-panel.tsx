@@ -1,38 +1,36 @@
 "use client";
 
-import { useUser, UserButton } from "@clerk/nextjs";
-import { Button } from "@/components/ui/button";
-import { SignIn } from "@clerk/nextjs";
+import React, { useState, useEffect } from "react";
+import { useUser, UserButton, SignIn } from "@clerk/nextjs";
 import { ModeToggle } from "./mode-toggle";
 import { motion } from "framer-motion";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Check, Edit, Lock } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useState, useEffect } from "react";
+import { Label } from "@/components/ui/label";
 import { storage } from "@/components/store";
-import { Label } from "../ui/label";
+import { useUserProfile } from "../hooks/use-userprofile";
+import Image from "next/image";
 
 /**
  * The `SettingsPanel` component renders a settings interface for the user.
  * It displays account settings if the user is signed in (Clerk), otherwise shows a login form.
- *
- * @component
- * @example
- * <SettingsPanel />
- *
- * @returns {JSX.Element} The rendered settings panel component.
- *
- * @remarks
- * This component uses Clerk's `useUser()` hook to get the current user.
- * It also includes a logout button that calls `clerk.signOut()` from `useClerk()`.
  */
 export function SettingsPanel() {
   const { user, isSignedIn } = useUser();
-  // const { signOut } = useClerk();
-  const [apiKey, setApiKey] = useState("");
-  const [isEditing, setIsEditing] = useState(false);
 
+  // --- (A) State for the "custom username" from our own DB (via /api/user/profile).
+  const { username, saveUsername } = useUserProfile();
+
+  const [isEditingUsername, setIsEditingUsername] = useState(false);
+  const [userNameLocal, setUserNameLocal] = useState<string | null>(null);
+  // --- (B) State for the "OpenRouter API Key" (unchanged).
+  const [apiKey, setApiKey] = useState("");
+  const [isEditingApiKey, setIsEditingApiKey] = useState(false);
+
+  // 读取本地存的 API key
   useEffect(() => {
     const savedKey = storage.get("openrouter_api_key");
     if (savedKey) {
@@ -44,6 +42,18 @@ export function SettingsPanel() {
     const newKey = e.target.value;
     setApiKey(newKey);
     storage.set("openrouter_api_key", newKey);
+  };
+
+  React.useEffect(() => {
+    setUserNameLocal(username);
+  }, [username]);
+
+  // 保存时，调用 saveUsername(...) 更新后端 + Hook state
+  const handleSaveUsername = async () => {
+    if (userNameLocal) {
+      await saveUsername(userNameLocal);
+    }
+    setIsEditingUsername(false);
   };
 
   return (
@@ -58,6 +68,7 @@ export function SettingsPanel() {
         <h2 className="text-4xl font-serif font-bold pl-2">Settings</h2>
         <ModeToggle />
       </div>
+
       <ScrollArea className="flex-grow select-none">
         <motion.div
           className="space-y-2 mt-2"
@@ -65,25 +76,34 @@ export function SettingsPanel() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -20 }}
         >
-          <motion.div
-            className="group p-2 rounded-lg custom-shadow"
-          >
+          {/* 登录块 / 用户信息块 */}
+          <motion.div className="group p-2 rounded-lg custom-shadow">
             {!isSignedIn ? (
               <div className="flex justify-center">
-                <Dialog>
+                <Dialog defaultOpen>
                   <DialogTrigger asChild>
-                    <Button variant="default" className="transition-scale-zoom">Sign In</Button>
+                    <Button variant="default" className="transition-scale-zoom">
+                      Sign In
+                    </Button>
                   </DialogTrigger>
                   <DialogContent className="flex flex-row items-center justify-between min-w-full min-h-full p-0 bg-background/80 custom-shadow">
                     <div className="text-center hidden md:block flex-1">
-                      <DialogTitle className="text-3xl mb-4 font-serif">Sign In to Access:</DialogTitle>
+                      <DialogTitle className="text-3xl mb-4 font-serif">
+                        Sign In to Access:
+                      </DialogTitle>
                       <DialogDescription className="text-xl space-y-4 mb-4 font-serif">
                         Set your custom API keys<br />
                         Sync settings across devices<br />
                         Access premium models<br />
                         Save chat history
                       </DialogDescription>
-                      <img src="/app.png" alt="App Preview" className="w-3/4 mx-auto rounded-lg shadow-lg" />
+                      <Image
+                        src="/app.jpg"
+                        alt="App Preview"
+                        width={800}
+                        height={600}
+                        className="w-3/4 mx-auto rounded-lg shadow-lg"
+                      />
                     </div>
                     <div className="flex-1 flex justify-center select-none">
                       <SignIn routing="hash" />
@@ -92,45 +112,86 @@ export function SettingsPanel() {
                 </Dialog>
               </div>
             ) : (
+              // 已登录时
               <div className="flex items-center gap-4">
+                {/* Clerk 自带的用户头像+菜单 */}
                 <UserButton />
-                <p>{user?.fullName}</p>
+
+                {/* 取代 user?.fullName：显示 + 编辑 我们自己的 username */}
+                <div className="flex flex-col flex-grow">
+                  {/* 如果不在编辑状态，就只显示 username；否则显示一个可编辑输入框 */}
+                  {!isEditingUsername ? (
+                    <div className="flex items-center justify-between">
+                      <p className="text-lg">
+                        {userNameLocal || "No Username (click edit)"}
+                      </p>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="transition-scale-zoom"
+                        onClick={() => setIsEditingUsername(true)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between">
+                      <Input
+                        className="flex-grow"
+                        value={userNameLocal || ""}
+                        onChange={(e) => setUserNameLocal(e.target.value.slice(0, 50))}
+                        maxLength={20}
+                      />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleSaveUsername}
+                      >
+                        <Check className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </motion.div>
 
+          {/* ============ 下面是 API Key 块 ============ */}
           <motion.div
             key="api-settings"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            whileHover={isEditing ? undefined : { y: -2 }}
-            className={`group p-2 rounded-lg mb-2 ${isEditing ? 'custom-shadow' : 'md:hover:shadow-[inset_0_0_10px_10px_rgba(128,128,128,0.2)] bg-background cursor-pointer'}`}
+            whileHover={isEditingApiKey ? undefined : { y: -2 }}
+            className={`group p-2 rounded-lg mb-2 ${isEditingApiKey
+              ? "custom-shadow"
+              : "md:hover:shadow-[inset_0_0_10px_10px_rgba(128,128,128,0.2)] bg-background cursor-pointer"
+              }`}
             onDoubleClick={() => {
-              if (isSignedIn && !isEditing) {
-                setIsEditing(true);
+              if (isSignedIn && !isEditingApiKey) {
+                setIsEditingApiKey(true);
               }
             }}
           >
-            <div className={`${!isEditing ? 'flex-grow justify-between items-start' : ''}`}>
+            <div className={`${!isEditingApiKey ? "flex-grow justify-between items-start" : ""}`}>
               <div>
                 <div
                   className="flex cursor-pointer justify-between items-center"
                   onDoubleClick={() => {
-                    if (isEditing) {
-                      setIsEditing(false);
+                    if (isEditingApiKey) {
+                      setIsEditingApiKey(false);
                     }
                   }}
                 >
-                  <h3 className="font-bold text-xl">API Settings</h3>
+                  <h3 className="font-bold text-xl">API Settings <br /> (Coming Soon)</h3>
                   {isSignedIn && (
                     <Button
                       variant="ghost"
                       className="transition-scale-zoom md:opacity-0 md:group-hover:opacity-100 transition-opacity sticky"
                       size="sm"
-                      onClick={() => setIsEditing(!isEditing)}
+                      onClick={() => setIsEditingApiKey(!isEditingApiKey)}
                     >
-                      {isEditing ? (
+                      {isEditingApiKey ? (
                         <Check className="h-4 w-4" />
                       ) : (
                         <Edit className="h-4 w-4" />
@@ -138,9 +199,11 @@ export function SettingsPanel() {
                     </Button>
                   )}
                 </div>
+
+                {/* 如果登录了才显示 API Key */}
                 {isSignedIn && (
                   <div className="text-muted-foreground">
-                    {isEditing ? (
+                    {isEditingApiKey ? (
                       <div>
                         <div className="pb-1">
                           <Label>
@@ -161,7 +224,7 @@ export function SettingsPanel() {
                           value={apiKey}
                           onChange={(e) => {
                             const value = e.target.value;
-                            if (!value || value.startsWith('sk-')) {
+                            if (!value || value.startsWith("sk-")) {
                               handleApiKeyChange(e);
                             }
                           }}
@@ -177,6 +240,8 @@ export function SettingsPanel() {
                     )}
                   </div>
                 )}
+
+                {/* 如果没登录，就提示 "Sign in to set custom keys" */}
                 {!isSignedIn && (
                   <div className="text-muted-foreground flex items-center gap-2">
                     <Lock className="h-4 w-4" />

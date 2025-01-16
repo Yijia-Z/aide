@@ -4,36 +4,68 @@ import { storage } from "@/components/store";
 
 // Custom hook to manage tools
 export function useTools() {
-    const [tools, setTools] = useState<Tool[]>(() => {
-        // Load tools from localStorage on initialization
-        const savedTools = storage.get("tools");
-        return savedTools ? savedTools : [];
-    });
-    const [availableTools, setAvailableTools] = useState<Tool[]>(() => {
-        // Load available tools from localStorage on initialization
-        const savedAvailableTools = storage.get("availableTools");
-        return savedAvailableTools ? savedAvailableTools : [];
-    });
-    const [toolsLoading, setToolsLoading] = useState(false);
-    const [toolsError, setToolsError] = useState("");
 
-    // Save tools to localStorage whenever they change
-    useEffect(() => {
-        storage.set("tools", tools);
-    }, [tools]);
+  const [tools, setTools] = useState<Tool[]>([]);
+  const [availableTools, setAvailableTools] = useState<Tool[]>([]);
+  const [toolsLoading, setToolsLoading] = useState(false);
+  const [toolsError, setToolsError] = useState("");
+  const [modelTools, setModelTools] = useState<Record<string, string[]>>({});
+  useEffect(() => {
+    (async () => {
+      try {
+        setToolsLoading(true);
+        setToolsError("");
 
-    useEffect(() => {
-        storage.set("availableTools", availableTools);
-    }, [availableTools]);
+        // 1.1) 获取全部 tools
+        const resTools = await fetch("/api/tools");
+        if (!resTools.ok) {
+          throw new Error(`Failed to fetch tools => ${resTools.status}`);
+        }
+        const dataTools = await resTools.json();
+        setTools(dataTools.tools || []);
 
-    return {
-        tools,
-        setTools,
-        availableTools,
-        setAvailableTools,
-        toolsLoading,
-        setToolsLoading,
-        toolsError,
-        setToolsError,
-    };
+        // 1.2) 获取 availableTools
+        const resAvail = await fetch("/api/availableTools");
+        if (!resAvail.ok) {
+          throw new Error(`Failed to fetch availableTools => ${resAvail.status}`);
+        }
+        const dataAvail = await resAvail.json();
+        setAvailableTools(dataAvail.tools || []);
+
+        // 1.3) 获取 modelTools
+        const resModelTools = await fetch("/api/modelTools");
+        if (!resModelTools.ok) {
+          throw new Error(`Failed to fetch modelTools => ${resModelTools.status}`);
+        }
+        const dataModelTools = await resModelTools.json();
+        setModelTools(dataModelTools.modelTools || {});
+
+      } catch (err: any) {
+        console.error("[useTools] initial load error =>", err);
+        setToolsError(err.message || "Failed to load data from cloud");
+      } finally {
+        setToolsLoading(false);
+      }
+    })();
+  }, []);
+
+  // Save tools to localStorage whenever they change
+
+  /*     useEffect(() => {
+          storage.set("availableTools", availableTools);
+      }, [availableTools]);
+   */
+
+  return {
+    tools,
+    setTools,
+    availableTools,
+    setAvailableTools,
+    toolsLoading,
+    setToolsLoading,
+    toolsError,
+    setToolsError,
+    modelTools,
+    setModelTools
+  };
 }

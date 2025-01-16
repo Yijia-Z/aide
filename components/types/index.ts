@@ -1,7 +1,21 @@
+
+export type ContentPart =
+  | {
+      type: "text";
+      text: string;
+    }
+  | {
+      type: "image_url";
+      image_url: {
+        url: string;    
+        detail?: string;  
+      };
+    };
 export interface Message {
   id: string;
-  content: string;
+  content: string | ContentPart[];
   publisher: "user" | "ai";
+  userName?:string;
   modelId?: string;
   modelConfig?: Partial<Model>;
   replies: Message[];
@@ -14,6 +28,7 @@ export interface Thread {
   title: string;
   messages: Message[];
   isPinned: boolean;
+  updatedAt?: string;
 }
 
 export interface Model {
@@ -72,3 +87,11 @@ export interface Tool {
 }
 
 export type ToolChoice = "auto" | "none" | "required" | { type: "function"; function: { name: string } };
+
+
+export interface UserProfile {
+  id: string;        
+  username?: string;  
+  createdAt: string;  
+  updatedAt: string;  
+}
