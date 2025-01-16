@@ -1528,13 +1528,16 @@ export default function ThreadedDocument() {
                 ? model.parameters?.tools ?? []
                 : []) as Tool[];
               let finalContent: string;
-
               if (typeof message.content === "string") {
-                // 如果本来就是字符串，就直接保留
                 finalContent = message.content;
+              } else if (Array.isArray(message.content)) {
+                // Combine all text parts into a single string
+                finalContent = message.content
+                  .filter(part => part.type === "text")
+                  .map(part => part.text)
+                  .join("\n");
               } else {
-                // 如果是 ContentPart[] 或别的，就转换
-                finalContent = JSON.stringify(message.content);
+                finalContent = "";
               }
               await generateAIResponse(
                 finalContent,
