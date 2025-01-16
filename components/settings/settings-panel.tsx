@@ -25,7 +25,7 @@ export function SettingsPanel() {
   const { username, saveUsername } = useUserProfile();
 
   const [isEditingUsername, setIsEditingUsername] = useState(false);
-  const [userNameLocal, setUserNameLocal] = useState<string | null>(null);
+  const [userNameLocal, setUserNameLocal] = useState<string | null>("user");
   // --- (B) State for the "OpenRouter API Key" (unchanged).
   const [apiKey, setApiKey] = useState("");
   const [isEditingApiKey, setIsEditingApiKey] = useState(false);
@@ -80,7 +80,7 @@ export function SettingsPanel() {
           <motion.div className="group p-2 rounded-lg custom-shadow">
             {!isSignedIn ? (
               <div className="flex justify-center">
-                <Dialog defaultOpen>
+                <Dialog defaultOpen={!isSignedIn}>
                   <DialogTrigger asChild>
                     <Button variant="default" className="transition-scale-zoom">
                       Sign In
@@ -123,7 +123,7 @@ export function SettingsPanel() {
                   {!isEditingUsername ? (
                     <div className="flex items-center justify-between">
                       <p className="text-lg">
-                        {userNameLocal || "No Username (click edit)"}
+                        {userNameLocal || "🤔..."}
                       </p>
                       <Button
                         variant="ghost"

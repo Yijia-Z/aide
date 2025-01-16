@@ -1794,10 +1794,10 @@ export default function ThreadedDocument() {
     return {
       id: uuidv4(),
       name: "Default Model",
-      baseModel: "meta-llama/llama-3.2-3b-instruct (free)",
-      systemPrompt: "You are a helpful assistant.",
+      baseModel: "openai/gpt-4o-mini",
+      systemPrompt: "answer concisely.",
       parameters: {
-        temperature: 1.3,
+        temperature: 0,
         top_p: 1,
         max_tokens: 1000,
       },
