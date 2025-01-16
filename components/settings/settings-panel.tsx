@@ -80,7 +80,7 @@ export function SettingsPanel() {
           <motion.div className="group p-2 rounded-lg custom-shadow">
             {!isSignedIn ? (
               <div className="flex justify-center">
-                <Dialog>
+                <Dialog defaultOpen>
                   <DialogTrigger asChild>
                     <Button variant="default" className="transition-scale-zoom">
                       Sign In
@@ -98,8 +98,10 @@ export function SettingsPanel() {
                         Save chat history
                       </DialogDescription>
                       <Image
-                        src="/app.png"
+                        src="/app.jpg"
                         alt="App Preview"
+                        width={800}
+                        height={600}
                         className="w-3/4 mx-auto rounded-lg shadow-lg"
                       />
                     </div>
@@ -181,7 +183,7 @@ export function SettingsPanel() {
                     }
                   }}
                 >
-                  <h3 className="font-bold text-xl">API Settings</h3>
+                  <h3 className="font-bold text-xl">API Settings <br /> (Coming Soon)</h3>
                   {isSignedIn && (
                     <Button
                       variant="ghost"
