@@ -35,32 +35,41 @@ export function useUserProfile() {
     fetchUsername();
   }, [isSignedIn]);
 
-  /**
-   * 保存（更新）用户名至后端
+   /**
+   * 保存（更新）用户名至后端 - 乐观更新版本
    * @param newName 要更新的用户名
    */
-  async function saveUsername(newName: string) {
+   async function saveUsername(newName: string) {
+    // 1) 先记住旧值
+    const oldName = username;
+    // 2) 前端先行更新 (乐观更新)
+    setUsername(newName);
+
+    // 3) 发请求
     try {
       const res = await fetch("/api/user/profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username: newName }),
       });
-      if (res.ok) {
-        const data = await res.json();
-        // 后端成功返回后，也更新到本地 state
-        setUsername(data.username ?? null);
-      } else {
-        console.error("Failed to update username");
+
+      if (!res.ok) {
+        throw new Error(`Failed to update username => HTTP ${res.status}`);
       }
+
+      const data = await res.json();
+      // 4) 如果后端成功返回，有时可以再以后端返回为准
+      setUsername(data.username ?? null);
     } catch (err) {
       console.error("Error updating username:", err);
+      // 5) 若后端失败 => 回滚到原先的 username
+      setUsername(oldName ?? null);
     }
   }
 
   return {
     username,
     setUsername,   // 如果你想手动改也可以用它
-    saveUsername,  // 直接后端更新
+    saveUsername,  // 直接后端更新 (乐观更新)
   };
 }

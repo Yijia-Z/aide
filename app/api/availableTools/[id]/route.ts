@@ -54,12 +54,72 @@ export async function DELETE(
   }
 
   try {
+    // 1) 先删 availableTool
     await prisma.availableTool.deleteMany({
       where: { userId, toolId },
     });
-    return NextResponse.json({ message: `Tool ${toolId} removed from user ${userId}`}, { status: 200 });
+
+    // 2) 找出 user 拥有的 modelTool 记录
+    const impactedModelTools = await prisma.modelTool.findMany({
+      where: {
+        toolId,
+        model: {
+          createdBy: userId,
+          isDeleted: false,
+        },
+      },
+      select: { modelId: true },
+    });
+    if (impactedModelTools.length === 0) {
+      return NextResponse.json({
+        message: "Tool removed, no model was using it",
+        updatedModelIds: [],
+      });
+    }
+
+    // 3) 拿到所有 modelId
+    const impactedModelIds = impactedModelTools.map((m) => m.modelId);
+
+    // 4) 从 modelTool 表移除
+    await prisma.modelTool.deleteMany({
+      where: {
+        toolId,
+        modelId: { in: impactedModelIds },
+      },
+    });
+
+    // 5) 同步更新 model.parameters.tools
+    //    先查出每个 model 的 parameters JSON, 过滤掉该 toolId, 再回存
+    for (const mid of impactedModelIds) {
+      const model = await prisma.model.findUnique({ where: { id: mid } });
+      if (!model) continue;
+
+      const oldParams = model.parameters as any; // 你可能要定义一下
+      if (!oldParams?.tools || !Array.isArray(oldParams.tools)) {
+        continue; 
+      }
+      // 过滤掉 toolId
+      const newTools = oldParams.tools.filter((t: any) => t.id !== toolId);
+      const newParams = {
+        ...oldParams,
+        tools: newTools,
+      };
+
+      // 回存
+      await prisma.model.update({
+        where: { id: mid },
+        data: {
+          parameters: newParams,
+        },
+      });
+    }
+
+    return NextResponse.json({
+      message: "Tool removed + model.parameters.tools updated",
+      updatedModelIds: impactedModelIds,
+    });
   } catch (err: any) {
-    console.error("[DELETE /api/available-tools/:toolId] error =>", err);
+    console.error("[DELETE /api/availableTools/:toolId] error =>", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

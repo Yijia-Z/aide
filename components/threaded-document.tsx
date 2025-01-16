@@ -2291,6 +2291,7 @@ export default function ThreadedDocument() {
               error={toolsError}
               availableTools={availableTools}
               setAvailableTools={setAvailableTools}
+              setModels={setModels}
             />
           </TabsContent>
           <TabsContent
@@ -2456,6 +2457,7 @@ export default function ThreadedDocument() {
                   error={toolsError}
                   availableTools={availableTools}
                   setAvailableTools={setAvailableTools}
+                  setModels={setModels}
                 />
               </TabsContent>
               <TabsContent value="settings" className="flex-grow overflow-y-clip">

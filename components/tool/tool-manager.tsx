@@ -2,7 +2,7 @@ import React, { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { PackageMinus, PackagePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-
+import { Model, ModelParameters } from "@/components/types";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Dialog,
@@ -40,6 +40,7 @@ interface ToolManagerProps {
   setTools: (tools: Tool[]) => void;         // 目前可能没用
   availableTools: Tool[];
   setAvailableTools: (tools: Tool[]) => void;
+  setModels: React.Dispatch<React.SetStateAction<Model[]>>; 
   isLoading: boolean;
   error: string;
 }
@@ -57,6 +58,8 @@ export function ToolManager({
   setAvailableTools,
   isLoading,
   error,
+  setModels,
+
 }: ToolManagerProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
@@ -103,23 +106,54 @@ export function ToolManager({
       setAvailableTools(
         availableTools.filter((t) => t.id !== tool.id)
       );
-
       try {
-        // 2) 后端请求
+        // 2) 发请求
         const res = await fetch(`/api/availableTools/${tool.id}`, {
           method: "DELETE",
         });
         if (!res.ok) {
           throw new Error(`Remove tool failed => status = ${res.status}`);
         }
+        const data = await res.json();
+        console.log("[handleRemoveTool] server returned =>", data);
+        // data.updatedModelIds => [ "xxx-xxx", ... ]
+  
+        // 3) 让前端 `models` state 同步去掉 model.parameters.tools 里这个 tool
+        //    你需要在 props 里也拿到 setModels, models (或者用 context/hook 全局管理)
+        if (data.updatedModelIds && Array.isArray(data.updatedModelIds)) {
+          setModels((prevModels: Model[]) => {
+            return prevModels.map(m => {
+              // 如果这条不受影响就直接返回
+              if (!data.updatedModelIds.includes(m.id)) {
+                return m;
+              }
+              // 如果要更新 tools
+              const filteredTools = (m.parameters?.tools ?? []).filter(
+                (toolItem: { id: string }) => toolItem.id !== tool.id
+              );
+              return {
+                ...m,
+                parameters: {
+                  ...m.parameters,
+                  tools: filteredTools,
+                },
+              };
+            });
+          });
+        }
+  
+        // 4) 如果你还有 selectedTools，需要过滤一下
+        //    例如:
+        //    setSelectedTools(prev => prev.filter(t => t.id !== tool.id));
+        
       } catch (err) {
         console.error("[handleRemoveTool] error =>", err);
-        // 3) 回滚
+        // 5) 回滚
         setAvailableTools([...availableTools, tool]);
         alert("Remove tool failed!");
       }
     },
-    [availableTools, setAvailableTools]
+    [availableTools, setAvailableTools, setModels /*, setSelectedTools*/]
   );
 
   return (

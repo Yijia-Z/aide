@@ -11,12 +11,9 @@ export async function PATCH(req: NextRequest,
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
-    console.log("[PATCH] raw params =>", params);
     const { id: modelId } = await params;
-    console.log("[PATCH] modelId =>", modelId);
     const body = await req.json();
     // 你可以只允许 name, systemPrompt, parameters 等字段
-    console.log("[PATCH] received body =>", body);
     const { name, baseModel, systemPrompt, parameters } = body;
 
     // 先确认是否存在
@@ -36,6 +33,27 @@ export async function PATCH(req: NextRequest,
         ...(parameters !== undefined && { parameters }),
       },
     });
+    
+    const toolIds: string[] =
+    parameters?.tools?.map((t: any) => t.id).filter(Boolean) ?? [];
+
+  // 先删掉旧的记录
+  await prisma.modelTool.deleteMany({
+    where: { modelId },
+  });
+
+  // 再插入新的
+  if (toolIds.length > 0) {
+    // 你也可以先检查 user 是否在 availableTool 里启用了它，
+    //   若想强制 “只有启用后才能加到 model”
+    //   toolIds = toolIds.filter( ... )
+    const insertData = toolIds.map((toolId) => ({
+      modelId,
+      toolId,
+    }));
+    await prisma.modelTool.createMany({ data: insertData });
+  }
+
     return NextResponse.json({ model: updated }, { status: 200 });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
