@@ -80,7 +80,7 @@ export function SettingsPanel() {
           <motion.div className="group p-2 rounded-lg custom-shadow">
             {!isSignedIn ? (
               <div className="flex justify-center">
-                <Dialog>
+                <Dialog defaultOpen>
                   <DialogTrigger asChild>
                     <Button variant="default" className="transition-scale-zoom">
                       Sign In
@@ -98,8 +98,10 @@ export function SettingsPanel() {
                         Save chat history
                       </DialogDescription>
                       <Image
-                        src="/app.png"
+                        src="/app.jpg"
                         alt="App Preview"
+                        width={800}
+                        height={600}
                         className="w-3/4 mx-auto rounded-lg shadow-lg"
                       />
                     </div>
@@ -116,10 +118,10 @@ export function SettingsPanel() {
                 <UserButton />
 
                 {/* 取代 user?.fullName：显示 + 编辑 我们自己的 username */}
-                <div className="flex flex-col">
+                <div className="flex flex-col flex-grow">
                   {/* 如果不在编辑状态，就只显示 username；否则显示一个可编辑输入框 */}
                   {!isEditingUsername ? (
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center justify-between">
                       <p className="text-lg">
                         {userNameLocal || "No Username (click edit)"}
                       </p>
@@ -133,11 +135,12 @@ export function SettingsPanel() {
                       </Button>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center justify-between">
                       <Input
-                        className="w-48"
+                        className="flex-grow"
                         value={userNameLocal || ""}
-                        onChange={(e) => setUserNameLocal(e.target.value)}
+                        onChange={(e) => setUserNameLocal(e.target.value.slice(0, 50))}
+                        maxLength={20}
                       />
                       <Button
                         variant="ghost"
@@ -161,8 +164,8 @@ export function SettingsPanel() {
             exit={{ opacity: 0, y: -20 }}
             whileHover={isEditingApiKey ? undefined : { y: -2 }}
             className={`group p-2 rounded-lg mb-2 ${isEditingApiKey
-                ? "custom-shadow"
-                : "md:hover:shadow-[inset_0_0_10px_10px_rgba(128,128,128,0.2)] bg-background cursor-pointer"
+              ? "custom-shadow"
+              : "md:hover:shadow-[inset_0_0_10px_10px_rgba(128,128,128,0.2)] bg-background cursor-pointer"
               }`}
             onDoubleClick={() => {
               if (isSignedIn && !isEditingApiKey) {
@@ -180,7 +183,7 @@ export function SettingsPanel() {
                     }
                   }}
                 >
-                  <h3 className="font-bold text-xl">API Settings</h3>
+                  <h3 className="font-bold text-xl">API Settings <br /> (Coming Soon)</h3>
                   {isSignedIn && (
                     <Button
                       variant="ghost"
