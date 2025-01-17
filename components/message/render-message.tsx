@@ -393,7 +393,6 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
      return (
        <>
          {content.map((part, idx) => {
-          console.log(`[RenderMessage] content part #${idx}:`, part);
            if (part.type === "text") {
              return (
                <Markdown
@@ -422,8 +421,7 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
                </div>
              );
            }
-            return null;
-           
+           return null;
          })}
        </>
      );
