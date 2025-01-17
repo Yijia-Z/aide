@@ -20,7 +20,7 @@ import { Thread, Message, Model, ModelParameters, Tool, ContentPart } from "./ty
 import { useModels } from "./hooks/use-models";
 import { useThreads } from "./hooks/use-threads";
 import { useMessages } from "./hooks/use-messages";
-import { useUser, useClerk, useSession } from "@clerk/nextjs";
+import { useUser, useClerk } from "@clerk/nextjs";
 import { SettingsPanel } from "./settings/settings-panel"
 import { useTools } from "./hooks/use-tools";
 import { useUserProfile } from "./hooks/use-userprofile";
@@ -35,10 +35,16 @@ export default function ThreadedDocument() {
   const { username } = useUserProfile();
   // const [isOffline, setIsOffline] = useState(false);
   const [activeTab, setActiveTab] = useState<"threads" | "messages" | "models" | "tools" | "settings">(
-    // (storage.get('activeTab') || "threads") as "threads" | "messages" | "models" | "tools" | "settings"
-    !isSignedIn ? "settings" : "threads"
+    (storage.get('activeTab') || "threads") as "threads" | "messages" | "models" | "tools" | "settings"
+    // !session ? "settings" : "threads"
   )
+  useEffect(() => {
+    if (!isSignedIn) {
+      setActiveTab("settings");
+    }
+  }, [isSignedIn]);
 
+ 
   // Thread-related states
   const {
     threads,
@@ -108,6 +114,7 @@ export default function ThreadedDocument() {
     setToolsError,
     availableTools,
     setAvailableTools,
+
   } = useTools();
 
   // Load tools
@@ -1650,13 +1657,13 @@ export default function ThreadedDocument() {
         });
         if (response.ok) {
           const data = await response.json();
-
+         
           if (data.threads?.length > 0) {
             setThreads(data.threads);
             storage.set("threads", data.threads);
           } else {
             // 这里调用你写好的 addThread，来创建“Welcome Thread” 而不是直接 setThreads
-            addThread();
+            addThread(); 
           }
         } else {
           // 同理：后端报错时也可以再用 addThread()
@@ -1803,7 +1810,7 @@ export default function ThreadedDocument() {
       },
     };
   }
-
+  
   // 在你的 useEffect 里，检测如果后端没有模型，就创建默认模型并同步到后端：
   useEffect(() => {
     const loadModels = async () => {
@@ -1817,10 +1824,10 @@ export default function ThreadedDocument() {
           setModelsLoaded(true);
           return;
         }
-
+  
         const data = await response.json();
         let loadedModels = data.models || [];
-
+  
         // 如果后端没有任何模型，就创建一个默认模型
         if (loadedModels.length === 0) {
           const defaultM = createDefaultModel();
@@ -1847,7 +1854,7 @@ export default function ThreadedDocument() {
             console.error("[loadModels] failed to create default model =>", err);
           }
         }
-
+  
         setModels(loadedModels);
         setModelsLoaded(true);
       } catch (error) {
@@ -1858,34 +1865,34 @@ export default function ThreadedDocument() {
         setModelsLoaded(true);
       }
     };
-
+  
     loadModels();
   }, [setModels, setModelsLoaded, setSelectedModels]);
-
+  
   // 如果你还要获取 openrouter.ai 的可选模型，可依旧用你的 fetchAvailableModels：
   useEffect(() => {
     fetchAvailableModels();
   }, [fetchAvailableModels]);
+  
+ /*  // fetch available models
+  useEffect(() => {
+    const saveModels = async () => {
+      try {
+        await fetch(`/api/models`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ models }),
+        });
+      } catch (error) {
+        console.error("保存模型数据失败：", error);
+      }
+    };
 
-  /*  // fetch available models
-   useEffect(() => {
-     const saveModels = async () => {
-       try {
-         await fetch(`/api/models`, {
-           method: "POST",
-           headers: { "Content-Type": "application/json" },
-           body: JSON.stringify({ models }),
-         });
-       } catch (error) {
-         console.error("保存模型数据失败：", error);
-       }
-     };
- 
-     if (modelsLoaded && models.length > 0) {
-       saveModels();
-     }
-   }, [models, modelsLoaded]);
-  */
+    if (modelsLoaded && models.length > 0) {
+      saveModels();
+    }
+  }, [models, modelsLoaded]);
+ */
   useEffect(() => {
     fetchAvailableModels();
   }, [fetchAvailableModels]);
@@ -2189,9 +2196,13 @@ export default function ThreadedDocument() {
         {/* Mobile layout with tabs for threads, messages, and models */}
         <Tabs
           value={activeTab}
-          onValueChange={(value) =>
-            setActiveTab(value as "threads" | "messages" | "models" | "tools" | "settings")
-          }
+          onValueChange={(value) => {
+            if (!isSignedIn && value !== "settings") {
+              // 如果没登录，又想去别的 tab => 不切换
+              return;
+            }
+            setActiveTab(value as any);
+          }}
           className="w-full flex flex-col"
         >
           <TabsContent
@@ -2320,7 +2331,7 @@ export default function ThreadedDocument() {
               paddingBottom: `${parseInt('env(safe-area-inset-bottom)') > 0 ? '64px' : '40px'}`
             }}
  */          >
-            <TabsTrigger
+           <TabsTrigger
               value="threads"
               className="bg-transparent data-[state=active]:bg-secondary/80"
             >
@@ -2374,9 +2385,12 @@ export default function ThreadedDocument() {
           >
             <Tabs
               value={activeTab}
-              onValueChange={(value) =>
-                setActiveTab(value as "threads" | "models" | "tools" | "settings")
+              onValueChange={(value) => {
+              if (!isSignedIn && value !== "settings") {
+                return;
               }
+              setActiveTab(value as any);
+            }}
               className="w-full flex flex-col"
             >
               <TabsList className="grid w-full grid-cols-4 bg-transparent space-x-1 py-0 custom-shadow select-none">

@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import { Tool } from "@/components/types";
 import { storage } from "@/components/store";
-
+import { useUser } from "@clerk/nextjs";
 // Custom hook to manage tools
 export function useTools() {
-
+  const { isSignedIn } = useUser(); 
   const [tools, setTools] = useState<Tool[]>([]);
   const [availableTools, setAvailableTools] = useState<Tool[]>([]);
   const [toolsLoading, setToolsLoading] = useState(false);
@@ -47,7 +47,7 @@ export function useTools() {
         setToolsLoading(false);
       }
     })();
-  }, []);
+  }, [isSignedIn]);
 
   // Save tools to localStorage whenever they change
 
