@@ -1528,13 +1528,16 @@ export default function ThreadedDocument() {
                 ? model.parameters?.tools ?? []
                 : []) as Tool[];
               let finalContent: string;
-
               if (typeof message.content === "string") {
-                // 如果本来就是字符串，就直接保留
                 finalContent = message.content;
+              } else if (Array.isArray(message.content)) {
+                // Combine all text parts into a single string
+                finalContent = message.content
+                  .filter(part => part.type === "text")
+                  .map(part => part.text)
+                  .join("\n");
               } else {
-                // 如果是 ContentPart[] 或别的，就转换
-                finalContent = JSON.stringify(message.content);
+                finalContent = "";
               }
               await generateAIResponse(
                 finalContent,
@@ -1794,10 +1797,10 @@ export default function ThreadedDocument() {
     return {
       id: uuidv4(),
       name: "Default Model",
-      baseModel: "meta-llama/llama-3.2-3b-instruct (free)",
-      systemPrompt: "You are a helpful assistant.",
+      baseModel: "openai/gpt-4o-mini",
+      systemPrompt: "answer concisely.",
       parameters: {
-        temperature: 1.3,
+        temperature: 0,
         top_p: 1,
         max_tokens: 1000,
       },

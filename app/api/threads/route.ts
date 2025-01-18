@@ -1,6 +1,6 @@
 // app/api/threads/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/db/prismadb"; 
+import { prisma } from "@/lib/db/prismadb";
 import { auth } from "@clerk/nextjs/server";
 import { randomUUID } from "crypto";
 
@@ -19,7 +19,7 @@ export async function GET() {
         isDeleted: false,
 
         memberships: {
-          
+
           some: { userId },
         },
       },
@@ -64,37 +64,51 @@ export async function POST(req: NextRequest) {
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  console.log('ENV CHECK =>', process.env.DATABASE_URL);
+
   try {
+    // First ensure UserProfile exists
+    let userProfile = await prisma.userProfile.findUnique({
+      where: { id: userId }
+    });
+
+    // If no profile exists, create one
+    if (!userProfile) {
+      userProfile = await prisma.userProfile.create({
+        data: { id: userId }
+      });
+    }
+
     const { id, title } = await req.json() as {
-      id: string; 
+      id: string;
       title?: string;
     };
 
-    // 1) 在 Thread 表里创建记录，数据库自动生成 id 或由 Prisma 生成
-    const newThread = await prisma.thread.create({
-      data: {
-        id,
-        title: title ?? "Untitled Thread",
-        
-      },
+    // Create thread and membership in a transaction
+    const result = await prisma.$transaction(async (tx) => {
+      // 1) Create thread
+      const newThread = await tx.thread.create({
+        data: {
+          id,
+          title: title ?? "Untitled Thread",
+        },
+      });
+
+      // 2) Create membership
+      await tx.threadMembership.create({
+        data: {
+          userId: userProfile.id,
+          threadId: newThread.id,
+          role: "owner",
+        },
+      });
+
+      return newThread;
     });
 
-    // 2) 同时在 ThreadMembership 插入一条，表示当前 user 拥有此 Thread
-    await prisma.threadMembership.create({
-      data: {
-        
-        userId,
-        threadId: newThread.id,
-        role: "owner",
-      },
-    });
-
-    // 3) 返回前端
+    // 3) Return response
     const responseData = {
-      ...newThread,
-     
-      isPinned: false, 
+      ...result,
+      isPinned: false,
     };
 
     return NextResponse.json({ thread: responseData }, { status: 200 });
