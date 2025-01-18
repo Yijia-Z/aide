@@ -35,8 +35,8 @@ export default function ThreadedDocument() {
   const { username } = useUserProfile();
   // const [isOffline, setIsOffline] = useState(false);
   const [activeTab, setActiveTab] = useState<"threads" | "messages" | "models" | "tools" | "settings">(
-    // (storage.get('activeTab') || "threads") as "threads" | "messages" | "models" | "tools" | "settings"
-    !isSignedIn ? "settings" : "threads"
+    (storage.get('activeTab') || "threads") as "threads" | "messages" | "models" | "tools" | "settings"
+    // !isSignedIn ? "settings" : "threads"
   )
 
   // Thread-related states

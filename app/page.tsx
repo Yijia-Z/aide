@@ -1,19 +1,27 @@
 "use client";
 
-import React, { Suspense } from 'react';
+import React, { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useUser } from '@clerk/nextjs';
 import ThreadedDocument from '@/components/threaded-document';
-import { Loader2 } from 'lucide-react';
 
 export default function Home() {
+  const { isSignedIn } = useUser();
+  const router = useRouter();
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (!isSignedIn) {
+        router.push('/login');
+      }
+    }, 3000); // Wait for 3 seconds before redirecting
+
+    return () => clearTimeout(timer); // Cleanup the timer on component unmount
+  }, [isSignedIn, router]);
+
   return (
     <main>
-      <Suspense fallback={
-        <div className="h-screen w-screen flex items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin" />
-        </div>
-      }>
-        <ThreadedDocument />
-      </Suspense>
+      {isSignedIn && <ThreadedDocument />}
     </main>
   );
 }

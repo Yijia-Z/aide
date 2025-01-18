@@ -80,41 +80,17 @@ export function SettingsPanel() {
           <motion.div className="group p-2 rounded-lg custom-shadow">
             {!isSignedIn ? (
               <div className="flex justify-center">
-                <Dialog defaultOpen>
-                  <DialogTrigger asChild>
-                    <Button variant="default" className="transition-scale-zoom">
-                      Sign In
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="flex flex-row items-center justify-between min-w-full min-h-full p-0 bg-background/80 custom-shadow">
-                    <div className="text-center hidden md:block flex-1">
-                      <DialogTitle className="text-3xl mb-4 font-serif">
-                        Sign In to Access:
-                      </DialogTitle>
-                      <DialogDescription className="text-xl space-y-4 mb-4 font-serif">
-                        Set your custom API keys<br />
-                        Sync settings across devices<br />
-                        Access premium models<br />
-                        Save chat history
-                      </DialogDescription>
-                      <Image
-                        src="/app.jpg"
-                        alt="App Preview"
-                        width={800}
-                        height={600}
-                        className="w-3/4 mx-auto rounded-lg shadow-lg"
-                      />
-                    </div>
-                    <div className="flex-1 flex justify-center select-none">
-                      <SignIn routing="hash" />
-                    </div>
-                  </DialogContent>
-                </Dialog>
+                <Button
+                  variant="default"
+                  className="transition-scale-zoom"
+                  onClick={() => window.location.href = '/login'}
+                >
+                  Sign In
+                </Button>
               </div>
             ) : (
               // 已登录时
               <div className="flex items-center gap-4">
-                {/* Clerk 自带的用户头像+菜单 */}
                 <UserButton />
 
                 {/* 取代 user?.fullName：显示 + 编辑 我们自己的 username */}
