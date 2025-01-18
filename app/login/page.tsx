@@ -18,7 +18,7 @@ export default function LoginPage() {
     return (
         <main className="flex min-h-screen flex-col items-center justify-center p-4 bg-background">
             <div className="w-full max-w-5xl flex flex-col md:flex-row items-center justify-between gap-8">
-                <div className="text-center md:w-1/2">
+                <div className="hidden md:block text-center md:w-1/2">
                     <h1 className="text-4xl font-serif mb-4">Sign In to Access:</h1>
                     <div className="text-xl space-y-4 mb-8 font-serif text-muted-foreground">
                         <p>Set your custom API keys</p>

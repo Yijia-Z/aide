@@ -811,15 +811,15 @@ export default function ThreadedDocument() {
 
   // Add a new message
   const addEmptyReply = useCallback(
-    (threadId: string, parentId: string | null) => {
+    (threadId: string, parentId: string | null, publisher: "user" | "ai" = "user") => {
       const newId = uuidv4();
 
-      addMessage(threadId, parentId, "", "user", newId);
+      addMessage(threadId, parentId, "", publisher, newId);
 
       startEditingMessage({
         id: newId,
         content: "",
-        publisher: "user",
+        publisher: publisher,
         replies: [],
         isCollapsed: false,
         userCollapsed: false,
@@ -1796,9 +1796,9 @@ export default function ThreadedDocument() {
   function createDefaultModel(): Model {
     return {
       id: uuidv4(),
-      name: "Default Model",
+      name: "Default",
       baseModel: "openai/gpt-4o-mini",
-      systemPrompt: "answer concisely.",
+      systemPrompt: "Answer concisely.",
       parameters: {
         temperature: 0,
         top_p: 1,

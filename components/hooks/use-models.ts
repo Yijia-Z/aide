@@ -18,6 +18,17 @@ export function useModels() {
     storage.set('selectedModels', selectedModels);
   }, [selectedModels]);
 
+  useEffect(() => {
+    if (!modelsLoaded) {
+      const validSelectedModels = selectedModels.filter(selectedModelId =>
+        availableModels.some(availableModel => availableModel.id === selectedModelId)
+      );
+      if (validSelectedModels.length !== selectedModels.length) {
+        setSelectedModels(validSelectedModels);
+      }
+    }
+  }, [availableModels, selectedModels, modelsLoaded]);
+
   return {
     modelsLoaded,
     setModelsLoaded,
