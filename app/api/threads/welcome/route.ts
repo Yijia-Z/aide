@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prismadb";
 import { auth } from "@clerk/nextjs/server";
-
+import { Prisma } from "@prisma/client";
 // 伪代码示例
 export async function POST(req: NextRequest) {
   const { userId } = await auth();
@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
  * 递归插入 messages（含 replies）
  */
 async function insertMessagesRecursively(
-  tx: typeof prisma, 
+  tx: Prisma.TransactionClient,
   messages: any[], 
   threadId: string, 
   parentId: string | null
