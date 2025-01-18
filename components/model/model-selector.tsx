@@ -151,6 +151,7 @@ export function SelectBaseModel({
       // Special handling for tools and tool_choice
       if (param === 'tools') {
         updatedParameters.tools = newValue.map((tool: Tool) => ({
+          id: tool.id, 
           type: "function",
           function: {
             name: tool.function.name,

@@ -1,16 +1,19 @@
 
-export type ContentPart =
-  | {
-      type: "text";
-      text: string;
-    }
-  | {
-      type: "image_url";
-      image_url: {
-        url: string;    
-        detail?: string;  
-      };
-    };
+type TextContent = {
+  type: "text";
+  text: string;
+};
+
+type ImageContentPart = {
+  type: "image_url";
+  image_url: {
+    url: string; // URL or base64 encoded image data
+    detail?: string; // Optional, defaults to "auto"
+  };
+};
+
+export type ContentPart = TextContent | ImageContentPart;
+
 export interface Message {
   id: string;
   content: string | ContentPart[];

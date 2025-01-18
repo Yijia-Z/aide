@@ -5,7 +5,6 @@ import { storage } from "../store";
 export function useThreads() {
   const [threads, setThreads] = useState<Thread[]>([]);
   const [currentThread, setCurrentThread] = useState<string | null>(null);
-
   const [editingThreadTitle, setEditingThreadTitle] = useState<string | null>(null);
   const [originalThreadTitle, setOriginalThreadTitle] = useState<string>("");
   const [threadToDelete, setThreadToDelete] = useState<string | null>(null);

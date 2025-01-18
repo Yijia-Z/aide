@@ -35,8 +35,8 @@ export default function ThreadedDocument() {
   const { username } = useUserProfile();
   // const [isOffline, setIsOffline] = useState(false);
   const [activeTab, setActiveTab] = useState<"threads" | "messages" | "models" | "tools" | "settings">(
-    // (storage.get('activeTab') || "threads") as "threads" | "messages" | "models" | "tools" | "settings"
-    !isSignedIn ? "settings" : "threads"
+    (storage.get('activeTab') || "threads") as "threads" | "messages" | "models" | "tools" | "settings"
+    // !isSignedIn ? "settings" : "threads"
   )
 
   // Thread-related states
@@ -811,15 +811,15 @@ export default function ThreadedDocument() {
 
   // Add a new message
   const addEmptyReply = useCallback(
-    (threadId: string, parentId: string | null) => {
+    (threadId: string, parentId: string | null, publisher: "user" | "ai" = "user") => {
       const newId = uuidv4();
 
-      addMessage(threadId, parentId, "", "user", newId);
+      addMessage(threadId, parentId, "", publisher, newId);
 
       startEditingMessage({
         id: newId,
         content: "",
-        publisher: "user",
+        publisher: publisher,
         replies: [],
         isCollapsed: false,
         userCollapsed: false,
@@ -1504,7 +1504,11 @@ export default function ThreadedDocument() {
 
       try {
         const selectedModelIds = selectedModels;
-        if (selectedModelIds.length === 0) return;
+        if (selectedModelIds.length === 0) {
+          alert("No model selected. Please select a model in Models tab to proceed.");
+          setActiveTab("models");
+          return;
+        }
 
         for (let i = 0; i < count; i++) {
           const promises = selectedModelIds.map(async (modelId) => {
@@ -1516,7 +1520,6 @@ export default function ThreadedDocument() {
               return;
             }
             const newId = uuidv4();
-
 
             // Pass the model details when creating the message
             addMessage(threadId, messageId, "", "ai", newId, model);
@@ -1615,42 +1618,68 @@ export default function ThreadedDocument() {
     ]
   );
 
+  function createWelcomeThread(): Thread {
+    const threadId = uuidv4();
+    const messageId = uuidv4();
+    const childMessageId = uuidv4();
+
+    return {
+      id: threadId,
+      title: "Welcome to AIDE",
+      isPinned: false,
+      updatedAt: new Date().toISOString(),
+      messages: [
+        {
+          id: messageId,
+          content: [
+            {
+              type: "text",
+              text: `# 👋 Welcome to AIDE!
+
+Here are some tips to get started (click to expand):
+
+- **Create new threads** using the + button
+- **Reply to messages** using the reply button or 'R' key
+- **Generate AI responses** using the sparkle button or 'G' key
+- **Navigate through parent/child messages** using arrow keys
+- **Copy messages** using the copy button or 'C' key
+- **Delete messages** using the delete button or 'D' key
+- **Configure AI models** in the Models tab
+- **Use keyboard shortcuts** (press '?' to view all)
+
+Feel free to delete this thread and create your own!`}
+          ],
+          publisher: "ai",
+          replies: [
+            {
+              id: childMessageId,
+              content: [
+                {
+                  type: "text",
+                  text: "This is a child message. You can navigate to parent messages using the 'Up' arrow key and to child messages using the 'Down' arrow key."
+                }
+              ],
+              publisher: "ai",
+              replies: [],
+              isCollapsed: false,
+              userCollapsed: false
+            }
+          ],
+          isCollapsed: false,
+          userCollapsed: false
+        }
+      ]
+    };
+  }
+
   // Load threads
   useEffect(() => {
     const loadThreads = async () => {
       try {
-        /*   const cachedThreads = await storage.getLarge("threads");
-          if (cachedThreads) {
-            setThreads(cachedThreads);
-            return;
-          } */
-
-        /* if (!apiBaseUrl) {
-          const newId=uuidv4();
-          const defaultThread = {
-            id: newId,
-            title: "Welcome Thread",
-            isPinned: false,
-            messages: [
-              {
-                id: newId,
-                content:
-                  "Welcome to your new chat thread! You can start a conversation here or create a new thread.",
-                publisher: "ai" as const,
-                replies: [],
-                isCollapsed: false,
-                userCollapsed: false,
-              },
-            ],
-          };
-          setThreads([defaultThread]);
-          storage.set("threads", [defaultThread]);
-          return;
-        } */
-
         const response = await fetch(`/api/threads`, {
           method: "GET",
         });
+
         if (response.ok) {
           const data = await response.json();
 
@@ -1658,17 +1687,28 @@ export default function ThreadedDocument() {
             setThreads(data.threads);
             storage.set("threads", data.threads);
           } else {
-            // 这里调用你写好的 addThread，来创建“Welcome Thread” 而不是直接 setThreads
-            addThread();
+            // No threads from backend - create welcome thread locally
+            const welcomeThread = createWelcomeThread();
+            setThreads([welcomeThread]);
+            setCurrentThread(welcomeThread.id);
+
+            // Optionally sync to backend
+            if (isSignedIn) {
+              addThread();
+            }
           }
         } else {
-          // 同理：后端报错时也可以再用 addThread()
-          addThread();
+          // API error - create welcome thread locally
+          const welcomeThread = createWelcomeThread();
+          setThreads([welcomeThread]);
+          setCurrentThread(welcomeThread.id);
         }
       } catch (error) {
         console.error("Load failed:", error);
-        // 也可以调用 addThread()
-        addThread();
+        // Network/other error - create welcome thread locally
+        const welcomeThread = createWelcomeThread();
+        setThreads([welcomeThread]);
+        setCurrentThread(welcomeThread.id);
       }
     };
 
@@ -1796,9 +1836,9 @@ export default function ThreadedDocument() {
   function createDefaultModel(): Model {
     return {
       id: uuidv4(),
-      name: "Default Model",
+      name: "Default",
       baseModel: "openai/gpt-4o-mini",
-      systemPrompt: "answer concisely.",
+      systemPrompt: "Answer concisely.",
       parameters: {
         temperature: 0,
         top_p: 1,
@@ -2294,6 +2334,7 @@ export default function ThreadedDocument() {
               error={toolsError}
               availableTools={availableTools}
               setAvailableTools={setAvailableTools}
+              setModels={setModels}
             />
           </TabsContent>
           <TabsContent
@@ -2459,6 +2500,7 @@ export default function ThreadedDocument() {
                   error={toolsError}
                   availableTools={availableTools}
                   setAvailableTools={setAvailableTools}
+                  setModels={setModels}
                 />
               </TabsContent>
               <TabsContent value="settings" className="flex-grow overflow-y-clip">
