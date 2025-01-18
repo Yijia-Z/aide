@@ -417,7 +417,22 @@ export default function ThreadedDocument() {
     () => debounce(saveThreads, 2000),
     [saveThreads]
   );
-
+  async function syncWelcomeThreadToBackend(thread: Thread) {
+    // 这里 thread 就是 {id, title, isPinned, updatedAt, messages: [...]}
+    // messages 里还有 replies，需要在后端处理好“递归插入”或简单 forEach
+  
+    const res = await fetch("/api/threads/welcome", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ thread }),
+    });
+    if (!res.ok) {
+      throw new Error(`syncWelcomeThread failed => status = ${res.status}`);
+    }
+    const data = await res.json();
+    return data;
+  }
+  
   const addThread = useCallback(async () => {
     // 1) 先生成前端 ID
     const frontEndId = uuidv4();
@@ -1238,6 +1253,7 @@ export default function ThreadedDocument() {
     setThreads((prev) => {
       console.log("[deleteThread] setThreads old =>", prev);
       const newList = prev.filter((t) => t.id !== threadId);
+      storage.set("threads", newList);
       console.log("[deleteThread] newList =>", newList);
       return newList;
     });
@@ -1262,6 +1278,7 @@ export default function ThreadedDocument() {
       // 回滚
       setThreads(oldThreads);
       setCurrentThread(oldCurrent);
+      storage.set("threads", oldThreads);
     }
   }, [threads, currentThread, setThreads, setCurrentThread]);
 
@@ -1686,17 +1703,32 @@ Feel free to delete this thread and create your own!`}
           if (data.threads?.length > 0) {
             setThreads(data.threads);
             storage.set("threads", data.threads);
+          }   else {
+          const localThreads = storage.get("threads") || [];
+
+          if (localThreads.length > 0) {
+            // 本地已有线程 => 不再创建欢迎贴，直接用本地
+            setThreads(localThreads);
+            setCurrentThread(localThreads[0].id);
           } else {
-            // No threads from backend - create welcome thread locally
+            // 本地也空 => 真的需要创建欢迎贴
             const welcomeThread = createWelcomeThread();
             setThreads([welcomeThread]);
+            storage.set("threads", [welcomeThread]);
             setCurrentThread(welcomeThread.id);
-
-            // Optionally sync to backend
+        
             if (isSignedIn) {
-              addThread();
+              try {
+                // 同步
+                await syncWelcomeThreadToBackend(welcomeThread);
+                console.log("Welcome thread successfully synced to backend!");
+              } catch (err) {
+                console.error("Failed to sync welcome thread =>", err);
+              }
             }
-          }
+          
+          }}
+                
         } else {
           // API error - create welcome thread locally
           const welcomeThread = createWelcomeThread();
