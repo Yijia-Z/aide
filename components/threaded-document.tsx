@@ -141,7 +141,7 @@ export default function ThreadedDocument() {
   }, [activeTab]);
 
 
-  useEffect(() => {
+  /* useEffect(() => {
     if (!currentThread) {
       console.log("[ThreadedDocument] no currentThread => skip fetchSingleThread");
       return;
@@ -151,14 +151,14 @@ export default function ThreadedDocument() {
       try {
         console.log("[fetchSingleThread] start => threadId =", currentThread);
 
-        /*    // 1) 获取 thread 基本信息
+      
            const resThread = await fetch(`/api/threads/${currentThread}`);
            if (!resThread.ok) {
              throw new Error("Failed to fetch thread info");
            }
            const dataThread = await resThread.json();
            console.log("[fetchSingleThread] dataThread=", dataThread);
-    */
+
         // 2) 获取 messages
         const resMessages = await fetch(`/api/messages?threadId=${currentThread}`);
         if (!resMessages.ok) {
@@ -205,9 +205,117 @@ export default function ThreadedDocument() {
     };
 
     fetchSingleThread();
-  }, [currentThread, setThreads]);
+  }, [currentThread, setThreads]); */
 
-
+  useEffect(() => {
+    // 如果没选中任何 thread，就不做任何请求
+    if (!currentThread) {
+      console.log("[ThreadedDocument] no currentThread => skip fetchSingleThread");
+      return;
+    }
+  
+    // 找到本地现有的 thread
+    const localThread = threads.find((th) => th.id === currentThread);
+    if (!localThread) {
+      // 如果本地根本没有这个 thread => 必须去后端取
+      fetchSingleThread(currentThread);
+      return;
+    }
+  
+    // 1) 解析本地 thread 的 updatedAt
+    console.log("localThread.updatedAt =", localThread.updatedAt);
+    // 然后再写 new Date(...)
+    
+    const localUpdatedTime = new Date(localThread.updatedAt || 0).getTime();
+  
+    // 2) 先请求后端查看是否有更新的 updatedAt (轻量接口)
+    //    如果你已经有 /api/threads/:id，可以只拿 { updatedAt } 再决定是否要拉 messages
+    //    这里示例写个 fetchHeadThread 只返回 updatedAt
+    const checkBackend = async () => {
+      try {
+        const res = await fetch(`/api/threads/${currentThread}?only=updatedAt`);
+        if (!res.ok) throw new Error("Failed to fetch thread's updatedAt");
+        const data = await res.json();
+        const serverUpdatedTime = new Date(data.thread.updatedAt).getTime();
+  
+        if (serverUpdatedTime > localUpdatedTime) {
+          // 说明服务器更新 => 去拉全量消息
+          fetchSingleThread(currentThread);
+        } else {
+          // 本地已经比服务端新或相等 => 什么都不做，直接用本地
+          console.log("[fetchSingleThread] local is up-to-date, skip");
+        }
+      } catch (err) {
+        console.error("[checkBackend updatedAt] error =>", err);
+        // 这里可决定：如果后端出错，就直接用本地
+      }
+    };
+  
+    checkBackend();
+  }, [currentThread, threads]);
+  
+  /**
+   * 真正从后端拉取 messages 的函数
+   * 拉取后更新 setThreads，并写进 localStorage
+   */
+  async function  fetchSingleThread(threadId: string) {
+    try {
+      console.log("[fetchSingleThread] actually fetching => threadId =", threadId);
+  
+      // 1) 获取 messages
+      const resMessages = await fetch(`/api/messages?threadId=${threadId}`);
+      if (!resMessages.ok) {
+        throw new Error("Failed to fetch messages for thread");
+      }
+      const dataMessages = await resMessages.json();
+      console.log("[fetchSingleThread] dataMessages=", dataMessages);
+  
+      function initCollapse(messages: any[]): Message[] {
+        return messages.map((msg) => {
+          msg.isCollapsed = false;
+          msg.userCollapsed = false;
+          if (Array.isArray(msg.replies) && msg.replies.length > 0) {
+            msg.replies = initCollapse(msg.replies);
+          }
+          return msg;
+        });
+      }
+  
+      const initMessages = Array.isArray(dataMessages.messages)
+        ? initCollapse(dataMessages.messages)
+        : [];
+  
+      // 2) 获取 thread 基本信息 (包括 updatedAt)
+      //    如果你在 /api/messages 里已经返回了 thread 的 updatedAt，也可省略这一步
+      //    这里仅做示例
+      const resThreadInfo = await fetch(`/api/threads/${threadId}`);
+      if (!resThreadInfo.ok) {
+        throw new Error("Failed to fetch thread info");
+      }
+      const dataThread = await resThreadInfo.json();
+      const serverThread = dataThread.thread; // { id, updatedAt, isPinned, etc.}
+  
+      // 3) 合并到前端 state
+      setThreads((prevThreads) => {
+        const newThreads = prevThreads.map((th) => {
+          if (th.id !== threadId) return th;
+          return {
+            ...th,
+            // 用后端数据更新
+            updatedAt: serverThread.updatedAt,
+            isPinned: serverThread.isPinned ?? th.isPinned,
+            messages: initMessages,
+          };
+        });
+        // 4) 写入 localStorage
+        storage.set("threads", newThreads);
+        return newThreads;
+      });
+    } catch (err) {
+      console.error("[fetchSingleThread] error =>", err);
+    }
+  }
+  
   /*   useEffect(() => {
       const offlineDetector = createOfflineDetector();
       const removeListener = offlineDetector.addListener((offline) => {
@@ -1741,6 +1849,7 @@ Feel free to delete this thread and create your own!`}
         const welcomeThread = createWelcomeThread();
         setThreads([welcomeThread]);
         setCurrentThread(welcomeThread.id);
+        storage.set("threads", [welcomeThread]);
       }
     };
 
