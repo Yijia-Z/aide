@@ -494,15 +494,16 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
                 {/* 顶部行：折叠按钮 + publisher */}
                 <div
                   className={cn(
-                    "flex items-center justify-between rounded-md",
+                    "flex items-start justify-between rounded-md", // Changed from items-center to items-start
                     isGenerating[message.id] && "opacity-50 glow-effect"
                   )}
                 >
-                  {/* 折叠按钮 + Publisher */}
-                  <div className="flex items-center space-x-1 flex-wrap">
+                  {/* Left side: collapse button, publisher, badges */}
+                  <div className="flex flex-grow items-start gap-2">
+                    {/* Collapse button */}
                     <Button
                       variant="outline"
-                      className="w-6 h-6 p-0 rounded-md relative"
+                      className="flex-shrink-0 w-6 h-6 p-0 rounded-md relative"
                       onClick={(e) => {
                         e.stopPropagation();
                         toggleCollapse(threadId, message.id);
@@ -510,78 +511,82 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
                     >
                       {message.isCollapsed ? <Plus /> : <Minus />}
                     </Button>
-                    <span
-                      className={cn(
-                        "font-bold select-none",
-                        message.publisher === "ai"
-                          ? "text-blue-800 dark:text-blue-600"
-                          : "text-green-800 dark:text-green-600"
-                      )}
-                    >
-                      {parentId !== null &&
-                        message.publisher === findMessageById(
-                          threads.find((tt) => tt.id === currentThread)?.messages || [],
-                          parentId
-                        )?.publisher && <Reply className="inline-block h-4 w-4" />}
-                      {message.publisher === "ai"
-                        ? modelDetails?.name || "AI"
-                        : message.userName}
-                    </span>
 
-                    {/* Always show model name / tool badges */}
-                    {modelDetails && (
-                      <div className="flex items-center gap-1 flex-wrap">
-                        <Badge
-                          variant="outline"
-                          className="select-none text-muted-foreground gap-1"
-                          onClick={(e) => {
-                            // Only handle click on mobile
-                            if (window.innerWidth < 768) {
-                              e.stopPropagation();
-                              const text = e.currentTarget.querySelector("span");
-                              if (text) {
-                                if (!text.style.display) {
-                                  text.style.display = "none";
-                                }
-                                text.style.display =
-                                  text.style.display === "none" ? "inline" : "none";
-                              }
-                            }
-                          }}
-                        >
-                          <Bot className="w-3 h-3 m-0.5" />
-                          <span>
-                            {modelDetails.baseModel?.split("/").pop()?.split("-")[0]}
-                          </span>
-                        </Badge>
-                        {modelDetails.parameters?.tools &&
-                          modelDetails.parameters.tools.length > 0 &&
-                          modelDetails.parameters.tool_choice !== "none" && (
-                            <div className="flex gap-1 flex-wrap">
-                              {modelDetails.parameters.tools.map((tl: Tool) => (
-                                <Badge
-                                  key={tl.id}
-                                  variant={
-                                    modelDetails.parameters?.tool_choice === "auto"
-                                      ? "outline"
-                                      : "secondary"
+                    {/* Publisher and badges wrapper */}
+                    <div className="flex items-center gap-1 flex-wrap">
+                      {/* Publisher */}
+                      <span
+                        className={cn(
+                          "font-bold select-none",
+                          message.publisher === "ai"
+                            ? "text-blue-800 dark:text-blue-600"
+                            : "text-green-800 dark:text-green-600"
+                        )}
+                      >
+                        {parentId !== null &&
+                          message.publisher === findMessageById(
+                            threads.find((tt) => tt.id === currentThread)?.messages || [],
+                            parentId
+                          )?.publisher && <Reply className="inline-block h-4 w-4" />}
+                        {message.publisher === "ai"
+                          ? modelDetails?.name || "AI"
+                          : message.userName}
+                      </span>
+
+                      {/* Model badges */}
+                      {modelDetails && (
+                        <div className="flex items-center gap-1 flex-wrap">
+                          <Badge
+                            variant="outline"
+                            className="select-none text-muted-foreground gap-1"
+                            onClick={(e) => {
+                              if (window.innerWidth < 768) {
+                                e.stopPropagation();
+                                const text = e.currentTarget.querySelector("span");
+                                if (text) {
+                                  if (!text.style.display) {
+                                    text.style.display = "none";
                                   }
-                                  className="select-none cursor-pointer md:cursor-default gap-1"
-                                >
-                                  <Box className="w-3 h-3 m-0.5" />
-                                  <span className="hidden md:inline">{tl.function.name}</span>
-                                </Badge>
-                              ))}
-                            </div>
-                          )}
-                      </div>
-                    )}
+                                  text.style.display =
+                                    text.style.display === "none" ? "inline" : "none";
+                                }
+                              }
+                            }}
+                          >
+                            <Bot className="w-3 h-3 m-0.5" />
+                            <span>
+                              {modelDetails.baseModel?.split("/").pop()?.split("-")[0]}
+                            </span>
+                          </Badge>
+                          {modelDetails.parameters?.tools &&
+                            modelDetails.parameters.tools.length > 0 &&
+                            modelDetails.parameters.tool_choice !== "none" && (
+                              <div className="flex gap-1 flex-wrap">
+                                {modelDetails.parameters.tools.map((tl: Tool) => (
+                                  <Badge
+                                    key={tl.id}
+                                    variant={
+                                      modelDetails.parameters?.tool_choice === "auto"
+                                        ? "outline"
+                                        : "secondary"
+                                    }
+                                    className="select-none cursor-pointer md:cursor-default gap-1"
+                                  >
+                                    <Box className="w-3 h-3 m-0.5" />
+                                    <span className="hidden md:inline">{tl.function.name}</span>
+                                  </Badge>
+                                ))}
+                              </div>
+                            )}
+                        </div>
+                      )}
+                    </div>
                   </div>
 
-                  {/* 导航箭头 */}
+                  {/* Right side: navigation arrows */}
                   <div
                     className={cn(
-                      "flex space-x-1",
+                      "flex flex-shrink-0 space-x-1",
                       isSelected ? "opacity-100" : "opacity-0 hover:opacity-100",
                       "transition-opacity duration-200"
                     )}
@@ -669,7 +674,7 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
                     onChange={(e) => setEditingContent(e.target.value)}
                     className="min-font-size font-serif flex-grow w-auto m-1 p-0 bg-inherit"
                     style={{
-                      minHeight: 80,
+                      height: Math.max(80, Math.min(editingContent.split('\n').length * 24, window.innerHeight * 0.5)),
                       maxHeight: "50vh",
                     }}
                     autoFocus
