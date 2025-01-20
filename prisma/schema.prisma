@@ -38,7 +38,7 @@ model Thread {
   id         String   @id
   title      String
 
-  updatedAt  DateTime @updatedAt
+  updatedAt  DateTime @default(now())
   createdAt  DateTime @default(now())
   isDeleted  Boolean  @default(false) // 软删除标记
 

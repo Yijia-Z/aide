@@ -32,6 +32,7 @@ export interface Thread {
   messages: Message[];
   isPinned: boolean;
   updatedAt?: string;
+  hasFetchedMessages?:boolean;
 }
 
 export interface Model {

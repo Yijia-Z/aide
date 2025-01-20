@@ -213,15 +213,15 @@ export default function ThreadedDocument() {
       console.log("[ThreadedDocument] no currentThread => skip fetchSingleThread");
       return;
     }
-  
-    // 找到本地现有的 thread
-    const localThread = threads.find((th) => th.id === currentThread);
+    const localThread = threads.find(t => t.id === currentThread)
     if (!localThread) {
-      // 如果本地根本没有这个 thread => 必须去后端取
-      fetchSingleThread(currentThread);
-      return;
+      // localThread === undefined，必须 return 或 fetch
+      return
     }
-  
+    if (!localThread.hasFetchedMessages) {
+      fetchSingleThread(currentThread)
+      return
+    }
     // 1) 解析本地 thread 的 updatedAt
     console.log("localThread.updatedAt =", localThread.updatedAt);
     // 然后再写 new Date(...)
@@ -305,6 +305,7 @@ export default function ThreadedDocument() {
             updatedAt: serverThread.updatedAt,
             isPinned: serverThread.isPinned ?? th.isPinned,
             messages: initMessages,
+            hasFetchedMessages: true,
           };
         });
         // 4) 写入 localStorage
@@ -398,7 +399,7 @@ export default function ThreadedDocument() {
           return { ...thread, messages: editMessage(thread.messages) };
         })
       );
-
+      storage.set("threads", threads);
       setEditingMessage(null);
       setEditingContent("");
 
@@ -552,7 +553,7 @@ export default function ThreadedDocument() {
       id: frontEndId,
       title: "New Thread",
       isPinned: false,
-      updatedAt: new Date().toISOString(),
+      
       messages: [],
     };
     // 先插入到前端
