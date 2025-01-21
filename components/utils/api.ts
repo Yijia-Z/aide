@@ -10,9 +10,11 @@ export async function generateAIResponse(
   replyingTo: string | null,
   tools: Tool[],
   onData: (chunk: string) => void,
-  abortController?: AbortController
+  userKey: string, 
+  abortController?: AbortController,
 ) {
   const requestPayload = {
+    openRouterKey: userKey,   
     messages: [
       { role: "system", content: model.systemPrompt },
       ...findAllParentMessages(threads, currentThread, replyingTo).map(
@@ -28,6 +30,7 @@ export async function generateAIResponse(
       ...model.parameters,
       tools,
     },
+    
   };
 
   // console.log("Request payload:", JSON.stringify(requestPayload, null, 2));
