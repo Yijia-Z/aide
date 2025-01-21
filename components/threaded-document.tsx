@@ -225,9 +225,9 @@ export default function ThreadedDocument() {
     // 1) 解析本地 thread 的 updatedAt
     console.log("localThread.updatedAt =", localThread.updatedAt);
     // 然后再写 new Date(...)
-
+    
     const localUpdatedTime = new Date(localThread.updatedAt || 0).getTime();
-
+  
     // 2) 先请求后端查看是否有更新的 updatedAt (轻量接口)
     //    如果你已经有 /api/threads/:id，可以只拿 { updatedAt } 再决定是否要拉 messages
     //    这里示例写个 fetchHeadThread 只返回 updatedAt
@@ -237,7 +237,7 @@ export default function ThreadedDocument() {
         if (!res.ok) throw new Error("Failed to fetch thread's updatedAt");
         const data = await res.json();
         const serverUpdatedTime = new Date(data.thread.updatedAt).getTime();
-
+  
         if (serverUpdatedTime > localUpdatedTime) {
           // 说明服务器更新 => 去拉全量消息
           fetchSingleThread(currentThread);
@@ -250,18 +250,18 @@ export default function ThreadedDocument() {
         // 这里可决定：如果后端出错，就直接用本地
       }
     };
-
+  
     checkBackend();
   }, [currentThread, threads]);
-
+  
   /**
    * 真正从后端拉取 messages 的函数
    * 拉取后更新 setThreads，并写进 localStorage
    */
-  async function fetchSingleThread(threadId: string) {
+  async function  fetchSingleThread(threadId: string) {
     try {
       console.log("[fetchSingleThread] actually fetching => threadId =", threadId);
-
+  
       // 1) 获取 messages
       const resMessages = await fetch(`/api/messages?threadId=${threadId}`);
       if (!resMessages.ok) {
@@ -269,7 +269,7 @@ export default function ThreadedDocument() {
       }
       const dataMessages = await resMessages.json();
       console.log("[fetchSingleThread] dataMessages=", dataMessages);
-
+  
       function initCollapse(messages: any[]): Message[] {
         return messages.map((msg) => {
           msg.isCollapsed = false;
@@ -280,11 +280,11 @@ export default function ThreadedDocument() {
           return msg;
         });
       }
-
+  
       const initMessages = Array.isArray(dataMessages.messages)
         ? initCollapse(dataMessages.messages)
         : [];
-
+  
       // 2) 获取 thread 基本信息 (包括 updatedAt)
       //    如果你在 /api/messages 里已经返回了 thread 的 updatedAt，也可省略这一步
       //    这里仅做示例
@@ -294,7 +294,7 @@ export default function ThreadedDocument() {
       }
       const dataThread = await resThreadInfo.json();
       const serverThread = dataThread.thread; // { id, updatedAt, isPinned, etc.}
-
+  
       // 3) 合并到前端 state
       setThreads((prevThreads) => {
         const newThreads = prevThreads.map((th) => {
@@ -316,7 +316,7 @@ export default function ThreadedDocument() {
       console.error("[fetchSingleThread] error =>", err);
     }
   }
-
+  
   /*   useEffect(() => {
       const offlineDetector = createOfflineDetector();
       const removeListener = offlineDetector.addListener((offline) => {
@@ -529,7 +529,7 @@ export default function ThreadedDocument() {
   async function syncWelcomeThreadToBackend(thread: Thread) {
     // 这里 thread 就是 {id, title, isPinned, updatedAt, messages: [...]}
     // messages 里还有 replies，需要在后端处理好“递归插入”或简单 forEach
-
+  
     const res = await fetch("/api/threads/welcome", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -541,7 +541,7 @@ export default function ThreadedDocument() {
     const data = await res.json();
     return data;
   }
-
+  
   const addThread = useCallback(async () => {
     // 1) 先生成前端 ID
     const frontEndId = uuidv4();
@@ -553,7 +553,7 @@ export default function ThreadedDocument() {
       id: frontEndId,
       title: "New Thread",
       isPinned: false,
-
+      
       messages: [],
     };
     // 先插入到前端
@@ -1802,24 +1802,6 @@ Feel free to delete this thread and create your own!`}
   useEffect(() => {
     const loadThreads = async () => {
       try {
-        // Try to load from cache first
-        const cachedThreads = storage.get("threads");
-        const cacheTimestamp = storage.get("threadsCacheTimestamp");
-        const CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache TTL
-        const isCacheValid = cacheTimestamp && (Date.now() - cacheTimestamp < CACHE_TTL);
-
-        if (cachedThreads && isCacheValid) {
-          setThreads(cachedThreads);
-          if (!currentThread && cachedThreads.length > 0) {
-            const sortedThreads = [...cachedThreads].sort((a, b) =>
-              new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-            );
-            setCurrentThread(sortedThreads[0].id);
-          }
-          return;
-        }
-
-        // If cache invalid or missing, fetch from API
         const response = await fetch(`/api/threads`, {
           method: "GET",
         });
@@ -1829,64 +1811,51 @@ Feel free to delete this thread and create your own!`}
 
           if (data.threads?.length > 0) {
             setThreads(data.threads);
-            // Update cache
             storage.set("threads", data.threads);
-            storage.set("threadsCacheTimestamp", Date.now());
+          }   else {
+          const localThreads = storage.get("threads") || [];
 
-            // Automatically select the latest thread if none is selected
-            if (!currentThread) {
-              const sortedThreads = [...data.threads].sort((a, b) =>
-                new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-              );
-              setCurrentThread(sortedThreads[0].id);
-            }
+          if (localThreads.length > 0) {
+            // 本地已有线程 => 不再创建欢迎贴，直接用本地
+            setThreads(localThreads);
+            setCurrentThread(localThreads[0].id);
           } else {
-            const localThreads = storage.get("threads") || [];
-
-            if (localThreads.length > 0) {
-              setThreads(localThreads);
-              if (!currentThread) {
-                const sortedThreads = [...localThreads].sort((a, b) =>
-                  new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-                );
-                setCurrentThread(sortedThreads[0].id);
-              }
-            } else {
-              const welcomeThread = createWelcomeThread();
-              setThreads([welcomeThread]);
-              storage.set("threads", [welcomeThread]);
-              storage.set("threadsCacheTimestamp", Date.now());
-              setCurrentThread(welcomeThread.id);
-
-              if (isSignedIn) {
-                try {
-                  await syncWelcomeThreadToBackend(welcomeThread);
-                  console.log("Welcome thread successfully synced to backend!");
-                } catch (err) {
-                  console.error("Failed to sync welcome thread =>", err);
-                }
+            // 本地也空 => 真的需要创建欢迎贴
+            const welcomeThread = createWelcomeThread();
+            setThreads([welcomeThread]);
+            storage.set("threads", [welcomeThread]);
+            setCurrentThread(welcomeThread.id);
+        
+            if (isSignedIn) {
+              try {
+                // 同步
+                await syncWelcomeThreadToBackend(welcomeThread);
+                console.log("Welcome thread successfully synced to backend!");
+              } catch (err) {
+                console.error("Failed to sync welcome thread =>", err);
               }
             }
-          }
+          
+          }}
+                
         } else {
+          // API error - create welcome thread locally
           const welcomeThread = createWelcomeThread();
           setThreads([welcomeThread]);
           setCurrentThread(welcomeThread.id);
-          storage.set("threads", [welcomeThread]);
-          storage.set("threadsCacheTimestamp", Date.now());
         }
       } catch (error) {
         console.error("Load failed:", error);
+        // Network/other error - create welcome thread locally
         const welcomeThread = createWelcomeThread();
         setThreads([welcomeThread]);
         setCurrentThread(welcomeThread.id);
         storage.set("threads", [welcomeThread]);
-        storage.set("threadsCacheTimestamp", Date.now());
       }
     };
 
     loadThreads();
-  }, [setThreads, currentThread, setCurrentThread, isSignedIn]);
+  }, [setThreads]);
 
   // Focus on thread title input when editing
   useEffect(() => {
@@ -2082,35 +2051,6 @@ Feel free to delete this thread and create your own!`}
   useEffect(() => {
     fetchAvailableModels();
   }, [fetchAvailableModels]);
-
-  // Load selected models from storage when models are loaded
-  useEffect(() => {
-    if (modelsLoaded) {
-      const savedSelectedModels = storage.get('selectedModels');
-      if (savedSelectedModels && Array.isArray(savedSelectedModels)) {
-        // Verify that saved models still exist in current models list
-        const validSelectedModels = savedSelectedModels.filter(id =>
-          models.some(model => model.id === id)
-        );
-        if (validSelectedModels.length > 0) {
-          setSelectedModels(validSelectedModels);
-        } else if (models.length > 0) {
-          // If no valid saved models, select the first available model
-          setSelectedModels([models[0].id]);
-        }
-      } else if (models.length > 0) {
-        // If no saved selection, select the first model by default
-        setSelectedModels([models[0].id]);
-      }
-    }
-  }, [models, modelsLoaded, setSelectedModels]);
-
-  // Save selected models whenever they change
-  useEffect(() => {
-    if (selectedModels.length > 0) {
-      storage.set('selectedModels', selectedModels);
-    }
-  }, [selectedModels]);
 
   /*  // fetch available models
    useEffect(() => {
