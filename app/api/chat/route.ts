@@ -1,19 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/db/prismadb";
+import { auth } from "@clerk/nextjs/server";
 
 export async function POST(req: NextRequest) {
   try {
     // console.log("API route started");
 
     const body = await req.json();
-    const { messages, configuration, openRouterKey  } = body;
+    let { messages, configuration, openRouterKey } = body;
+    let generationId: string | null = null;
+    let isEnvKeyUsed = false;
+    // 3. 如果前端没传 / 是空，就回退到 ENV
+    if (!openRouterKey) {
+      const { userId } = await auth();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    if (!process.env.OPENROUTER_API_KEY) {
-      console.error("OPENROUTER_API_KEY is not set");
-      throw new Error("OPENROUTER_API_KEY is not set");
+      openRouterKey = process.env.OPENROUTER_API_KEY;
+      isEnvKeyUsed = true;
     }
 
+    // 4. 如果两边都没有，就报错
     if (!openRouterKey) {
-      throw new Error("No OpenRouter key provided");
+      console.error("No user key or environment key found");
+      throw new Error("No valid OpenRouter key provided");
     }
     // Initialize the message list
     let currentMessages = [...messages];
@@ -204,15 +213,71 @@ export async function POST(req: NextRequest) {
                     } else if (finish_reason === "end_turn" || finish_reason === "stop" || finish_reason === "STOP") {
                       // console.log("Finish reason is 'end_turn' or 'stop', closing stream.");
                       parsed.choices[0].delta.content = assistantMessages;
-
-
+                      console.log("finish_reason reached. Let's see if there's an id:", parsed.id);
+                      generationId=parsed.id;
                       shouldContinue = false;
 
-                      /*     // Send [DONE] and close the stream
-                          controller.enqueue(
-                            new TextEncoder().encode("data: [DONE]\n\n")
-                          ); */
                       controller.close();
+                      if (isEnvKeyUsed && generationId) {
+                        const { userId } = await auth();
+                        if (!userId) {
+                          // 用户已退出登录？
+                          console.warn("User not found when finishing usage record.");
+                          return;
+                        }
+
+                        // 调用 openrouter /api/v1/generation 拿到费用和原生 token
+                        try {
+                          const costRes = await fetch(
+                            `https://openrouter.ai/api/v1/generation?id=${generationId}`,
+                            {
+                              headers: {
+                                Authorization: `Bearer ${openRouterKey}`,
+                              },
+                            }
+                          );
+
+                          if (costRes.ok) {
+                            const costData = await costRes.json();
+                            const detail = costData.data; // 里面有 total_cost, tokens_prompt, tokens_completion 等
+
+                            // 1) 往 UsageRecord 插入
+                            await prisma.usageRecord.create({
+                              data: {
+                                generationId: generationId,
+                                userId: userId,
+                                totalCost: detail.total_cost ?? 0,
+                                promptTokens: detail.tokens_prompt ?? 0,
+                                completionTokens: detail.tokens_completion ?? 0,
+                                totalTokens: detail.tokens_prompt
+                                  ? detail.tokens_prompt + (detail.tokens_completion ?? 0)
+                                  : null,
+                              },
+                            });
+
+                            // 2) 更新用户 balance
+                            //    balance 是 Decimal，如果 total_cost 是 float，需要做转换
+                            const costAmount = detail.total_cost ? String(detail.total_cost) : "0";
+                            await prisma.userProfile.update({
+                              where: { id: userId },
+                              data: {
+                                balance: {
+                                  decrement: costAmount, // Prisma Decimal decrement
+                                },
+                              },
+                            });
+
+                            console.log(
+                              `User ${userId} usage recorded: cost = ${costAmount}, generationId = ${generationId}`
+                            );
+                          } else {
+                            console.error("Failed to fetch cost from /api/v1/generation", costRes.statusText);
+                          }
+                        } catch (err) {
+                          console.error("Error fetching generation cost data:", err);
+                        }
+                      }
+
                       return;
                     }
                   }

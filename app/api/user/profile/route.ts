@@ -41,7 +41,8 @@ export async function GET(req: NextRequest) {
 
     console.log("Found userProfile:", profile);
     console.log("===[GET /api/user/profile] SUCCESS===");
-    return NextResponse.json({ username: profile.username });
+    return NextResponse.json({ username: profile.username,
+      balance: profile.balance, });
   } catch (err) {
     console.error("===[GET /api/user/profile] ERROR===", err);
     return NextResponse.json(

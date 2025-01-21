@@ -16,21 +16,34 @@ model UserProfile {
   username    String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-
+  balance      Decimal    @default(0) 
+  
   // 与 ThreadMembership 的一对多
   memberships ThreadMembership[]
   // 与 Model 的一对多
   models      Model[]
   // 与 Message 的一对多
   messages    Message[]
-
+  usageRecords UsageRecord[]
   // 可以创建多个 Tool (一对多)
   createdTools Tool[] @relation("UserCreatedTools")
 
   // 用户可启用多个 Tool => 通过 AvailableTool
   availableTools AvailableTool[] @relation("UserAvailableTools")
 }
+model UsageRecord {
+  generationId String   @id     // 与 OpenRouter 同步
+  userId       String
+  totalCost    Float?   // 如果要存钱
+  promptTokens Int?     // 可选：OpenRouter返回的 prompt_tokens
+  completionTokens Int? // 可选：OpenRouter返回的 completion_tokens
+  totalTokens  Int?     // 可选：OpenRouter返回的 total_tokens
+  createdAt    DateTime @default(now())
 
+  userProfile UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
 //////////////////////////////////////////////////////
 //  Thread
 //////////////////////////////////////////////////////

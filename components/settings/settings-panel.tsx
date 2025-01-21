@@ -25,7 +25,7 @@ interface SettingsPanelProps {
 
 export function SettingsPanel({ keyInfo, refreshUsage }: SettingsPanelProps) {
   const { user, isSignedIn } = useUser();
-  const { username, saveUsername } = useUserProfile();
+  const { username, saveUsername,balance } = useUserProfile();
 
   // 本地 state: username + apiKey
   const [isEditingUsername, setIsEditingUsername] = useState(false);
@@ -135,6 +135,10 @@ export function SettingsPanel({ keyInfo, refreshUsage }: SettingsPanelProps) {
                       </Button>
                     </div>
                   )}
+                  //不想显示可以把balance注销。需要的时候解除即可。
+                     <p className="text-sm text-muted-foreground">
+                    Balance: {balance}
+                  </p>
                 </div>
               </div>
             )}

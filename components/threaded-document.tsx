@@ -33,7 +33,7 @@ const apiBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 export default function ThreadedDocument() {
   const [keyInfo, setKeyInfo] = useState<KeyInfo | null>(null);
   const { isSignedIn } = useUser();
-  const { username } = useUserProfile();
+  const { username, reloadUserProfile  } = useUserProfile();
   // const [isOffline, setIsOffline] = useState(false);
   const [activeTab, setActiveTab] = useState<"threads" | "messages" | "models" | "tools" | "settings">(
     (storage.get('activeTab') || "threads") as "threads" | "messages" | "models" | "tools" | "settings"
@@ -1637,6 +1637,7 @@ export default function ThreadedDocument() {
     async (threadId: string, messageId: string, count: number = 1) => {
       const userKey = storage.get("openrouter_api_key") || "";
       const messageAbortController = new AbortController();
+   
       const cleanup = () => {
         messageAbortController.abort();
         setIsGenerating((prev) => ({ ...prev, [messageId]: false }));
@@ -1746,7 +1747,11 @@ export default function ThreadedDocument() {
                   console.error("Patch AI message fail:", err);
                 }
               }
-              await refreshUsage(userKey);
+              if (userKey) {
+                await refreshUsage(userKey);
+              } else {
+                await reloadUserProfile;  // 用后端ENV key => reloadProfile
+              }
             }
           });
           await Promise.all(promises);
