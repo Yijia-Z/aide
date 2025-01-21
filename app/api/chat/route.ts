@@ -5,13 +5,16 @@ export async function POST(req: NextRequest) {
     // console.log("API route started");
 
     const body = await req.json();
-    const { messages, configuration } = body;
+    const { messages, configuration, openRouterKey  } = body;
 
     if (!process.env.OPENROUTER_API_KEY) {
       console.error("OPENROUTER_API_KEY is not set");
       throw new Error("OPENROUTER_API_KEY is not set");
     }
 
+    if (!openRouterKey) {
+      throw new Error("No OpenRouter key provided");
+    }
     // Initialize the message list
     let currentMessages = [...messages];
     let assistantMessages = ''; // Used to accumulate the assistant's reply content
@@ -58,7 +61,7 @@ export async function POST(req: NextRequest) {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
-                Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+                Authorization: `Bearer ${openRouterKey}`,
                 "HTTP-Referer":
                   process.env.NEXT_PUBLIC_APP_URL || "http://aide.zy-j.com",
                 "X-Title": "Aide",

@@ -1,3 +1,15 @@
+export interface KeyInfo {
+  data: {
+    label: string;
+    usage: number;            // 已使用多少 credits
+    limit: number | null;     // 如果是 null，表示无限制
+    is_free_tier: boolean;    
+    rate_limit: {
+      requests: number;       // 每秒可发请求数
+      interval: string;       // 时间区间，如 "10s"
+    };
+  };
+};
 
 type TextContent = {
   type: "text";

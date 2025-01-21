@@ -16,7 +16,7 @@ import ModelConfig from "./model/model-config";
 import RenderMessages from "@/components/message/render-all-messages";
 import { ToolManager } from "./tool/tool-manager";
 import { generateAIResponse } from "@/components/utils/api";
-import { Thread, Message, Model, ModelParameters, Tool, ContentPart } from "./types";
+import { Thread, Message, Model, ModelParameters, Tool, ContentPart,KeyInfo } from "./types";
 import { useModels } from "./hooks/use-models";
 import { useThreads } from "./hooks/use-threads";
 import { useMessages } from "./hooks/use-messages";
@@ -31,6 +31,7 @@ import { v4 as uuidv4 } from 'uuid';
 const apiBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 
 export default function ThreadedDocument() {
+  const [keyInfo, setKeyInfo] = useState<KeyInfo | null>(null);
   const { isSignedIn } = useUser();
   const { username } = useUserProfile();
   // const [isOffline, setIsOffline] = useState(false);
@@ -1607,10 +1608,30 @@ export default function ThreadedDocument() {
     },
     []
   );
+  async function refreshUsage(userKey: string) {
+    if (!userKey) return;
+    try {
+      const res = await fetch("https://openrouter.ai/api/v1/auth/key", {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${userKey}`,
+        },
+      });
+      if (!res.ok) {
+        throw new Error(`Key usage fetch failed. HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      setKeyInfo(data); // 更新 state => SettingsPanel 显示新余额
+    } catch (err) {
+      console.error("refreshUsage error:", err);
+      setKeyInfo(null);
+    }
+  }
 
   // Generate AI reply
   const generateAIReply = useCallback(
     async (threadId: string, messageId: string, count: number = 1) => {
+      const userKey = storage.get("openrouter_api_key") || "";
       const messageAbortController = new AbortController();
       const cleanup = () => {
         messageAbortController.abort();
@@ -1695,7 +1716,8 @@ export default function ThreadedDocument() {
                     }
                   }
                 },
-                messageAbortController
+                userKey,
+                messageAbortController,
               );
             } finally {
               setIsGenerating((prev) => ({ ...prev, [newId]: false }));
@@ -1720,6 +1742,7 @@ export default function ThreadedDocument() {
                   console.error("Patch AI message fail:", err);
                 }
               }
+              await refreshUsage(userKey);
             }
           });
           await Promise.all(promises);
@@ -2486,7 +2509,10 @@ Feel free to delete this thread and create your own!`}
               paddingTop: "env(safe-area-inset-top)",
             }}
           >
-            <SettingsPanel />
+            <SettingsPanel
+        keyInfo={keyInfo}
+        refreshUsage={refreshUsage}
+      />
           </TabsContent>
           <TabsList
             className="grid 
@@ -2646,7 +2672,10 @@ Feel free to delete this thread and create your own!`}
                 />
               </TabsContent>
               <TabsContent value="settings" className="flex-grow overflow-y-clip">
-                <SettingsPanel />
+              <SettingsPanel
+        keyInfo={keyInfo}
+        refreshUsage={refreshUsage}
+      />
               </TabsContent>
             </Tabs>
           </ResizablePanel>
