@@ -25,7 +25,7 @@ interface SettingsPanelProps {
 
 export function SettingsPanel({ keyInfo, refreshUsage }: SettingsPanelProps) {
   const { user, isSignedIn } = useUser();
-  const { username, saveUsername,balance } = useUserProfile();
+  const { username, saveUsername, balance } = useUserProfile();
 
   // 本地 state: username + apiKey
   const [isEditingUsername, setIsEditingUsername] = useState(false);
@@ -135,8 +135,8 @@ export function SettingsPanel({ keyInfo, refreshUsage }: SettingsPanelProps) {
                       </Button>
                     </div>
                   )}
-                  //不想显示可以把balance注销。需要的时候解除即可。
-                     <p className="text-sm text-muted-foreground">
+                  {/*//不想显示可以把balance注销。需要的时候解除即可。*/}
+                  <p className="text-sm text-muted-foreground">
                     Balance: {balance}
                   </p>
                 </div>
@@ -151,9 +151,8 @@ export function SettingsPanel({ keyInfo, refreshUsage }: SettingsPanelProps) {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
             whileHover={isEditingApiKey ? undefined : { y: -2 }}
-            className={`group p-2 rounded-lg mb-2 ${
-              isEditingApiKey ? "custom-shadow" : "md:hover:shadow-[inset_0_0_10px_10px_rgba(128,128,128,0.2)] bg-background cursor-pointer"
-            }`}
+            className={`group p-2 rounded-lg mb-2 ${isEditingApiKey ? "custom-shadow" : "md:hover:shadow-[inset_0_0_10px_10px_rgba(128,128,128,0.2)] bg-background cursor-pointer"
+              }`}
             onDoubleClick={() => {
               if (isSignedIn) {
                 setIsEditingApiKey((prev) => !prev);
