@@ -253,7 +253,7 @@ export default function ThreadedDocument() {
     };
 
     checkBackend();
-  }, [currentThread, threads]);
+  }, [currentThread]);
 
   /**
    * 真正从后端拉取 messages 的函数
@@ -1631,36 +1631,37 @@ export default function ThreadedDocument() {
       setKeyInfo(null);
     }
   }
+  const abortControllersRef = useRef<Record<string, AbortController | null>>({});
 
   // Generate AI reply
   const generateAIReply = useCallback(
     async (threadId: string, messageId: string, count: number = 1) => {
       const userKey = storage.get("openrouter_api_key") || "";
-      const messageAbortController = new AbortController();
-   
-      const cleanup = () => {
-        messageAbortController.abort();
+      if (isGenerating[messageId]) {
+        console.log("第二次点击 => Stop for messageId=", messageId);
+        const controller = abortControllersRef.current[messageId];
+        if (controller) {
+          controller.abort(); // 真正中断请求
+        }
+        abortControllersRef.current[messageId] = null;
         setIsGenerating((prev) => ({ ...prev, [messageId]: false }));
-      };
-
-      if (isGenerating[messageId] && messageAbortController) {
-        cleanup();
         return;
       }
-
+ 
       const thread = threads.find((t: { id: string }) => t.id === threadId);
       if (!thread) return;
 
       const message = findMessageById(thread.messages, messageId);
       if (!message) return;
+      const selectedModelIds = selectedModels;
+      if (selectedModelIds.length === 0) {
+         alert("No model selected. Please select a model in Models tab to proceed.");
+         setActiveTab("models");
+         return;
+       } 
 
       try {
-        const selectedModelIds = selectedModels;
-        if (selectedModelIds.length === 0) {
-          alert("No model selected. Please select a model in Models tab to proceed.");
-          setActiveTab("models");
-          return;
-        }
+     
 
         for (let i = 0; i < count; i++) {
           const promises = selectedModelIds.map(async (modelId) => {
@@ -1676,7 +1677,9 @@ export default function ThreadedDocument() {
             // Pass the model details when creating the message
             addMessage(threadId, messageId, "", "ai", newId, model);
             setIsGenerating((prev) => ({ ...prev, [newId]: true }));
-
+            const messageAbortController = new AbortController();
+            // 存到全局字典
+            abortControllersRef.current[newId] = messageAbortController;
             let fullResponse = "";
             try {
               const enabledTools = (model.parameters?.tool_choice !== "none" && model.parameters?.tool_choice !== undefined
@@ -1722,10 +1725,11 @@ export default function ThreadedDocument() {
                   }
                 },
                 userKey,
-                messageAbortController,
+                messageAbortController
               );
             } finally {
               setIsGenerating((prev) => ({ ...prev, [newId]: false }));
+              abortControllersRef.current[newId] = null;
               if (fullResponse.trim()) {
                 try {
                   const patchRes = await fetch(`/api/messages/${newId}`, {

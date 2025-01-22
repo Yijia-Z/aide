@@ -11,7 +11,7 @@ export async function generateAIResponse(
   tools: Tool[],
   onData: (chunk: string) => void,
   userKey?: string, 
-  abortController?: AbortController,
+  abortController?: AbortController
 ) {
   const requestPayload = {
      
