@@ -10,9 +10,11 @@ export async function generateAIResponse(
   replyingTo: string | null,
   tools: Tool[],
   onData: (chunk: string) => void,
+  userKey?: string, 
   abortController?: AbortController
 ) {
   const requestPayload = {
+     
     messages: [
       { role: "system", content: model.systemPrompt },
       ...findAllParentMessages(threads, currentThread, replyingTo).map(
@@ -28,6 +30,7 @@ export async function generateAIResponse(
       ...model.parameters,
       tools,
     },
+    userKey
   };
 
   // console.log("Request payload:", JSON.stringify(requestPayload, null, 2));
@@ -42,7 +45,7 @@ export async function generateAIResponse(
       signal: abortController?.signal
     }
   );
-  console.log(response);
+  console.log("res:", response);
   if (!response.ok) {
     throw new Error("Failed to generate AI response");
   }

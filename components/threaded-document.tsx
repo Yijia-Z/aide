@@ -16,7 +16,7 @@ import ModelConfig from "./model/model-config";
 import RenderMessages from "@/components/message/render-all-messages";
 import { ToolManager } from "./tool/tool-manager";
 import { generateAIResponse } from "@/components/utils/api";
-import { Thread, Message, Model, ModelParameters, Tool, ContentPart } from "./types";
+import { Thread, Message, Model, ModelParameters, Tool, ContentPart,KeyInfo } from "./types";
 import { useModels } from "./hooks/use-models";
 import { useThreads } from "./hooks/use-threads";
 import { useMessages } from "./hooks/use-messages";
@@ -31,8 +31,9 @@ import { v4 as uuidv4 } from 'uuid';
 const apiBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 
 export default function ThreadedDocument() {
+  const [keyInfo, setKeyInfo] = useState<KeyInfo | null>(null);
   const { isSignedIn } = useUser();
-  const { username } = useUserProfile();
+  const { username, reloadUserProfile  } = useUserProfile();
   // const [isOffline, setIsOffline] = useState(false);
   const [activeTab, setActiveTab] = useState<"threads" | "messages" | "models" | "tools" | "settings">(
     (storage.get('activeTab') || "threads") as "threads" | "messages" | "models" | "tools" | "settings"
@@ -141,7 +142,7 @@ export default function ThreadedDocument() {
   }, [activeTab]);
 
 
-  useEffect(() => {
+  /* useEffect(() => {
     if (!currentThread) {
       console.log("[ThreadedDocument] no currentThread => skip fetchSingleThread");
       return;
@@ -151,14 +152,14 @@ export default function ThreadedDocument() {
       try {
         console.log("[fetchSingleThread] start => threadId =", currentThread);
 
-        /*    // 1) 获取 thread 基本信息
+      
            const resThread = await fetch(`/api/threads/${currentThread}`);
            if (!resThread.ok) {
              throw new Error("Failed to fetch thread info");
            }
            const dataThread = await resThread.json();
            console.log("[fetchSingleThread] dataThread=", dataThread);
-    */
+
         // 2) 获取 messages
         const resMessages = await fetch(`/api/messages?threadId=${currentThread}`);
         if (!resMessages.ok) {
@@ -205,8 +206,117 @@ export default function ThreadedDocument() {
     };
 
     fetchSingleThread();
-  }, [currentThread, setThreads]);
+  }, [currentThread, setThreads]); */
 
+  useEffect(() => {
+    // 如果没选中任何 thread，就不做任何请求
+    if (!currentThread) {
+      console.log("[ThreadedDocument] no currentThread => skip fetchSingleThread");
+      return;
+    }
+    const localThread = threads.find(t => t.id === currentThread)
+    if (!localThread) {
+      // localThread === undefined，必须 return 或 fetch
+      return
+    }
+    if (!localThread.hasFetchedMessages) {
+      fetchSingleThread(currentThread)
+      return
+    }
+    // 1) 解析本地 thread 的 updatedAt
+    console.log("localThread.updatedAt =", localThread.updatedAt);
+    // 然后再写 new Date(...)
+
+    const localUpdatedTime = new Date(localThread.updatedAt || 0).getTime();
+
+    // 2) 先请求后端查看是否有更新的 updatedAt (轻量接口)
+    //    如果你已经有 /api/threads/:id，可以只拿 { updatedAt } 再决定是否要拉 messages
+    //    这里示例写个 fetchHeadThread 只返回 updatedAt
+    const checkBackend = async () => {
+      try {
+        const res = await fetch(`/api/threads/${currentThread}?only=updatedAt`);
+        if (!res.ok) throw new Error("Failed to fetch thread's updatedAt");
+        const data = await res.json();
+        const serverUpdatedTime = new Date(data.thread.updatedAt).getTime();
+
+        if (serverUpdatedTime > localUpdatedTime) {
+          // 说明服务器更新 => 去拉全量消息
+          fetchSingleThread(currentThread);
+        } else {
+          // 本地已经比服务端新或相等 => 什么都不做，直接用本地
+          console.log("[fetchSingleThread] local is up-to-date, skip");
+        }
+      } catch (err) {
+        console.error("[checkBackend updatedAt] error =>", err);
+        // 这里可决定：如果后端出错，就直接用本地
+      }
+    };
+
+    checkBackend();
+  }, [currentThread]);
+
+  /**
+   * 真正从后端拉取 messages 的函数
+   * 拉取后更新 setThreads，并写进 localStorage
+   */
+  async function fetchSingleThread(threadId: string) {
+    try {
+      console.log("[fetchSingleThread] actually fetching => threadId =", threadId);
+
+      // 1) 获取 messages
+      const resMessages = await fetch(`/api/messages?threadId=${threadId}`);
+      if (!resMessages.ok) {
+        throw new Error("Failed to fetch messages for thread");
+      }
+      const dataMessages = await resMessages.json();
+      console.log("[fetchSingleThread] dataMessages=", dataMessages);
+
+      function initCollapse(messages: any[]): Message[] {
+        return messages.map((msg) => {
+          msg.isCollapsed = false;
+          msg.userCollapsed = false;
+          if (Array.isArray(msg.replies) && msg.replies.length > 0) {
+            msg.replies = initCollapse(msg.replies);
+          }
+          return msg;
+        });
+      }
+
+      const initMessages = Array.isArray(dataMessages.messages)
+        ? initCollapse(dataMessages.messages)
+        : [];
+
+      // 2) 获取 thread 基本信息 (包括 updatedAt)
+      //    如果你在 /api/messages 里已经返回了 thread 的 updatedAt，也可省略这一步
+      //    这里仅做示例
+      const resThreadInfo = await fetch(`/api/threads/${threadId}`);
+      if (!resThreadInfo.ok) {
+        throw new Error("Failed to fetch thread info");
+      }
+      const dataThread = await resThreadInfo.json();
+      const serverThread = dataThread.thread; // { id, updatedAt, isPinned, etc.}
+
+      // 3) 合并到前端 state
+      setThreads((prevThreads) => {
+        const newThreads = prevThreads.map((th) => {
+          if (th.id !== threadId) return th;
+          return {
+            ...th,
+            // 用后端数据更新
+            updatedAt: serverThread.updatedAt,
+            isPinned: serverThread.isPinned ?? th.isPinned,
+            messages: initMessages,
+            hasFetchedMessages: true,
+          };
+        });
+        // 4) 写入 localStorage
+        storage.set("threads", newThreads);
+        return newThreads;
+      });
+    } catch (err) {
+      console.error("[fetchSingleThread] error =>", err);
+    }
+  }
 
   /*   useEffect(() => {
       const offlineDetector = createOfflineDetector();
@@ -290,7 +400,7 @@ export default function ThreadedDocument() {
           return { ...thread, messages: editMessage(thread.messages) };
         })
       );
-
+      storage.set("threads", threads);
       setEditingMessage(null);
       setEditingContent("");
 
@@ -417,6 +527,21 @@ export default function ThreadedDocument() {
     () => debounce(saveThreads, 2000),
     [saveThreads]
   );
+  async function syncWelcomeThreadToBackend(thread: Thread) {
+    // 这里 thread 就是 {id, title, isPinned, updatedAt, messages: [...]}
+    // messages 里还有 replies，需要在后端处理好“递归插入”或简单 forEach
+
+    const res = await fetch("/api/threads/welcome", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ thread }),
+    });
+    if (!res.ok) {
+      throw new Error(`syncWelcomeThread failed => status = ${res.status}`);
+    }
+    const data = await res.json();
+    return data;
+  }
 
   const addThread = useCallback(async () => {
     // 1) 先生成前端 ID
@@ -429,7 +554,7 @@ export default function ThreadedDocument() {
       id: frontEndId,
       title: "New Thread",
       isPinned: false,
-      updatedAt: new Date().toISOString(),
+
       messages: [],
     };
     // 先插入到前端
@@ -1140,9 +1265,13 @@ export default function ThreadedDocument() {
   //   import { v4 as uuidv4 } from 'uuid';
   //   interface Model { ... } // your Model interface
 
-  const addNewModel = useCallback(async () => {
+  const addNewModel = useCallback(async (modelToClone?: Model) => {
     const newId = uuidv4();
-    const newModel: Model = {
+    const newModel: Model = modelToClone ? {
+      ...modelToClone,
+      id: newId,
+      name: `${modelToClone.name}`
+    } : {
       id: newId,
       name: "New Model",
       baseModel: "none",
@@ -1238,6 +1367,7 @@ export default function ThreadedDocument() {
     setThreads((prev) => {
       console.log("[deleteThread] setThreads old =>", prev);
       const newList = prev.filter((t) => t.id !== threadId);
+      storage.set("threads", newList);
       console.log("[deleteThread] newList =>", newList);
       return newList;
     });
@@ -1262,6 +1392,7 @@ export default function ThreadedDocument() {
       // 回滚
       setThreads(oldThreads);
       setCurrentThread(oldCurrent);
+      storage.set("threads", oldThreads);
     }
   }, [threads, currentThread, setThreads, setCurrentThread]);
 
@@ -1481,34 +1612,56 @@ export default function ThreadedDocument() {
     },
     []
   );
+  async function refreshUsage(userKey: string) {
+    if (!userKey) return;
+    try {
+      const res = await fetch("https://openrouter.ai/api/v1/auth/key", {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${userKey}`,
+        },
+      });
+      if (!res.ok) {
+        throw new Error(`Key usage fetch failed. HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      setKeyInfo(data); // 更新 state => SettingsPanel 显示新余额
+    } catch (err) {
+      console.error("refreshUsage error:", err);
+      setKeyInfo(null);
+    }
+  }
+  const abortControllersRef = useRef<Record<string, AbortController | null>>({});
 
   // Generate AI reply
   const generateAIReply = useCallback(
     async (threadId: string, messageId: string, count: number = 1) => {
-      const messageAbortController = new AbortController();
-      const cleanup = () => {
-        messageAbortController.abort();
+      const userKey = storage.get("openrouter_api_key") || "";
+      if (isGenerating[messageId]) {
+        console.log("第二次点击 => Stop for messageId=", messageId);
+        const controller = abortControllersRef.current[messageId];
+        if (controller) {
+          controller.abort(); // 真正中断请求
+        }
+        abortControllersRef.current[messageId] = null;
         setIsGenerating((prev) => ({ ...prev, [messageId]: false }));
-      };
-
-      if (isGenerating[messageId] && messageAbortController) {
-        cleanup();
         return;
       }
-
+ 
       const thread = threads.find((t: { id: string }) => t.id === threadId);
       if (!thread) return;
 
       const message = findMessageById(thread.messages, messageId);
       if (!message) return;
+      const selectedModelIds = selectedModels;
+      if (selectedModelIds.length === 0) {
+         alert("No model selected. Please select a model in Models tab to proceed.");
+         setActiveTab("models");
+         return;
+       } 
 
       try {
-        const selectedModelIds = selectedModels;
-        if (selectedModelIds.length === 0) {
-          alert("No model selected. Please select a model in Models tab to proceed.");
-          setActiveTab("models");
-          return;
-        }
+     
 
         for (let i = 0; i < count; i++) {
           const promises = selectedModelIds.map(async (modelId) => {
@@ -1524,7 +1677,9 @@ export default function ThreadedDocument() {
             // Pass the model details when creating the message
             addMessage(threadId, messageId, "", "ai", newId, model);
             setIsGenerating((prev) => ({ ...prev, [newId]: true }));
-
+            const messageAbortController = new AbortController();
+            // 存到全局字典
+            abortControllersRef.current[newId] = messageAbortController;
             let fullResponse = "";
             try {
               const enabledTools = (model.parameters?.tool_choice !== "none" && model.parameters?.tool_choice !== undefined
@@ -1569,10 +1724,12 @@ export default function ThreadedDocument() {
                     }
                   }
                 },
+                userKey,
                 messageAbortController
               );
             } finally {
               setIsGenerating((prev) => ({ ...prev, [newId]: false }));
+              abortControllersRef.current[newId] = null;
               if (fullResponse.trim()) {
                 try {
                   const patchRes = await fetch(`/api/messages/${newId}`, {
@@ -1593,6 +1750,11 @@ export default function ThreadedDocument() {
                 } catch (err) {
                   console.error("Patch AI message fail:", err);
                 }
+              }
+              if (userKey) {
+                await refreshUsage(userKey);
+              } else {
+                await reloadUserProfile;  // 用后端ENV key => reloadProfile
               }
             }
           });
@@ -1687,16 +1849,32 @@ Feel free to delete this thread and create your own!`}
             setThreads(data.threads);
             storage.set("threads", data.threads);
           } else {
-            // No threads from backend - create welcome thread locally
-            const welcomeThread = createWelcomeThread();
-            setThreads([welcomeThread]);
-            setCurrentThread(welcomeThread.id);
+            const localThreads = storage.get("threads") || [];
 
-            // Optionally sync to backend
-            if (isSignedIn) {
-              addThread();
+            if (localThreads.length > 0) {
+              // 本地已有线程 => 不再创建欢迎贴，直接用本地
+              setThreads(localThreads);
+              setCurrentThread(localThreads[0].id);
+            } else {
+              // 本地也空 => 真的需要创建欢迎贴
+              const welcomeThread = createWelcomeThread();
+              setThreads([welcomeThread]);
+              storage.set("threads", [welcomeThread]);
+              setCurrentThread(welcomeThread.id);
+
+              if (isSignedIn) {
+                try {
+                  // 同步
+                  await syncWelcomeThreadToBackend(welcomeThread);
+                  console.log("Welcome thread successfully synced to backend!");
+                } catch (err) {
+                  console.error("Failed to sync welcome thread =>", err);
+                }
+              }
+
             }
           }
+
         } else {
           // API error - create welcome thread locally
           const welcomeThread = createWelcomeThread();
@@ -1709,6 +1887,7 @@ Feel free to delete this thread and create your own!`}
         const welcomeThread = createWelcomeThread();
         setThreads([welcomeThread]);
         setCurrentThread(welcomeThread.id);
+        storage.set("threads", [welcomeThread]);
       }
     };
 
@@ -2344,7 +2523,10 @@ Feel free to delete this thread and create your own!`}
               paddingTop: "env(safe-area-inset-top)",
             }}
           >
-            <SettingsPanel />
+            <SettingsPanel
+        keyInfo={keyInfo}
+        refreshUsage={refreshUsage}
+      />
           </TabsContent>
           <TabsList
             className="grid 
@@ -2504,7 +2686,10 @@ Feel free to delete this thread and create your own!`}
                 />
               </TabsContent>
               <TabsContent value="settings" className="flex-grow overflow-y-clip">
-                <SettingsPanel />
+              <SettingsPanel
+        keyInfo={keyInfo}
+        refreshUsage={refreshUsage}
+      />
               </TabsContent>
             </Tabs>
           </ResizablePanel>

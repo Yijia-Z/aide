@@ -11,7 +11,13 @@ export function useThreads() {
   const [newThreadId, setNewThreadId] = useState<string | null>(null);
 
   // Save currentThread to localStorage whenever it changes
- 
+  useEffect(() => {
+    if (currentThread) {
+      storage.set('currentThread', currentThread);
+    } else {
+      storage.remove('currentThread');
+    }
+  }, [currentThread]);
   return {
     threads,
     setThreads,

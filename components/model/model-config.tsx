@@ -28,7 +28,7 @@
 
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Check, X, Trash, Sparkles, Edit } from "lucide-react";
+import { Check, X, Trash, Sparkles, Edit, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -38,13 +38,15 @@ import { SelectBaseModel } from "@/components/model/model-selector";
 import { Model, ModelParameters, Tool } from "@/components/types";
 import { Badge } from "@/components/ui/badge";
 import { MultiSelect } from "./multi-select";
+import { v4 as uuidv4 } from 'uuid';
+
 interface ModelConfigProps {
   models: Model[];
   selectedModels: string[];
   editingModel: Model | null;
   setSelectedModels: (modelIds: string[]) => void;
   setEditingModel: (model: Model | null) => void;
-  addNewModel: () => void;
+  addNewModel: (model?: Model) => void;
   handleModelChange: (
     field: keyof Model,
     value: string | number | Partial<ModelParameters> | Tool[]
@@ -100,7 +102,7 @@ const ModelConfig: React.FC<ModelConfigProps> = ({
           <Button
             className="bg-background hover:bg-secondary custom-shadow transition-scale-zoom text-primary border border-border"
             size="default"
-            onClick={addNewModel}
+            onClick={(e) => addNewModel()}
           >
             <Sparkles className="h-4 w-4" />
             <span className="ml-2 hidden lg:inline">New Model</span>
@@ -138,14 +140,32 @@ const ModelConfig: React.FC<ModelConfigProps> = ({
                     >
                       <h3 className="font-bold text-xl flex-grow">{model.name}</h3>
                       {editingModel?.id !== model.id ? (
-                        <Button
-                          variant="ghost"
-                          className="transition-scale-zoom md:opacity-0 md:group-hover:opacity-100 transition-opacity "
-                          size="sm"
-                          onClick={() => setEditingModel(model)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            className="transition-scale-zoom md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const clonedModel = {
+                                ...model,
+                                id: uuidv4(),
+                                name: `${model.name} 📋️`,
+                              };
+                              addNewModel(clonedModel);
+                            }}
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            className="transition-scale-zoom md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+                            size="sm"
+                            onClick={() => setEditingModel(model)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        </div>
                       ) : (
                         <div className="space-x-2 flex justify-end">
                           <Button
