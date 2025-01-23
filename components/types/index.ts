@@ -37,12 +37,16 @@ export interface Message {
   isCollapsed: boolean;
   userCollapsed: boolean;
 }
-
+export interface InviteData {
+  email: string;
+  role: "VIEWER" | "PUBLISHER" | "EDITOR" | "OWNER";
+}
 export interface Thread {
   id: string;
   title: string;
   messages: Message[];
   isPinned: boolean;
+  role?:string;
   updatedAt?: string;
   hasFetchedMessages?:boolean;
 }

@@ -36,6 +36,7 @@ export async function GET() {
           where: { userId },
           select: {
             pinned: true,
+            role: true
           },
         },
       },
@@ -44,11 +45,13 @@ export async function GET() {
     // 将 membership[].pinned 提炼成 isPinned（表示该 user 是否 pin 了此 thread）
     const mapped = threads.map(t => {
       const pinnedValue = t.memberships?.[0]?.pinned ?? false;
+      const roleValue = t.memberships?.[0]?.role ?? "VIEWER"; 
       return {
         id: t.id,
         title: t.title,
         updatedAt: t.updatedAt,
         isPinned: pinnedValue,
+        role: roleValue,
       };
     });
 
@@ -98,7 +101,7 @@ export async function POST(req: NextRequest) {
         data: {
           userId: userProfile.id,
           threadId: newThread.id,
-          role: "owner",
+          role: "OWNER",
         },
       });
 

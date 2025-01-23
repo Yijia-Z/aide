@@ -2,8 +2,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ListPlus, Check, X, Pin, PinOff, Trash } from "lucide-react";
+import { ListPlus, Check, X, Pin, PinOff, Trash, Share } from "lucide-react";
 import { Thread } from "@/components/types";
+import React, { useState } from "react";
+import { InviteModal } from "./InviteModal"; 
 
 interface ThreadListProps {
   threads: Thread[];
@@ -22,6 +24,7 @@ interface ThreadListProps {
   setThreadToDelete: React.Dispatch<React.SetStateAction<string | null>>;
   newThreadId: string | null;
   setNewThreadId: React.Dispatch<React.SetStateAction<string | null>>;
+
 }
 
 const ThreadList: React.FC<ThreadListProps> = ({
@@ -42,7 +45,7 @@ const ThreadList: React.FC<ThreadListProps> = ({
   newThreadId,
   setNewThreadId,
 }) => {
-
+  const [inviteThreadId, setInviteThreadId] = useState<string | null>(null);
   // Sort threads with pinned threads first, then by id in descending order
   const sortedThreads = threads.sort((a, b) => {
     // 第一步：只要 a 是 pinned 而 b 不是，就让 a 排前；反之 b 排前
@@ -187,7 +190,22 @@ const ThreadList: React.FC<ThreadListProps> = ({
                       }}
                     >
                       <span className="pl-1 flex-grow">{thread.title || <span className="text-muted-foreground">Unamed Thread</span>}</span>
+                      
                       <div className="flex items-center">
+
+                      {thread.role === "OWNER" && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setInviteThreadId(thread.id);
+                            }}
+                          >
+                            <Share className="h-4 w-4" />
+                          </Button>
+                        )}
+
                         <div className="group/pin">
                           <Button
                             variant="ghost"
@@ -254,6 +272,12 @@ const ThreadList: React.FC<ThreadListProps> = ({
           </motion.div>
         </AnimatePresence>
       </ScrollArea>
+      {inviteThreadId && (
+        <InviteModal
+          threadId={inviteThreadId}
+          onClose={() => setInviteThreadId(null)}
+        />
+      )}
     </div>
   );
 };

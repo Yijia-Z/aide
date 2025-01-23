@@ -24,7 +24,7 @@ export async function PATCH(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   // 如果 role 不是 owner/editor，就 403
-  if (membership.role !== "owner" && membership.role !== "editor") {
+  if (membership.role !== "OWNER" && membership.role !== "EDITOR") {
     console.log("[PATCH] no permission => 403");
     return NextResponse.json({ error: "No Permission" }, { status: 403 });
   }
@@ -170,7 +170,7 @@ export async function DELETE(
     }
 
     // 如果是 owner，则把 Thread 软删除
-    if (membership.role === "owner") {
+    if (membership.role === "OWNER") {
       console.log("[DELETE] user is owner => delete this thread");
       await prisma.thread.update({
         where: { id: threadId },

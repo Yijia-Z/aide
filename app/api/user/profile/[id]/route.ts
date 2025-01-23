@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prismadb";
 import { auth } from "@clerk/nextjs/server";
-
+import { clerkClient } from "@clerk/nextjs/server";
 /**
  * GET /api/userProfiles/:id
  *   - 获取指定用户的 balance （以及其他字段，比如 username）
