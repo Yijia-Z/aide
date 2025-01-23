@@ -4,7 +4,6 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { SignIn, useUser } from "@clerk/nextjs";
 import Image from "next/image";
-import { translations } from "@clerk/localizations";
 export default function LoginPage() {
     const { isSignedIn } = useUser();
     const router = useRouter();
