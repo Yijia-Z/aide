@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prismadb";
 import { auth } from "@clerk/nextjs/server";
+import { currentUser } from '@clerk/nextjs/server';
 
 function generateRandomUsername(length = 8) {
   const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
@@ -17,11 +18,14 @@ function generateRandomUsername(length = 8) {
  */
 export async function GET(req: NextRequest) {
   console.log("===[GET /api/user/profile] START===");
-
+  
   // 获取auth信息
   const { userId } = await auth();
   console.log("UserID from Clerk auth:", userId);
 
+  //暂时需要。因为前面的user都没绑定邮箱所以现在需要对前面的user数据库进行更新。当这些user都有邮箱绑定后就可以删除这个部分。
+  const user = await currentUser();
+  const clerkEmail = user?.primaryEmailAddress?.emailAddress;
   if (!userId) {
     console.log("No userId => not logged in. Returning 401...");
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -30,13 +34,22 @@ export async function GET(req: NextRequest) {
   try {
     // 从数据库里找这条记录
     console.log("Attempting to find userProfile by userId:", userId);
-    const profile = await prisma.userProfile.findUnique({
+    let profile = await prisma.userProfile.findUnique({
       where: { id: userId },
     });
 
     if (!profile) {
       console.log("No userProfile found in DB. Possibly first-time user.");
       return NextResponse.json({ username: null });
+    }
+    if (clerkEmail && profile.email !== clerkEmail) {
+      profile = await prisma.userProfile.update({
+        where: { id: userId },
+        data: {
+          email: clerkEmail,
+        },
+      });
+      console.log(`[GET /api/user/profile] Updated email =>`, profile);
     }
 
     console.log("Found userProfile:", profile);
@@ -62,7 +75,8 @@ export async function PUT(req: NextRequest) {
 
   const { userId } = await auth();
   console.log("UserID from Clerk auth:", userId);
-
+  const user = await currentUser()
+  const userEmail = user?.primaryEmailAddress?.emailAddress;
   if (!userId) {
     console.log("No userId => not logged in. Returning 401...");
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -95,7 +109,7 @@ export async function PUT(req: NextRequest) {
     const upsertData = { 
         where: { id: userId },
         update: { username: finalUsername },
-        create: { id: userId, username: finalUsername },
+        create: { id: userId, username: finalUsername,email:userEmail, },
       };
       console.log("Upsert data:", upsertData);
       const profile = await prisma.userProfile.upsert(upsertData);

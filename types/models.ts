@@ -76,4 +76,8 @@ export type ThreadUpdateData = Partial<Thread>;
     createdAt: string;  
     updatedAt: string;  
   }
+  export interface ThreadRole {
+    email: string;
+    role: "VIEWER" | "PUBLISHER" | "EDITOR" | "OWNER";
+  }
   

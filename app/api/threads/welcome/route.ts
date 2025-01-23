@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
         data: {
           userId,
           threadId: newThread.id,
-          role: "owner",
+          role: "OWNER",
           pinned: thread.isPinned ?? false, // 看你要不要同步 pinned
           joinedAt: new Date(),
         },
