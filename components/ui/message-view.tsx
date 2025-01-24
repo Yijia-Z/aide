@@ -42,7 +42,7 @@ const MessageView: React.FC<MessageViewProps> = ({
       className={`flex flex-col relative sm:h-full h-[calc(97vh)] hide-scrollbar`}
     >
       <div
-        className="top-bar bg-gradient-to-b from-background/100 to-background/00"
+        className="top-bar bg-linear-to-b from-background/100 to-background/00"
         style={{
           mask: "linear-gradient(black, black, transparent)",
           backdropFilter: "blur(1px)",
@@ -67,7 +67,7 @@ const MessageView: React.FC<MessageViewProps> = ({
         </Button>
       </div>
       <ScrollArea
-        className="flex-grow"
+        className="grow"
         onClick={() => setSelectedMessages((prev) => ({ ...prev, [String(currentThread)]: null }))}
       >
         <div className="mb-4" onClick={(e) => e.stopPropagation()}>

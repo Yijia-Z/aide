@@ -157,7 +157,7 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
       {currentThread ? (
         <>
           <div
-            className="top-bar md:pr-2 bg-gradient-to-b from-background/100 to-background/00"
+            className="top-bar md:pr-2 bg-linear-to-b from-background/100 to-background/00"
             style={{
               mask: "linear-gradient(black, black, transparent)",
               backdropFilter: "blur(1px)",

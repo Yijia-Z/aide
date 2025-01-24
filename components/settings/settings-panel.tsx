@@ -86,7 +86,7 @@ export function SettingsPanel({ keyInfo, refreshUsage }: SettingsPanelProps) {
   return (
     <div className="flex flex-col relative h-[calc(97vh)]">
       <div
-        className="top-bar bg-gradient-to-b from-background/100 to-background/00"
+        className="top-bar bg-linear-to-b from-background/100 to-background/00"
         style={{
           mask: "linear-gradient(black, black, transparent)",
           backdropFilter: "blur(1px)",
@@ -96,7 +96,7 @@ export function SettingsPanel({ keyInfo, refreshUsage }: SettingsPanelProps) {
         <ModeToggle />
       </div>
 
-      <ScrollArea className="flex-grow select-none p-2">
+      <ScrollArea className="grow select-none p-2">
         <motion.div
           className="space-y-2 mt-2"
           initial={{ opacity: 0, y: 20 }}
@@ -114,7 +114,7 @@ export function SettingsPanel({ keyInfo, refreshUsage }: SettingsPanelProps) {
             ) : (
               <div className="flex items-center gap-4">
                 <UserButton />
-                <div className="flex flex-col flex-grow">
+                <div className="flex flex-col grow">
                   {!isEditingUsername ? (
                     <div className="flex items-center justify-between">
                       <p className="text-lg">{userNameLocal || "🤔..."}</p>
@@ -125,7 +125,7 @@ export function SettingsPanel({ keyInfo, refreshUsage }: SettingsPanelProps) {
                   ) : (
                     <div className="flex items-center justify-between">
                       <Input
-                        className="flex-grow"
+                        className="grow"
                         value={userNameLocal || ""}
                         onChange={(e) => setUserNameLocal(e.target.value.slice(0, 50))}
                         maxLength={20}

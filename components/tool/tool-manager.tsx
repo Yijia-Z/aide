@@ -159,7 +159,7 @@ export function ToolManager({
   return (
     <div className="flex flex-col relative h-[calc(97vh)] overflow-clip select-none">
       <div
-        className="top-bar bg-gradient-to-b from-background/100 to-background/00"
+        className="top-bar bg-linear-to-b from-background/100 to-background/00"
         style={{
           mask: "linear-gradient(black, black, transparent)",
           backdropFilter: "blur(1px)",
@@ -175,7 +175,7 @@ export function ToolManager({
         </Button>
       </div>
 
-      <ScrollArea className="flex-grow">
+      <ScrollArea className="grow">
         <AnimatePresence>
           <motion.div className="space-y-2 mt-2">
             {availableTools.map((tool) => (
@@ -187,7 +187,7 @@ export function ToolManager({
                 whileHover={{ y: -2 }}
                 className="group p-2 rounded-lg md:hover:shadow-[inset_0_0_10px_10px_rgba(128,128,128,0.2)]"
               >
-                <div className="flex-grow justify-between items-start">
+                <div className="grow justify-between items-start">
                   <div className="flex cursor-pointer justify-between items-center">
                     <h3 className="font-bold text-xl">{tool.name}</h3>
                     <Button

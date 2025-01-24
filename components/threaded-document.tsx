@@ -2406,7 +2406,7 @@ Feel free to delete this thread and create your own!`}
   ]);
 
   return (
-    <div className="h-screen flex flex-col md:flex-row p-2 pb-0 md:pr-0 overflow-ellipsis ">
+    <div className="h-screen flex flex-col md:flex-row p-2 pb-0 md:pr-0 text-ellipsis ">
       <div className="sm:hidden bg-transparent">
         {/* Mobile layout with tabs for threads, messages, and models */}
         <Tabs
@@ -2588,7 +2588,7 @@ Feel free to delete this thread and create your own!`}
         }}
       >
         {/* Desktop layout with resizable panels */}
-        <ResizablePanelGroup direction="horizontal" className="flex-grow">
+        <ResizablePanelGroup direction="horizontal" className="grow">
           <ResizablePanel
             defaultSize={28}
             collapsible
@@ -2636,7 +2636,7 @@ Feel free to delete this thread and create your own!`}
               </TabsList>
               <TabsContent
                 value="threads"
-                className="flex-grow overflow-y-clip"
+                className="grow overflow-y-clip"
               >
                 <ThreadList
                   threads={threads}
@@ -2657,7 +2657,7 @@ Feel free to delete this thread and create your own!`}
                   setNewThreadId={setNewThreadId}
                 />
               </TabsContent>
-              <TabsContent value="models" className="flex-grow overflow-y-clip">
+              <TabsContent value="models" className="grow overflow-y-clip">
                 <ModelConfig
                   models={models}
                   selectedModels={selectedModels}
@@ -2674,7 +2674,7 @@ Feel free to delete this thread and create your own!`}
                   isSignedIn={isSignedIn}
                 />
               </TabsContent>
-              <TabsContent value="tools" className="flex-grow overflow-y-clip">
+              <TabsContent value="tools" className="grow overflow-y-clip">
                 <ToolManager
                   tools={tools}
                   setTools={setTools}
@@ -2685,7 +2685,7 @@ Feel free to delete this thread and create your own!`}
                   setModels={setModels}
                 />
               </TabsContent>
-              <TabsContent value="settings" className="flex-grow overflow-y-clip">
+              <TabsContent value="settings" className="grow overflow-y-clip">
               <SettingsPanel
         keyInfo={keyInfo}
         refreshUsage={refreshUsage}
@@ -2693,7 +2693,7 @@ Feel free to delete this thread and create your own!`}
               </TabsContent>
             </Tabs>
           </ResizablePanel>
-          <ResizableHandle withHandle hitAreaMargins={{ coarse: 16, fine: 8 }} className="mx-2 w-0 px-px bg-gradient-to-b from-background via-transparent to-background" />
+          <ResizableHandle withHandle hitAreaMargins={{ coarse: 16, fine: 8 }} className="mx-2 w-0 px-px bg-linear-to-b from-background via-transparent to-background" />
           <ResizablePanel defaultSize={72}>
             <div className="h-full overflow-y-auto">
               <RenderMessages
