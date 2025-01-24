@@ -40,7 +40,7 @@ model UserProfile {
   usageRecords UsageRecord[]
   // 可以创建多个 Tool (一对多)
   createdTools Tool[] @relation("UserCreatedTools")
-
+ createdThreads Thread[] @relation("ThreadCreatorRelation")
   // 用户可启用多个 Tool => 通过 AvailableTool
   availableTools AvailableTool[] @relation("UserAvailableTools")
 }
@@ -82,6 +82,9 @@ model Thread {
   updatedAt  DateTime @default(now())
   createdAt  DateTime @default(now())
   isDeleted  Boolean  @default(false) // 软删除标记
+ creatorId  String
+  // 用@relation指定同一个名字"ThreadCreatorRelation"，保证两边对得上。
+  creator    UserProfile @relation("ThreadCreatorRelation", fields: [creatorId], references: [id], onDelete: NoAction)
 
   // 关系
   memberships ThreadMembership[]
@@ -139,7 +142,8 @@ model Message {
   parentId   String?     // 父消息 ID；null表示顶层
   publisher  String      // "user"|"ai"
   userId     String?
-
+  isDeleted    Boolean  @default(false)
+  deletedAt    DateTime?
   ownerId    String?
   content    Json?   @default(dbgenerated("'[]'::jsonb"))
   createdAt  DateTime @default(now())

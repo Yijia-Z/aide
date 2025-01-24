@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prismadb";
 import { auth } from "@clerk/nextjs/server";
+import { canDoThreadOperation, ThreadOperation } from "@/lib/permission";
 
 export async function PATCH(req: NextRequest,
     { params }: { params: Promise<{ id: string }> }) {
@@ -13,7 +14,25 @@ export async function PATCH(req: NextRequest,
     console.log("[PATCH /api/messages/:id] incoming id =", messageId);
     const { content } = await req.json() as { content: string | any[] };
     console.log("[PATCH /api/messages/:id] body = ", content);
-   
+    const existingMessage = await prisma.message.findUnique({
+      where: { id: messageId },
+      select: {
+        threadId: true,
+        publisher: true,
+      },
+    });
+    if (!existingMessage) {
+      return NextResponse.json({ error: "Message Not Found" }, { status: 404 });
+    }
+
+    const threadId = existingMessage.threadId;
+    const publisher = existingMessage.publisher;
+   if(publisher!="ai"){
+       const allowed = await canDoThreadOperation(userId, threadId, ThreadOperation.EDIT_MESSAGE);
+       if (!allowed) {
+         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+       }
+     }
    
     const updated = await prisma.message.update({
       where: { id: messageId },
@@ -43,10 +62,19 @@ try {
     // 先查这条消息是否存在
     const messageToDelete = await prisma.message.findUnique({
       where: { id: messageId },
+      select: {
+        threadId: true,
+        publisher: true,
+        isDeleted: true,
+      },
     });
+   
     if (!messageToDelete) {
       return NextResponse.json({ error: "Message not found" }, { status: 404 });
     }
+    const allowed = await canDoThreadOperation(userId, messageToDelete.threadId, ThreadOperation.EDIT_MESSAGE);
+    if (!allowed) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });}
 
     // 根据 deleteOption 分三种逻辑
     if (deleteOption === true) {
@@ -59,8 +87,9 @@ try {
       // 3) 删除自己，但保留子消息并把子“上移”到自己父节点
       await deleteButKeepChildren(messageId);
     }
-
+  
     return NextResponse.json({ success: true }, { status: 200 });
+  
   } catch (err: any) {
     console.error("[DELETE /api/messages/:id] error:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
@@ -73,47 +102,55 @@ try {
 async function deleteMessageAndDescendants(msgId: string) {
   // 找到所有直接子节点
   const children = await prisma.message.findMany({
-    where: { parentId: msgId },
+    where: { parentId: msgId, isDeleted: false },
   });
   // 递归先删子
   for (const child of children) {
     await deleteMessageAndDescendants(child.id);
   }
   // 最后删自己
-  await prisma.message.delete({
+  await prisma.message.update({
     where: { id: msgId },
+    data: {
+      isDeleted: true,
+      deletedAt: new Date(),
+    },
   });
 }
 
 // (B) 保留自己，只把所有子节点（及其后代）删光
 async function clearMessageChildren(msgId: string) {
-  // 找到所有直接子
+  // 找到直接子(未软删)
   const children = await prisma.message.findMany({
-    where: { parentId: msgId },
+    where: { parentId: msgId, isDeleted: false },
   });
-  // 然后用 (A) 的逻辑删除所有子孙
+  // 递归软删
   for (const child of children) {
     await deleteMessageAndDescendants(child.id);
   }
-  // 自己不删除
+  // 自己不删
 }
 
 // (C) 删除自己，但保留子消息 => 要把子“挂”到我的父节点下
 async function deleteButKeepChildren(msgId: string) {
-  // 1) 查出这条消息，拿到它的 parentId
+  // 1) 查出这条消息 => 拿到 parentId
   const thisMsg = await prisma.message.findUnique({
     where: { id: msgId },
   });
-  if (!thisMsg) return; // 万一被删掉或找不到
+  if (!thisMsg) return;
 
-  // 2) 把所有子节点的 parentId 改成我的 parentId
+  // 2) 把子节点们改到 my parent
   await prisma.message.updateMany({
-    where: { parentId: msgId },
-    data: { parentId: thisMsg.parentId }, 
+    where: { parentId: msgId, isDeleted: false },
+    data: { parentId: thisMsg.parentId },
   });
 
-  // 3) 然后删掉自己
-  await prisma.message.delete({
+  // 3) 软删自己
+  await prisma.message.update({
     where: { id: msgId },
+    data: {
+      isDeleted: true,
+      deletedAt: new Date(),
+    },
   });
 }

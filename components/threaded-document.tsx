@@ -26,11 +26,12 @@ import { useTools } from "./hooks/use-tools";
 import { useUserProfile } from "./hooks/use-userprofile";
 import { AlignJustify, MessageSquare, Sparkle, Settings, Package } from "lucide-react";
 import { v4 as uuidv4 } from 'uuid';
-
+import { useClearStorageOnExit } from "./useClearStorageOnExit";
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 
 export default function ThreadedDocument() {
+  useClearStorageOnExit();
   const [keyInfo, setKeyInfo] = useState<KeyInfo | null>(null);
   const { isSignedIn } = useUser();
   const { username, reloadUserProfile  } = useUserProfile();
@@ -554,7 +555,7 @@ export default function ThreadedDocument() {
       id: frontEndId,
       title: "New Thread",
       isPinned: false,
-
+      role: "OWNER", 
       messages: [],
     };
     // 先插入到前端

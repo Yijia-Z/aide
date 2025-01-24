@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prismadb";
 import { auth } from "@clerk/nextjs/server";
 import { Thread } from "@/types/models"; // your local interface that includes: { id, title, messages, isPinned, ... }
+import { canDoThreadOperation, ThreadOperation } from "@/lib/permission";
+//edit threadtitle with perm
 
 export async function PATCH(
   req: NextRequest,
@@ -16,22 +18,18 @@ export async function PATCH(
   // 2) Get threadId from route params
   const { id: threadId } = await params;
   console.log("[Backend] PATCH /api/threads/[id], threadId =", threadId);
+  const allowed = await canDoThreadOperation(userId, threadId, ThreadOperation.EDIT_TITLE);
+  if (!allowed) {
+    return NextResponse.json({ error: "No Permission" }, { status: 403 });
+  }
   const membership = await prisma.threadMembership.findUnique({
     where: { userId_threadId: { userId, threadId } },
   });
-  if (!membership) {
-    console.log("[PATCH] membership not found => 403");
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-  // 如果 role 不是 owner/editor，就 403
-  if (membership.role !== "OWNER" && membership.role !== "EDITOR") {
-    console.log("[PATCH] no permission => 403");
-    return NextResponse.json({ error: "No Permission" }, { status: 403 });
-  }
   const existingThread = await prisma.thread.findUnique({
     where: { id: threadId },
   });
   if (!existingThread) {
+    // 这里你就 return 404 或别的
     return NextResponse.json({ error: "Not Found" }, { status: 404 });
   }
   // 若已软删除，就不让改
@@ -55,18 +53,13 @@ export async function PATCH(
 
     // 5) Perform upsert. If the thread does not exist, create it with messages from updatedData; 
     //    if it does exist, update relevant fields, including messages (merging or overwriting).
-    const upsertedThread = await prisma.thread.upsert({
+    const upsertedThread = await prisma.thread.update({
       where: { id: threadId },
-      update: {
+      data: {
         title: updatedData.title,
         // If the client sent updatedData.messages, we use that; otherwise fallback to existing
        
        
-      },
-      create: {
-        id: threadId,
-        title: updatedData.title ?? "Untitled Thread",
-        
       },
     });
     console.log("[Backend] upsertedThread =>", upsertedThread);
@@ -104,13 +97,10 @@ export async function GET(
 
   try {
     // 1) 确保 userId 对此 thread 有 membership
-    const membership = await prisma.threadMembership.findUnique({
-      where: { userId_threadId: { userId, threadId } },
-    });
-    if (!membership) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const allowed = await canDoThreadOperation(userId, threadId, ThreadOperation.VIEW_MESSAGE);
+    if (!allowed) {
+      return NextResponse.json({ error: "No Permission" }, { status: 403 });
     }
-
     // 2) 找到这个 thread 本身，包括 messages
     const thread = await prisma.thread.findUnique({
       where: { id: threadId },
@@ -140,6 +130,8 @@ export async function GET(
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
+
+//quit thread.
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }  
@@ -153,14 +145,10 @@ export async function DELETE(
   console.log("[Backend] GET /api/threads/[id]", threadId);
   try {
     // 查 membership
-    const membership = await prisma.threadMembership.findUnique({
-      where: { userId_threadId: { userId, threadId } },
-    });
-    if (!membership) {
-      console.log("[DELETE] membership not found => 403");
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const allowed = await canDoThreadOperation(userId, threadId, ThreadOperation.QUIT_THREAD);
+    if (!allowed) {
+      return NextResponse.json({ error: "No Permission" }, { status: 403 });
     }
-
     // 查 Thread
     const thread = await prisma.thread.findUnique({
       where: { id: threadId },
@@ -170,7 +158,7 @@ export async function DELETE(
     }
 
     // 如果是 owner，则把 Thread 软删除
-    if (membership.role === "OWNER") {
+/*     if (membership.role === "OWNER") {
       console.log("[DELETE] user is owner => delete this thread");
       await prisma.thread.update({
         where: { id: threadId },
@@ -179,12 +167,12 @@ export async function DELETE(
       return NextResponse.json({ message: "Thread deleted" }, { status: 200 });
     } else {
       // 不是 owner，就仅仅删除自己的 membership
-      console.log("[DELETE] user is not owner => remove membership only");
+      console.log("[DELETE] user is not owner => remove membership only"); */
       await prisma.threadMembership.delete({
         where: { userId_threadId: { userId, threadId } },
       });
       return NextResponse.json({ message: "Left the thread" }, { status: 200 });
-    }
+    
   } catch (error: any) {
     console.error("[DELETE /api/threads/[id]] error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });

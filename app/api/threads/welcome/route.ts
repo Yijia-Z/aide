@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prismadb";
 import { auth } from "@clerk/nextjs/server";
 import { Prisma } from "@prisma/client";
-// 伪代码示例
+
 export async function POST(req: NextRequest) {
   const { userId } = await auth();
   if (!userId) {
@@ -34,6 +34,7 @@ export async function POST(req: NextRequest) {
           // updatedAt 也可以赋值
           updatedAt: thread.updatedAt ? new Date(thread.updatedAt) : new Date(),
           isDeleted: false,
+          creatorId:userId
         },
       });
 

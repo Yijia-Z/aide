@@ -93,6 +93,7 @@ export async function POST(req: NextRequest) {
         data: {
           id,
           title: title ?? "Untitled Thread",
+          creatorId: userId,
         },
       });
 
@@ -112,6 +113,7 @@ export async function POST(req: NextRequest) {
     const responseData = {
       ...result,
       isPinned: false,
+      role: "OWNER",
     };
 
     return NextResponse.json({ thread: responseData }, { status: 200 });
