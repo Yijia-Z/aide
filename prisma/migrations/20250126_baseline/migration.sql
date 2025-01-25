@@ -1,0 +1,1 @@
+-- baseline migration, no changes needed because the schema is already in sync
