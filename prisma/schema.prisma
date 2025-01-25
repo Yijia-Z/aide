@@ -12,18 +12,19 @@ datasource db {
 /// ///////////////////////////////////////////////////
 model UserProfile {
   id             String             @id
+  email          String?            @unique
   username       String?
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
   balance        Decimal            @default(0)
-  email          String?            @unique
+
   availableTools AvailableTool[]    @relation("UserAvailableTools")
   messages       Message[]
   models         Model[]
-  createdThreads Thread[]
   memberships    ThreadMembership[]
   createdTools   Tool[]             @relation("UserCreatedTools")
   usageRecords   UsageRecord[]
+  createdThreads Thread[]
 }
 
 model ThreadInvite {
@@ -60,9 +61,10 @@ model Thread {
   updatedAt   DateTime           @default(now())
   createdAt   DateTime           @default(now())
   isDeleted   Boolean            @default(false)
-  creatorId   String
-  messages    Message[]
+    creatorId   String
   creator     UserProfile        @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+
+  messages    Message[]
   blacklist   ThreadBlacklist[]
   invites     ThreadInvite[]
   memberships ThreadMembership[]
@@ -75,10 +77,10 @@ model Thread {
 model ThreadMembership {
   userId      String
   threadId    String
+  role        ThreadRole             @default(VIEWER)
+  status      ThreadMembershipStatus @default(INVITED)
   joinedAt    DateTime               @default(now())
   pinned      Boolean                @default(false)
-  status      ThreadMembershipStatus @default(INVITED)
-  role        ThreadRole             @default(VIEWER)
   thread      Thread                 @relation(fields: [threadId], references: [id], onDelete: Cascade)
   userProfile UserProfile            @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -111,10 +113,13 @@ model Message {
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @default(now()) @updatedAt
   modelConfig Json?
+
+   isDeleted   Boolean      @default(false)
   deletedAt   DateTime?
-  isDeleted   Boolean      @default(false)
-  editingAt   DateTime?
-  editingBy   String?
+  // 新增：被谁锁定、何时锁定
+  editingBy    String?
+  editingAt    DateTime?
+
   thread      Thread       @relation(fields: [threadId], references: [id], onDelete: Cascade)
   userProfile UserProfile? @relation(fields: [userId], references: [id], onDelete: Cascade)
 
