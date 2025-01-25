@@ -5,8 +5,10 @@ import { auth } from "@clerk/nextjs/server";
 import { canDoThreadOperation, ThreadOperation } from "@/lib/permission";
 
 export async function POST(req: NextRequest) {
+  console.log("[POST /api/messages] Entered");
     const { userId } = await auth();
   if (!userId) {
+    console.log("[POST /api/messages] => No userId, returning 401.");
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   
@@ -26,6 +28,9 @@ export async function POST(req: NextRequest) {
     if(publisher!="ai"){
     const allowed = await canDoThreadOperation(userId, threadId, ThreadOperation.SEND_MESSAGE);
     if (!allowed) {
+      console.log(
+        `[POST /api/messages] userId=${userId} is not allowed to SEND_MESSAGE in threadId=${threadId}`
+      );
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
   }
@@ -65,27 +70,34 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   try {
     // 1) 解析查询参数
+    console.log("[GET /api/messages] => Entered");
     const { userId } = await auth();
     if (!userId) {
+      console.log("[GET /api/messages] => No user, 401");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+   
     console.log('ENV CHECK =>', process.env.DATABASE_URL);
 
     // e.g. /api/messages?threadId=xxxx
     const url = new URL(req.url);
     const threadId = url.searchParams.get("threadId");
     if (!threadId) {
+      console.log("[GET /api/messages] => Missing threadId");
+      return NextResponse.json({ error: "Missing threadId" }, { status: 400 });
+    }
+    if (!threadId) {
       return NextResponse.json({ error: "Missing threadId" }, { status: 400 });
     }
 
     const allowed = await canDoThreadOperation(userId, threadId, ThreadOperation.VIEW_MESSAGE);
     if (!allowed) {
+      console.log(`[GET /api/messages] => userId=${userId} no permission to VIEW_MESSAGE in thread=${threadId}`);
       return NextResponse.json({ error: "No Permission" }, { status: 403 });
     }
- 
 
     // 3) 查询该 thread 下的所有 messages
-    const rawMessages = await prisma.message.findMany({
+    const frontMessages = await prisma.message.findMany({
       where: { threadId,isDeleted: false,  },
       orderBy: { createdAt: "asc" },  // 比如按时间排序
       select: {
@@ -98,6 +110,8 @@ export async function GET(req: NextRequest) {
         createdAt: true,
         updatedAt: true,
         isDeleted:true,
+        editingBy: true,
+        editingAt: true,
         userProfile: {
           select: {
             username: true,
@@ -105,6 +119,17 @@ export async function GET(req: NextRequest) {
         },
       },
     });
+    const  rawMessages =frontMessages.map((m) => {
+      const locked = m.editingBy !== null && m.editingBy !== userId;
+      return {
+        ...m,
+        locked,
+        userName: m.userProfile?.username ?? null,
+        // 如果你不想给前端看到 editingBy, 设为 undefined
+        editingBy: undefined,
+      };
+    });
+  
     function buildTree(messages: typeof rawMessages) {
       const map: Record<string, typeof rawMessages[number] & { replies: any[] }> = {};
       const roots: (typeof rawMessages[number] & { replies: any[] })[] = [];

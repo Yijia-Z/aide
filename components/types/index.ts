@@ -33,6 +33,7 @@ export interface Message {
   userName?:string;
   modelId?: string;
   modelConfig?: Partial<Model>;
+  locked?:boolean;
   replies: Message[];
   isCollapsed: boolean;
   userCollapsed: boolean;

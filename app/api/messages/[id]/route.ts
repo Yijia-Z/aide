@@ -6,9 +6,14 @@ import { canDoThreadOperation, ThreadOperation } from "@/lib/permission";
 
 export async function PATCH(req: NextRequest,
     { params }: { params: Promise<{ id: string }> }) {
+      console.log("[PATCH /api/messages/[id]] => Entered PATCH");
+  
   const { userId } = await auth();
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+ if (!userId) {
+    console.log("[PATCH] => Unauthorized, no userId");
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
   try {
     const { id: messageId } = await params;
     console.log("[PATCH /api/messages/:id] incoming id =", messageId);
@@ -21,6 +26,8 @@ export async function PATCH(req: NextRequest,
         publisher: true,
       },
     });
+    console.log("[PATCH /api/messages/:id] existingMessage =>", existingMessage);
+
     if (!existingMessage) {
       return NextResponse.json({ error: "Message Not Found" }, { status: 404 });
     }
@@ -30,14 +37,17 @@ export async function PATCH(req: NextRequest,
    if(publisher!="ai"){
        const allowed = await canDoThreadOperation(userId, threadId, ThreadOperation.EDIT_MESSAGE);
        if (!allowed) {
-         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-       }
+        console.log(`[PATCH] userId=${userId} no permission to edit message in thread=${threadId}`);
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
      }
    
     const updated = await prisma.message.update({
       where: { id: messageId },
       data: {
         content: Array.isArray(content) ? content : [content],
+        editingBy: null, 
+        editingAt: null, 
       },
     });
     console.log("[PATCH /api/messages/:id] updated:", updated);
@@ -153,4 +163,37 @@ async function deleteButKeepChildren(msgId: string) {
       deletedAt: new Date(),
     },
   });
+}
+export async function GET(req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }) {
+const { userId } = await auth();
+if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+
+  const { id: messageId } = await params;
+  console.log("[GET /api/messages/:id] => fetch message", { messageId, userId });
+  const fmsg = await prisma.message.findUnique({
+    where: { id: messageId },
+    select: {
+      id: true,
+      content: true,
+      editingBy: true,
+      // ...
+    },
+  });
+  if (!fmsg) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const locked = fmsg.editingBy !== null && fmsg.editingBy !== userId;
+  const msg = {
+    id: fmsg.id,
+    content: fmsg.content,
+    locked,           // 新增 locked
+    // 你如果还想把编辑者是不是自己锁，改写成
+    // locked = (msg.editingBy !== null && msg.editingBy !== userId)
+    // 或者 lockedByMe = (msg.editingBy === userId)
+    // ...
+  };
+  console.log("[GET /api/messages/:id] => returning message", msg);
+  // 如果你想包含 editingBy 的用户名，可以再 join userProfile
+  
+  return NextResponse.json({ message: msg }, { status: 200 });
 }
