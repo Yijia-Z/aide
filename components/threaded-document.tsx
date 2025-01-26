@@ -2057,6 +2057,7 @@ export default function ThreadedDocument() {
       id: threadId,
       title: "Welcome to AIDE",
       isPinned: false,
+      role:"OWNER",
       updatedAt: new Date().toISOString(),
       messages: [
         {

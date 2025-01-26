@@ -22,26 +22,39 @@ export async function GET(req: NextRequest) {
   // 获取auth信息
   const { userId } = await auth();
   console.log("UserID from Clerk auth:", userId);
-
-  //暂时需要。因为前面的user都没绑定邮箱所以现在需要对前面的user数据库进行更新。当这些user都有邮箱绑定后就可以删除这个部分。
-  const user = await currentUser();
-  const clerkEmail = user?.primaryEmailAddress?.emailAddress;
   if (!userId) {
     console.log("No userId => not logged in. Returning 401...");
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  //暂时需要。因为前面的user都没绑定邮箱所以现在需要对前面的user数据库进行更新。当这些user都有邮箱绑定后就可以删除这个部分。
+  const user = await currentUser();
+  const clerkEmail = user?.primaryEmailAddress?.emailAddress;
+ 
 
   try {
-    // 从数据库里找这条记录
+    // 查找 userProfile
     console.log("Attempting to find userProfile by userId:", userId);
     let profile = await prisma.userProfile.findUnique({
       where: { id: userId },
     });
 
     if (!profile) {
-      console.log("No userProfile found in DB. Possibly first-time user.");
-      return NextResponse.json({ username: null });
+      console.log("No userProfile found in DB => creating new row...");
+      // 生成随机用户名（也可改成别的逻辑）
+      const randomUsername = generateRandomUsername(8);
+      // 创建一条新的记录
+      profile = await prisma.userProfile.create({
+        data: {
+          id: userId,
+          email: clerkEmail || null,
+          username: randomUsername,
+          // 如果有别的字段(如 balance)，可在此一起赋默认值
+        },
+      });
+      console.log("Created new userProfile =>", profile);
     }
+
+    // 如果 Clerk 拿到的邮箱不一致，就做一次更新（可选逻辑）
     if (clerkEmail && profile.email !== clerkEmail) {
       profile = await prisma.userProfile.update({
         where: { id: userId },
@@ -52,18 +65,22 @@ export async function GET(req: NextRequest) {
       console.log(`[GET /api/user/profile] Updated email =>`, profile);
     }
 
-    console.log("Found userProfile:", profile);
+    console.log("Found or created userProfile:", profile);
     console.log("===[GET /api/user/profile] SUCCESS===");
-    return NextResponse.json({ username: profile.username,
-      balance: profile.balance, });
+
+    return NextResponse.json({
+      username: profile.username,
+      balance: profile.balance, // 如果有 balance 字段
+    });
   } catch (err) {
     console.error("===[GET /api/user/profile] ERROR===", err);
     return NextResponse.json(
-      { error: "Failed to fetch user profile" },
+      { error: "Failed to fetch or create user profile" },
       { status: 500 }
     );
   }
 }
+
 
 /**
  * PUT /api/user/profile
