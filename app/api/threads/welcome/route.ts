@@ -1,10 +1,11 @@
-// app/api/threads/full/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prismadb";
 import { auth } from "@clerk/nextjs/server";
 import { Prisma } from "@prisma/client";
-// 伪代码示例
+import { ThreadRole } from '../../../../types/models';
+
 export async function POST(req: NextRequest) {
+  console.log("===[POST /api/threads/full] START===");
   const { userId } = await auth();
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -25,8 +26,10 @@ export async function POST(req: NextRequest) {
     }
 
     // 1) 开始事务
+    console.log("1) Starting transaction to create Thread + Membership + Messages");
     const result = await prisma.$transaction(async (tx) => {
       // a) 创建 Thread
+      console.log(`[1a) Creating Thread] ID=${thread.id} userId=${userId}`);
       const newThread = await tx.thread.create({
         data: {
           id: thread.id,
@@ -34,9 +37,13 @@ export async function POST(req: NextRequest) {
           // updatedAt 也可以赋值
           updatedAt: thread.updatedAt ? new Date(thread.updatedAt) : new Date(),
           isDeleted: false,
+          creatorId:userId
         },
       });
+      console.log("    => Created Thread:", newThread);
 
+      console.log("[1b) Creating ThreadMembership] userId=", userId, " threadId=", newThread.id);
+      
       // b) 创建 membership
       await tx.threadMembership.create({
         data: {
@@ -47,7 +54,7 @@ export async function POST(req: NextRequest) {
           joinedAt: new Date(),
         },
       });
-
+      console.log("    => Created ThreadMembership");
       // c) 插入 messages
       //    你的 messages 数组里可能嵌套了 replies，需要做个递归插入
       //    或者，如果结构很简单，就先 BFS/DFS 展开，然后再插

@@ -2,6 +2,7 @@
 import { prisma } from "@/lib/db/prismadb"; // 你的 prisma 客户端
 import { auth,clerkClient  } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
+import { canDoThreadOperation, ThreadOperation } from "@/lib/permission";
 
 /**
  * 批量邀请接口:
@@ -28,7 +29,10 @@ export async function POST(
     const invites: ThreadRole[] = Array.isArray(invitesRaw)
       ? invitesRaw
       : [body]; // 兼容单条
-
+    const allowed = await canDoThreadOperation(userId, threadId, ThreadOperation.INVITE_MEMBER);
+    if (!allowed) {
+      return NextResponse.json({ error: "No Permission" }, { status: 403 });
+    }
     const results: any[] = [];
     const clerkInviteList: {
       email_address: string,
@@ -39,16 +43,6 @@ export async function POST(
       expires_in_days?: number;
     }[] = [];
 
-    // 3) 检查当前用户是否 OWNER（按你业务需求而定）
-    const membership = await prisma.threadMembership.findUnique({
-      where: { userId_threadId: { userId, threadId } },
-    });
-    if (!membership) {
-      return NextResponse.json({ error: "Not a member" }, { status: 403 });
-    }
-    if (membership.role !== "OWNER") {
-      return NextResponse.json({ error: "Only owner can invite" }, { status: 403 });
-    }
 
     // 4) 逐条处理 invites
     for (const item of invites) {

@@ -10,6 +10,8 @@ export async function GET() {
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  
   console.log('ENV CHECK =>', process.env.aide_POSTGRES_URL);
   try {
     // 查询 Thread 并联表拿到 pinned
@@ -92,7 +94,8 @@ export async function POST(req: NextRequest) {
       const newThread = await tx.thread.create({
         data: {
           id,
-          title: title ?? "Untitled Thread",
+          title: title ?? "New Thread",
+          creatorId: userId,
         },
       });
 
@@ -112,6 +115,7 @@ export async function POST(req: NextRequest) {
     const responseData = {
       ...result,
       isPinned: false,
+      role: "OWNER",
     };
 
     return NextResponse.json({ thread: responseData }, { status: 200 });

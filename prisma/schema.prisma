@@ -3,239 +3,205 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider  = "postgresql"
   url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+ 
 }
-enum ThreadRole {
-  VIEWER
-  PUBLISHER
-  EDITOR
-  OWNER
-}
-enum ThreadMembershipStatus {
-  INVITED
-  ACCEPTED
-  DECLINED
-  REMOVED
-}
-//////////////////////////////////////////////////////
-//  UserProfile
-//////////////////////////////////////////////////////
+
+/// ///////////////////////////////////////////////////
+/// ///////////////////////////////////////////////////
 model UserProfile {
-  id          String   @id // Clerk 提供的 userId
-  email       String?   @unique
-  username    String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  balance      Decimal    @default(0) 
+  id             String             @id
+  email          String?            @unique
+  username       String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  balance        Decimal            @default(0)
 
-
-  // 与 ThreadMembership 的一对多
-  memberships ThreadMembership[]
-  // 与 Model 的一对多
-  models      Model[]
-  // 与 Message 的一对多
-  messages    Message[]
-  usageRecords UsageRecord[]
-  // 可以创建多个 Tool (一对多)
-  createdTools Tool[] @relation("UserCreatedTools")
-
-  // 用户可启用多个 Tool => 通过 AvailableTool
-  availableTools AvailableTool[] @relation("UserAvailableTools")
+  availableTools AvailableTool[]    @relation("UserAvailableTools")
+  messages       Message[]
+  models         Model[]
+  memberships    ThreadMembership[]
+  createdTools   Tool[]             @relation("UserCreatedTools")
+  usageRecords   UsageRecord[]
+  createdThreads Thread[]
 }
-model ThreadInvite {
-  id         String   @id @default(uuid())
-  threadId   String
-  inviteEmail String  // 被邀请的邮箱
-  role       ThreadRole // "VIEWER"|"EDITOR" 等
-  invitedBy  String?  // 记录是谁发起邀请(可选)
-  createdAt  DateTime @default(now())
-  acceptedAt DateTime? // 当对方真正注册/接受时记录(可选)
 
-  // 关联
-  thread Thread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+model ThreadInvite {
+  id          String     @id @default(uuid())
+  threadId    String
+  inviteEmail String
+  role        ThreadRole
+  invitedBy   String?
+  createdAt   DateTime   @default(now())
+  acceptedAt  DateTime?
+  thread      Thread     @relation(fields: [threadId], references: [id], onDelete: Cascade)
 
   @@index([threadId])
 }
 
 model UsageRecord {
-  generationId String   @id     // 与 OpenRouter 同步
-  userId       String
-  totalCost    Float?   // 如果要存钱
-  promptTokens Int?     // 可选：OpenRouter返回的 prompt_tokens
-  completionTokens Int? // 可选：OpenRouter返回的 completion_tokens
-  totalTokens  Int?     // 可选：OpenRouter返回的 total_tokens
-  createdAt    DateTime @default(now())
-
-  userProfile UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  generationId     String      @id
+  userId           String
+  totalCost        Float?
+  promptTokens     Int?
+  completionTokens Int?
+  totalTokens      Int?
+  createdAt        DateTime    @default(now())
+  userProfile      UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
-//////////////////////////////////////////////////////
-//  Thread
-//////////////////////////////////////////////////////
+
+/// ///////////////////////////////////////////////////
+/// ///////////////////////////////////////////////////
 model Thread {
-  id         String   @id
-  title      String
+  id          String             @id
+  title       String
+  updatedAt   DateTime           @default(now())
+  createdAt   DateTime           @default(now())
+  isDeleted   Boolean            @default(false)
+    creatorId   String
+  creator     UserProfile        @relation(fields: [creatorId], references: [id], onDelete: Cascade)
 
-  updatedAt  DateTime @default(now())
-  createdAt  DateTime @default(now())
-  isDeleted  Boolean  @default(false) // 软删除标记
-
-  // 关系
-  memberships ThreadMembership[]
   messages    Message[]
-   blacklist   ThreadBlacklist[] 
-   invites     ThreadInvite[]
+  blacklist   ThreadBlacklist[]
+  invites     ThreadInvite[]
+  memberships ThreadMembership[]
+
+  @@index([creatorId])
 }
 
-//////////////////////////////////////////////////////
-//  ThreadMembership (复合主键 + 中间表: user <-> thread)
-//////////////////////////////////////////////////////
+/// ///////////////////////////////////////////////////
+/// ///////////////////////////////////////////////////
 model ThreadMembership {
-  userId   String
-  threadId String
-  // role: "owner" / "editor" / "viewer" ...
-  
- role     ThreadRole @default(VIEWER)
-
-  status   ThreadMembershipStatus @default(INVITED) 
-  // (可选: "INVITED", "ACCEPTED", "DECLINED", "REMOVED"...)
-  joinedAt DateTime @default(now())
-  pinned   Boolean  @default(false)
-
-  // 外键
-  userProfile UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
-  thread      Thread      @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  userId      String
+  threadId    String
+  role        ThreadRole             @default(VIEWER)
+  status      ThreadMembershipStatus @default(INVITED)
+  joinedAt    DateTime               @default(now())
+  pinned      Boolean                @default(false)
+  thread      Thread                 @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  userProfile UserProfile            @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([userId, threadId])
 }
+
 model ThreadBlacklist {
   id           String   @id @default(uuid())
   threadId     String
-  bannedUserId String?   // 如果对方已注册 => Clerk userId
-  bannedEmail  String?   // 如果只知道对方的 email
+  bannedUserId String?
+  bannedEmail  String?
   reason       String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @default(now()) @updatedAt
+  thread       Thread   @relation(fields: [threadId], references: [id], onDelete: Cascade)
 
-  // 关系：多条 Ban 记录指向一个 Thread
-  thread Thread @relation(fields: [threadId], references: [id], onDelete: Cascade)
-
-  // 可根据需求做多列 unique 或 index
-  // 例如：同一 thread 不允许重复 (bannedUserId, bannedEmail)
-  // 如果 bannedUserId/bannedEmail 有null => 需要注意
-  // 这里先只做 index
   @@index([threadId])
 }
 
-//////////////////////////////////////////////////////
-//  Message
-//////////////////////////////////////////////////////
+/// ///////////////////////////////////////////////////
+/// ///////////////////////////////////////////////////
 model Message {
-  id         String   @id
-  threadId   String
-  parentId   String?     // 父消息 ID；null表示顶层
-  publisher  String      // "user"|"ai"
-  userId     String?
-
-  ownerId    String?
-  content    Json?   @default(dbgenerated("'[]'::jsonb"))
-  createdAt  DateTime @default(now())
-  updatedAt DateTime @default(now()) @updatedAt
-
+  id          String       @id
+  threadId    String
+  parentId    String?
+  publisher   String
+  userId      String?
+  ownerId     String?
+  content     Json?        @default("[]")
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @default(now()) @updatedAt
   modelConfig Json?
 
-  // 关系
-  userProfile UserProfile? @relation(fields: [userId], references: [id], onDelete: Cascade)
+   isDeleted   Boolean      @default(false)
+  deletedAt   DateTime?
+  // 新增：被谁锁定、何时锁定
+  editingBy    String?
+  editingAt    DateTime?
+
   thread      Thread       @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  userProfile UserProfile? @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([threadId])
   @@index([parentId])
   @@index([userId])
 }
 
-//////////////////////////////////////////////////////
-//  Model
-//////////////////////////////////////////////////////
+/// ///////////////////////////////////////////////////
+/// ///////////////////////////////////////////////////
 model Model {
-  id           String   @id
+  id           String      @id
   name         String
   baseModel    String
   systemPrompt String
   parameters   Json
-
-  // 创建者
   createdBy    String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @default(now())
-  isDeleted    Boolean  @default(false)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @default(now())
+  isDeleted    Boolean     @default(false)
   deletedAt    DateTime?
-
-  // 与UserProfile是一对多
   userProfile  UserProfile @relation(fields: [createdBy], references: [id], onDelete: Cascade)
-
-  // 多对多 => 通过中间表 ModelTool
-  tools Tool[] @relation("ModelToolsRelation")
-  modelTools ModelTool[] @relation("ModelToolsRelation")
+  modelTools   ModelTool[] @relation("ModelToolsRelation")
+  tools        Tool[]      @relation("ModelToolsRelation")
 
   @@index([createdBy])
 }
 
-//////////////////////////////////////////////////////
-//  Tool
-//////////////////////////////////////////////////////
+/// ///////////////////////////////////////////////////
+/// ///////////////////////////////////////////////////
 model Tool {
-  id          String   @id
-  name        String
-  description String
-  type        String?
-  function    Json?
-
-  createdBy   String?
-  isDeleted   Boolean  @default(false)
-  deletedAt   DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @default(now())
-
-  // 指向创建者UserProfile(一对多)
-  userProfile UserProfile? @relation("UserCreatedTools", fields: [createdBy], references: [id], onDelete: Cascade)
-
-  // 与 Model 多对多 => 通过 ModelTool
-  models Model[] @relation("ModelToolsRelation")
-  modelTools ModelTool[] @relation("ModelToolsRelation")
-
-  // 与 AvailableTool：用户启用关系
+  id             String          @id
+  name           String
+  description    String
+  type           String?
+  function       Json?
+  createdBy      String?
+  isDeleted      Boolean         @default(false)
+  deletedAt      DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @default(now())
   availableTools AvailableTool[] @relation("UserAvailableToolsForTool")
+  modelTools     ModelTool[]     @relation("ModelToolsRelation")
+  userProfile    UserProfile?    @relation("UserCreatedTools", fields: [createdBy], references: [id], onDelete: Cascade)
+  models         Model[]         @relation("ModelToolsRelation")
 
   @@index([createdBy])
   @@index([name])
 }
 
-//////////////////////////////////////////////////////
-//  ModelTool (中间表: Model <-> Tool)
-//////////////////////////////////////////////////////
+/// ///////////////////////////////////////////////////
+/// ///////////////////////////////////////////////////
 model ModelTool {
   modelId String
   toolId  String
-
-  model Model @relation("ModelToolsRelation", fields: [modelId], references: [id], onDelete: Cascade)
-  tool  Tool  @relation("ModelToolsRelation", fields: [toolId], references: [id], onDelete: Cascade)
+  model   Model  @relation("ModelToolsRelation", fields: [modelId], references: [id], onDelete: Cascade)
+  tool    Tool   @relation("ModelToolsRelation", fields: [toolId], references: [id], onDelete: Cascade)
 
   @@id([modelId, toolId])
 }
 
-//////////////////////////////////////////////////////
-//  AvailableTool (中间表: UserProfile <-> Tool)
-//////////////////////////////////////////////////////
+/// ///////////////////////////////////////////////////
+/// ///////////////////////////////////////////////////
 model AvailableTool {
   userId String
   toolId String
-
-  // 外键
-  user UserProfile @relation("UserAvailableTools", fields: [userId], references: [id], onDelete: Cascade)
-  tool Tool        @relation("UserAvailableToolsForTool", fields: [toolId], references: [id], onDelete: Cascade)
+  tool   Tool        @relation("UserAvailableToolsForTool", fields: [toolId], references: [id], onDelete: Cascade)
+  user   UserProfile @relation("UserAvailableTools", fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([userId, toolId])
+}
+
+enum ThreadRole {
+  VIEWER
+  PUBLISHER
+  EDITOR
+  OWNER
+}
+
+enum ThreadMembershipStatus {
+  INVITED
+  ACCEPTED
+  DECLINED
+  REMOVED
 }
