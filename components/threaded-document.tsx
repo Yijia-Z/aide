@@ -33,6 +33,7 @@ import {handleSelectMessage} from "./utils/handleSelectMessage";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Input} from "@/components/ui/input";
+import { CreateToolDialog} from "@/components/ui/CreateToolDialog";
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 
@@ -107,12 +108,7 @@ export default function ThreadedDocument() {
   // const [scrollPosition, setScrollPosition] = useState<number>(0);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
 
-  // 新增：创建工具用到的输入字段
-  const [newToolName, setNewToolName] = useState("");
-  const [newToolDescription, setNewToolDescription] = useState("");
-  const [newToolType, setNewToolType] = useState("custom");
-  const [newToolFunctionName, setNewToolFunctionName] = useState("");
-  const [newToolFunctionDesc, setNewToolFunctionDesc] = useState("");
+
 
   // Tool-related states
   const {
@@ -125,55 +121,30 @@ export default function ThreadedDocument() {
     availableTools,
     setAvailableTools,
   } = useTools();
-  const handleCreateTool = useCallback(async () => {
-    if (!newToolName.trim()) {
-      alert("工具名称必填！");
-      return;
-    }
-    const newToolPayload = {
-      name: newToolName.trim(),
-      description: newToolDescription.trim(),
-      type: newToolType.trim(),
-      function: {
-        name: newToolFunctionName.trim(),
-        description: newToolFunctionDesc.trim(),
-        parameters: { type: "object", properties: {}, required: [] },
-      },
-    };
-
+  const onCreateTool = useCallback(async (toolData: any) => {
+    // 1) 发送请求或直接setTools
     try {
       const res = await fetch("/api/tools", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newToolPayload),
+        body: JSON.stringify(toolData),
       });
       if (!res.ok) {
-        throw new Error(`Create tool failed => status = ${res.status}`);
+        throw new Error("Create tool failed!");
       }
-      const createdTool: Tool = await res.json();
+      const created: Tool = await res.json();
 
-      // 放进前端 tools 列表
-      setTools((prev) => [...prev, createdTool]);
+      // 2) 更新前端 tools
+      setTools((prev) => [...prev, created]);
 
-      // 清空表单 & 关闭弹窗
-      setNewToolName("");
-      setNewToolDescription("");
-      setNewToolType("custom");
-      setNewToolFunctionName("");
-      setNewToolFunctionDesc("");
+      // 3) 关闭弹窗
       setIsCreateDialogOpen(false);
     } catch (err) {
-      console.error("[handleCreateTool]", err);
+      console.error(err);
       alert("Create tool failed!");
     }
-  }, [
-    newToolName,
-    newToolDescription,
-    newToolType,
-    newToolFunctionName,
-    newToolFunctionDesc,
-    setTools
-  ]);
+  }, [setTools]);
+
   const handleOpenCreateDialog = useCallback(() => {
     setIsCreateDialogOpen(true);
   }, []);
@@ -3075,70 +3046,11 @@ Feel free to delete this thread and create your own!`}
 
       </div>
 
-      <DraggableDialog
+      <CreateToolDialog
         open={isCreateDialogOpen}
-        onOpenChange={setIsCreateDialogOpen}
-      >
-        <div className="p-6 flex flex-col gap-4 h-full">
-        
-          <div className="flex flex-col space-y-2">
-            <Label htmlFor="toolName">名称</Label>
-            <Input
-              id="toolName"
-              value={newToolName}
-              onChange={(e) => setNewToolName(e.target.value)}
-              placeholder="示例：My Custom Tool"
-            />
-          </div>
-
-          <div className="flex flex-col space-y-2">
-            <Label htmlFor="toolDescription">描述</Label>
-            <Input
-              id="toolDescription"
-              value={newToolDescription}
-              onChange={(e) => setNewToolDescription(e.target.value)}
-              placeholder="这个工具的用途..."
-            />
-          </div>
-
-          <div className="flex flex-col space-y-2">
-            <Label htmlFor="toolType">类型</Label>
-            <Input
-              id="toolType"
-              value={newToolType}
-              onChange={(e) => setNewToolType(e.target.value)}
-              placeholder="自定义类型 (如 custom, special 等)"
-            />
-          </div>
-
-          <div className="flex flex-col space-y-2">
-            <Label htmlFor="functionName">函数名</Label>
-            <Input
-              id="functionName"
-              value={newToolFunctionName}
-              onChange={(e) => setNewToolFunctionName(e.target.value)}
-              placeholder="如 getData"
-            />
-          </div>
-
-          <div className="flex flex-col space-y-2">
-            <Label htmlFor="functionDesc">函数描述</Label>
-            <Input
-              id="functionDesc"
-              value={newToolFunctionDesc}
-              onChange={(e) => setNewToolFunctionDesc(e.target.value)}
-              placeholder="这个函数做什么..."
-            />
-          </div>
-
-          <div className="mt-auto pt-4">
-            <Button onClick={handleCreateTool} className="w-full">
-              创建工具
-            </Button>
-          </div>
-        </div>
-      </DraggableDialog>
-      {/* ===== end of DraggableDialog ===== */}
+        onOpenChange={setIsCreateDialogOpen} 
+        onCreate={onCreateTool}
+      />
    
     </div>
   );

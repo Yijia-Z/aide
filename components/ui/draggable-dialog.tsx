@@ -8,7 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden"; 
 interface DraggableDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -208,29 +208,15 @@ export function DraggableDialog({
             className="cursor-move border-b border-border p-1 h-8 flex items-center"
             onMouseDown={handleHeaderMouseDown}
           >
-            <DialogTitle className="text-sm font-semibold leading-tight">
-              Create New Tool
-            </DialogTitle>
+         <VisuallyHidden>
+              <DialogTitle>Hidden Title for A11y</DialogTitle>
+            </VisuallyHidden>
           </DialogHeader>
 
           {/* 内容区 */}
           <div className="p-2 flex-grow overflow-auto">{children}</div>
 
-          {/* 底部按钮区 */}
-          <div className="p-2 border-t border-border flex justify-end gap-2">
-            <button
-              onClick={() => alert("You clicked Save!")}
-              className="px-3 py-1 rounded-md bg-white text-blue-900"
-            >
-              Save
-            </button>
-            <button
-              onClick={() => onOpenChange(false)}
-              className="px-3 py-1 rounded-md bg-white text-blue-900"
-            >
-              Close
-            </button>
-          </div>
+         
 
           {/* 四边 + 四角 => 8个拖拽拉伸点 */}
           {/* top edge */}
