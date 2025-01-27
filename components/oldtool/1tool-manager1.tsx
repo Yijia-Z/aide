@@ -1,10 +1,8 @@
-"use client";
-
 import React, { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { PackageMinus, PackagePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Model } from "@/components/types";
+import { Model, ModelParameters } from "@/components/types";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Dialog,
@@ -20,10 +18,7 @@ import {
   CommandInput,
   CommandItem,
 } from "@/components/ui/command";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-
-// Tool类型可根据后端结构而定
+import { Rnd } from "react-rnd";
 interface Tool {
   id: string;
   type: string;
@@ -41,26 +36,21 @@ interface Tool {
 }
 
 interface ToolManagerProps {
-  /** 后端返回的所有工具（大列表） */
   tools: Tool[];
-  setTools: React.Dispatch<React.SetStateAction<Tool[]>>;
-
-  /** 当前已添加(启用)的工具 */
+  setTools: (tools: Tool[]) => void;         // 目前可能没用
   availableTools: Tool[];
   setAvailableTools: (tools: Tool[]) => void;
-
-  /** 如果需要更新 models 里的 tools */
-  setModels: React.Dispatch<React.SetStateAction<Model[]>>;
+  setModels: React.Dispatch<React.SetStateAction<Model[]>>; 
   isLoading: boolean;
   error: string;
-
-  /**
-   * 让父组件控制“Create Tool”对话框是否打开
-   * 这里只需提供一个回调 openCreateDialog()
-   */
-  openCreateDialog: () => void;
 }
 
+/**
+ * Component for managing tools (enabling/disabling).
+ *
+ * - tools: 所有可用工具（大列表）
+ * - availableTools: 当前用户已经启用 / 添加的工具
+ */
 export function ToolManager({
   tools,
   setTools,
@@ -69,45 +59,55 @@ export function ToolManager({
   isLoading,
   error,
   setModels,
-  openCreateDialog,
+
 }: ToolManagerProps) {
-  // “添加已有工具”的普通对话框
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   /**
-   * 添加已有工具 => POST /api/availableTools/[id]
+   * Add a tool to "availableTools".
+   * Then call POST /api/availableTools/[toolId].
    */
   const handleAddTool = useCallback(
     async (tool: Tool) => {
+      // 1) 前端乐观更新（直接传新数组）
       setAvailableTools([...availableTools, tool]);
+
       try {
+        // 2) 发起后端请求
         const res = await fetch(`/api/availableTools/${tool.id}`, {
           method: "POST",
         });
         if (!res.ok) {
           throw new Error(`Add tool failed => status = ${res.status}`);
         }
+
+        // （可选）后端如果返回了最新数据，可再次 setAvailableTools(...)
+
       } catch (err) {
-        console.error("[handleAddTool]", err);
-        alert("Add tool failed!");
-        // 回滚
+        console.error("[handleAddTool] error =>", err);
+        // 3) 失败 => 回滚
+        //    重新设置回未添加之前的状态
         setAvailableTools(
           availableTools.filter((t) => t.id !== tool.id)
         );
+        alert("Add tool failed!");
       }
     },
     [availableTools, setAvailableTools]
   );
 
   /**
-   * 移除已添加的工具 => DELETE /api/availableTools/[id]
+   * 从 availableTools 中移除某个工具，
+   * 并对后端发起 DELETE /api/availableTools/[tool.id] 请求。
    */
   const handleRemoveTool = useCallback(
     async (tool: Tool) => {
+      // 1) 前端先移除
       setAvailableTools(
         availableTools.filter((t) => t.id !== tool.id)
       );
       try {
+        // 2) 发请求
         const res = await fetch(`/api/availableTools/${tool.id}`, {
           method: "DELETE",
         });
@@ -115,34 +115,46 @@ export function ToolManager({
           throw new Error(`Remove tool failed => status = ${res.status}`);
         }
         const data = await res.json();
-        // 如果后端返回 updatedModelIds，就去掉相关 model 里对这个 tool 的引用
+        console.log("[handleRemoveTool] server returned =>", data);
+        // data.updatedModelIds => [ "xxx-xxx", ... ]
+  
+        // 3) 让前端 `models` state 同步去掉 model.parameters.tools 里这个 tool
+        //    你需要在 props 里也拿到 setModels, models (或者用 context/hook 全局管理)
         if (data.updatedModelIds && Array.isArray(data.updatedModelIds)) {
-          setModels((prev) =>
-            prev.map((m) => {
+          setModels((prevModels: Model[]) => {
+            return prevModels.map(m => {
+              // 如果这条不受影响就直接返回
               if (!data.updatedModelIds.includes(m.id)) {
                 return m;
               }
-              const filtered = (m.parameters?.tools ?? []).filter(
+              // 如果要更新 tools
+              const filteredTools = (m.parameters?.tools ?? []).filter(
                 (toolItem: { id: string }) => toolItem.id !== tool.id
               );
               return {
                 ...m,
-                parameters: { ...m.parameters, tools: filtered },
+                parameters: {
+                  ...m.parameters,
+                  tools: filteredTools,
+                },
               };
-            })
-          );
+            });
+          });
         }
+  
+        // 4) 如果你还有 selectedTools，需要过滤一下
+        //    例如:
+        //    setSelectedTools(prev => prev.filter(t => t.id !== tool.id));
+        
       } catch (err) {
-        console.error("[handleRemoveTool]", err);
-        alert("Remove tool failed!");
-        // 回滚
+        console.error("[handleRemoveTool] error =>", err);
+        // 5) 回滚
         setAvailableTools([...availableTools, tool]);
+        alert("Remove tool failed!");
       }
     },
-    [availableTools, setAvailableTools, setModels]
+    [availableTools, setAvailableTools, setModels /*, setSelectedTools*/]
   );
-
-  // 注意，这里不再使用内部 `isCreateDialogOpen`，而是让父组件控制
 
   return (
     <div className="flex flex-col relative h-[calc(97vh)] overflow-clip select-none">
@@ -154,26 +166,15 @@ export function ToolManager({
         }}
       >
         <h2 className="text-4xl font-serif font-bold pl-2">Tools</h2>
-
-        {/* 1) 普通 <Dialog> => “Add Tool” */}
         <Button
-          className="bg-background hover:bg-secondary custom-shadow transition-scale-zoom text-primary border border-border absolute right-20"
+          className="bg-background hover:bg-secondary custom-shadow transition-scale-zoom text-primary border border-border absolute right-0"
           onClick={() => setIsDialogOpen(true)}
         >
           <PackagePlus className="h-4 w-4" />
           <span className="ml-2 hidden lg:inline">Add Tool</span>
         </Button>
-
-        {/* 2) “Create Tool” Button => 让父组件 openCreateDialog() */}
-        <Button
-          className="bg-background hover:bg-secondary custom-shadow transition-scale-zoom text-primary border border-border absolute right-0"
-          onClick={openCreateDialog}
-        >
-          <span className="ml-1">Create Tool</span>
-        </Button>
       </div>
 
-      {/* 中间列出当前已启用的 tools */}
       <ScrollArea className="grow">
         <AnimatePresence>
           <motion.div className="space-y-2 mt-2">
@@ -191,16 +192,14 @@ export function ToolManager({
                     <h3 className="font-bold text-xl">{tool.name}</h3>
                     <Button
                       variant="ghost"
+                      className="transition-scale-zoom md:opacity-0 md:group-hover:opacity-100 transition-opacity"
                       size="sm"
                       onClick={() => handleRemoveTool(tool)}
-                      className="transition-scale-zoom md:opacity-0 md:group-hover:opacity-100 transition-opacity"
                     >
                       <PackageMinus />
                     </Button>
                   </div>
-                  <p className="text-sm text-muted-foreground">
-                    {tool.description}
-                  </p>
+                  <p className="text-sm text-muted-foreground">{tool.description}</p>
                 </div>
               </motion.div>
             ))}
@@ -208,28 +207,24 @@ export function ToolManager({
         </AnimatePresence>
       </ScrollArea>
 
-      {/* “Add Tool” => 普通对话框 */}
+      
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="custom-shadow bg-background/80 select-none">
-          <DialogHeader className="font-serif">
+          <DialogHeader className='font-serif'>
             <DialogTitle>Add Tool</DialogTitle>
             <DialogDescription>
-              搜索并添加已有工具，添加过的工具会在列表里。
+              Search and add tools to your workspace. Added tools will appear in your tools list.
             </DialogDescription>
           </DialogHeader>
           <Command className="custom-shadow rounded-lg">
             <CommandInput placeholder="Search tools to add..." />
-            {tools.filter(
-              (tool) => !availableTools.some((av) => av.id === tool.id)
-            ).length === 0 ? (
-              <CommandEmpty>暂无可添加的工具。</CommandEmpty>
+            {/* 只显示还没添加过的工具 */}
+            {tools.filter(tool => !availableTools.some(av => av.id === tool.id)).length === 0 ? (
+              <CommandEmpty>No tools found.</CommandEmpty>
             ) : (
               <CommandGroup>
                 {tools
-                  .filter(
-                    (tool) =>
-                      !availableTools.some((av) => av.id === tool.id)
-                  )
+                  .filter(tool => !availableTools.some(av => av.id === tool.id))
                   .map((tool) => (
                     <CommandItem
                       key={tool.id}
