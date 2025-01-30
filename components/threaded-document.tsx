@@ -30,8 +30,6 @@ import { useClearStorageOnExit } from "./useClearStorageOnExit";
 import { fetchMessageLatest, lockMessage, unlockMessage } from "@/lib/frontapi/messageApi";
 import { handleSelectMessage } from "./utils/handleSelectMessage";
 
-const apiBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
-
 export default function ThreadedDocument() {
   useClearStorageOnExit();
   const [keyInfo, setKeyInfo] = useState<KeyInfo | null>(null);
@@ -116,19 +114,17 @@ export default function ThreadedDocument() {
 
   // Load tools
   const loadTools = useCallback(async () => {
-    if (apiBaseUrl) {
-      setToolsLoading(true);
-      try {
-        const response = await fetch(`/api/tools`);
-        const data = await response.json();
-        // console.log("Loaded tools:", data);
-        setTools(data.tools || []);
-      } catch (error) {
-        console.error("Error loading tools:", error);
-        setToolsError("Failed to load tools.");
-      } finally {
-        setToolsLoading(false);
-      }
+    setToolsLoading(true);
+    try {
+      const response = await fetch(`/api/tools`);
+      const data = await response.json();
+      // console.log("Loaded tools:", data);
+      setTools(data.tools || []);
+    } catch (error) {
+      console.error("Error loading tools:", error);
+      setToolsError("Failed to load tools.");
+    } finally {
+      setToolsLoading(false);
     }
   }, [setToolsLoading, setTools, setToolsError]);
 
@@ -256,7 +252,7 @@ export default function ThreadedDocument() {
     };
 
     checkBackend();
-  }, [currentThread]);
+  }, [currentThread, fetchSingleThread, threads]);
 
   /**
    * 真正从后端拉取 messages 的函数
@@ -583,16 +579,14 @@ export default function ThreadedDocument() {
       await storage.setLarge("threads", threadsToSave);
 
       // Only try to save to backend if online
-      if (apiBaseUrl) {
-        const savePromises = threadsToSave.map((thread: Thread) =>
-          fetch(`/api/threads`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ threadId: thread.id, thread }),
-          })
-        );
-        await Promise.all(savePromises);
-      }
+      const savePromises = threadsToSave.map((thread: Thread) =>
+        fetch(`/api/threads`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ threadId: thread.id, thread }),
+        })
+      );
+      await Promise.all(savePromises);
     } catch (error) {
       console.error("Failed to save threads:", error);
     }
@@ -2050,7 +2044,8 @@ export default function ThreadedDocument() {
       findMessageById,
       updateMessageContent,
       isGenerating,
-      isSignedIn
+      isSignedIn,
+      reloadUserProfile
     ]
   );
 
@@ -2167,7 +2162,7 @@ Feel free to delete this thread and create your own!`}
     };
 
     loadThreads();
-  }, [setThreads]);
+  }, [setThreads, setCurrentThread, isSignedIn]);
 
   // Focus on thread title input when editing
   useEffect(() => {
