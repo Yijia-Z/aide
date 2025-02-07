@@ -16,7 +16,7 @@ import ModelConfig from "./model/model-config";
 import RenderMessages from "@/components/message/render-all-messages";
 import { ToolManager } from "./tool/tool-manager";
 import { generateAIResponse } from "@/components/utils/api";
-import { Thread, Message, Model, ModelParameters, Tool, ContentPart,KeyInfo } from "./types";
+import { Thread, Message, Model, ModelParameters, Tool, ContentPart, KeyInfo } from "./types";
 import { useModels } from "./hooks/use-models";
 import { useThreads } from "./hooks/use-threads";
 import { useMessages } from "./hooks/use-messages";
@@ -27,16 +27,15 @@ import { useUserProfile } from "./hooks/use-userprofile";
 import { AlignJustify, MessageSquare, Sparkle, Settings, Package } from "lucide-react";
 import { v4 as uuidv4 } from 'uuid';
 import { useClearStorageOnExit } from "./useClearStorageOnExit";
-import { fetchMessageLatest, lockMessage,unlockMessage } from "@/lib/frontapi/messageApi";
-import {handleSelectMessage} from "./utils/handleSelectMessage";
-
-const apiBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+import { fetchMessageLatest, lockMessage, unlockMessage } from "@/lib/frontapi/messageApi";
+import { handleSelectMessage } from "./utils/handleSelectMessage";
+import { useToast } from "./hooks/use-toast";
 
 export default function ThreadedDocument() {
   useClearStorageOnExit();
   const [keyInfo, setKeyInfo] = useState<KeyInfo | null>(null);
   const { isSignedIn } = useUser();
-  const { username, reloadUserProfile  } = useUserProfile();
+  const { username, reloadUserProfile } = useUserProfile();
   // const [isOffline, setIsOffline] = useState(false);
   const [activeTab, setActiveTab] = useState<"threads" | "messages" | "models" | "tools" | "settings">(
     (storage.get('activeTab') || "threads") as "threads" | "messages" | "models" | "tools" | "settings"
@@ -96,6 +95,7 @@ export default function ThreadedDocument() {
   } = useModels();
 
   // Connection and generation states
+  const { toast } = useToast()
   const [lastAttemptTime, setLastAttemptTime] = useState<number | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isGenerating, setIsGenerating] = useState<{ [key: string]: boolean }>({});
@@ -116,19 +116,17 @@ export default function ThreadedDocument() {
 
   // Load tools
   const loadTools = useCallback(async () => {
-    if (apiBaseUrl) {
-      setToolsLoading(true);
-      try {
-        const response = await fetch(`/api/tools`);
-        const data = await response.json();
-        // console.log("Loaded tools:", data);
-        setTools(data.tools || []);
-      } catch (error) {
-        console.error("Error loading tools:", error);
-        setToolsError("Failed to load tools.");
-      } finally {
-        setToolsLoading(false);
-      }
+    setToolsLoading(true);
+    try {
+      const response = await fetch(`/api/tools`);
+      const data = await response.json();
+      // console.log("Loaded tools:", data);
+      setTools(data.tools || []);
+    } catch (error) {
+      console.error("Error loading tools:", error);
+      setToolsError("Failed to load tools.");
+    } finally {
+      setToolsLoading(false);
     }
   }, [setToolsLoading, setTools, setToolsError]);
 
@@ -211,58 +209,11 @@ export default function ThreadedDocument() {
     fetchSingleThread();
   }, [currentThread, setThreads]); */
 
-  useEffect(() => {
-    // 如果没选中任何 thread，就不做任何请求
-    if (!currentThread) {
-      console.log("[ThreadedDocument] no currentThread => skip fetchSingleThread");
-      return;
-    }
-    const localThread = threads.find(t => t.id === currentThread)
-    if (!localThread) {
-      // localThread === undefined，必须 return 或 fetch
-      return
-    }
-    if (!localThread.hasFetchedMessages) {
-      fetchSingleThread(currentThread)
-      return
-    }
-    // 1) 解析本地 thread 的 updatedAt
-    console.log("localThread.updatedAt =", localThread.updatedAt);
-    // 然后再写 new Date(...)
-
-    const localUpdatedTime = new Date(localThread.updatedAt || 0).getTime();
-
-    // 2) 先请求后端查看是否有更新的 updatedAt (轻量接口)
-    //    如果你已经有 /api/threads/:id，可以只拿 { updatedAt } 再决定是否要拉 messages
-    //    这里示例写个 fetchHeadThread 只返回 updatedAt
-    const checkBackend = async () => {
-      try {
-        const res = await fetch(`/api/threads/${currentThread}?only=updatedAt`);
-        if (!res.ok) throw new Error("Failed to fetch thread's updatedAt");
-        const data = await res.json();
-        const serverUpdatedTime = new Date(data.thread.updatedAt).getTime();
-
-        if (serverUpdatedTime > localUpdatedTime) {
-          // 说明服务器更新 => 去拉全量消息
-          fetchSingleThread(currentThread);
-        } else {
-          // 本地已经比服务端新或相等 => 什么都不做，直接用本地
-          console.log("[fetchSingleThread] local is up-to-date, skip");
-        }
-      } catch (err) {
-        console.error("[checkBackend updatedAt] error =>", err);
-        // 这里可决定：如果后端出错，就直接用本地
-      }
-    };
-
-    checkBackend();
-  }, [currentThread]);
-
   /**
    * 真正从后端拉取 messages 的函数
    * 拉取后更新 setThreads，并写进 localStorage
    */
-  async function fetchSingleThread(threadId: string) {
+  const fetchSingleThread = useCallback(async (threadId: string) => {
     try {
       console.log("[fetchSingleThread] actually fetching => threadId =", threadId);
 
@@ -319,7 +270,54 @@ export default function ThreadedDocument() {
     } catch (err) {
       console.error("[fetchSingleThread] error =>", err);
     }
-  }
+  }, [setThreads]);
+
+  useEffect(() => {
+    // 如果没选中任何 thread，就不做任何请求
+    if (!currentThread) {
+      console.log("[ThreadedDocument] no currentThread => skip fetchSingleThread");
+      return;
+    }
+    const localThread = threads.find(t => t.id === currentThread)
+    if (!localThread) {
+      // localThread === undefined，必须 return 或 fetch
+      return
+    }
+    if (!localThread.hasFetchedMessages) {
+      fetchSingleThread(currentThread)
+      return
+    }
+    // 1) 解析本地 thread 的 updatedAt
+    console.log("localThread.updatedAt =", localThread.updatedAt);
+    // 然后再写 new Date(...)
+
+    const localUpdatedTime = new Date(localThread.updatedAt || 0).getTime();
+
+    // 2) 先请求后端查看是否有更新的 updatedAt (轻量接口)
+    //    如果你已经有 /api/threads/:id，可以只拿 { updatedAt } 再决定是否要拉 messages
+    //    这里示例写个 fetchHeadThread 只返回 updatedAt
+    const checkBackend = async () => {
+      try {
+        const res = await fetch(`/api/threads/${currentThread}?only=updatedAt`);
+        if (!res.ok) throw new Error("Failed to fetch thread's updatedAt");
+        const data = await res.json();
+        const serverUpdatedTime = new Date(data.thread.updatedAt).getTime();
+
+        if (serverUpdatedTime > localUpdatedTime) {
+          // 说明服务器更新 => 去拉全量消息
+          fetchSingleThread(currentThread);
+        } else {
+          // 本地已经比服务端新或相等 => 什么都不做，直接用本地
+          console.log("[fetchSingleThread] local is up-to-date, skip");
+        }
+      } catch (err) {
+        console.error("[checkBackend updatedAt] error =>", err);
+        // 这里可决定：如果后端出错，就直接用本地
+      }
+    };
+
+    checkBackend();
+  }, [currentThread, fetchSingleThread, threads]);
 
   /*   useEffect(() => {
       const offlineDetector = createOfflineDetector();
@@ -348,23 +346,32 @@ export default function ThreadedDocument() {
   };
 
   // 你的 confirmEditingMessage
-/*   const confirmEditingMessage = useCallback(
-    async (threadId: string, messageId: string) => {
-      console.log("[confirmEditingMessage] start, messageId =", messageId);
-
-      let finalContent: ContentPart[];
-
-      try {
-        // 先尝试把编辑框内容 JSON.parse
-        const maybeJson = JSON.parse(editingContent);
-
-        if (Array.isArray(maybeJson)) {
-          // 如果 parse 后确实是数组 => 说明用户在编辑框里就是写的完整 JSON
-          // 这时就直接用它
-          finalContent = maybeJson;
-        } else {
-          // 如果不是数组 => 就当纯字符串
-          // 并包成 ContentPart[] 
+  /*   const confirmEditingMessage = useCallback(
+      async (threadId: string, messageId: string) => {
+        console.log("[confirmEditingMessage] start, messageId =", messageId);
+  
+        let finalContent: ContentPart[];
+  
+        try {
+          // 先尝试把编辑框内容 JSON.parse
+          const maybeJson = JSON.parse(editingContent);
+  
+          if (Array.isArray(maybeJson)) {
+            // 如果 parse 后确实是数组 => 说明用户在编辑框里就是写的完整 JSON
+            // 这时就直接用它
+            finalContent = maybeJson;
+          } else {
+            // 如果不是数组 => 就当纯字符串
+            // 并包成 ContentPart[] 
+            finalContent = [
+              {
+                type: "text",
+                text: editingContent.trim(),
+              },
+            ];
+          }
+        } catch (err) {
+          // 如果 JSON.parse 失败 => 说明用户输入的是纯文本
           finalContent = [
             {
               type: "text",
@@ -372,69 +379,60 @@ export default function ThreadedDocument() {
             },
           ];
         }
-      } catch (err) {
-        // 如果 JSON.parse 失败 => 说明用户输入的是纯文本
-        finalContent = [
-          {
-            type: "text",
-            text: editingContent.trim(),
-          },
-        ];
-      }
-
-      // 更新前端的 thread 数据（乐观更新）
-      setThreads((prev: Thread[]) =>
-        prev.map((thread) => {
-          if (thread.id !== threadId) return thread;
-
-          const editMessage = (messages: Message[]): Message[] => {
-            return messages.map((message) => {
-              if (message.id === messageId) {
-                // 注意，这里 message.content 直接写 finalContent
-                return { ...message, content: finalContent };
-              }
-              return {
-                ...message,
-                replies: editMessage(message.replies),
-              };
-            });
-          };
-
-          return { ...thread, messages: editMessage(thread.messages) };
-
-        })
-      );
-      storage.set("threads", threads);
-      setEditingMessage(null);
-      setEditingContent("");
-
-      // 发送给后端
-      try {
-        console.log("[confirmEditingMessage] sending PATCH /api/messages/", messageId);
-        const res = await fetch(`/api/messages/${messageId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            content: finalContent, // 这时后端就能拿到一个 ContentPart[] 
-          }),
-        });
-        console.log("[confirmEditingMessage] response status =", res.status);
-        if (!res.ok) {
-          throw new Error("Failed to update message content");
+  
+        // 更新前端的 thread 数据（乐观更新）
+        setThreads((prev: Thread[]) =>
+          prev.map((thread) => {
+            if (thread.id !== threadId) return thread;
+  
+            const editMessage = (messages: Message[]): Message[] => {
+              return messages.map((message) => {
+                if (message.id === messageId) {
+                  // 注意，这里 message.content 直接写 finalContent
+                  return { ...message, content: finalContent };
+                }
+                return {
+                  ...message,
+                  replies: editMessage(message.replies),
+                };
+              });
+            };
+  
+            return { ...thread, messages: editMessage(thread.messages) };
+  
+          })
+        );
+        storage.set("threads", threads);
+        setEditingMessage(null);
+        setEditingContent("");
+  
+        // 发送给后端
+        try {
+          console.log("[confirmEditingMessage] sending PATCH /api/messages/", messageId);
+          const res = await fetch(`/api/messages/${messageId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              content: finalContent, // 这时后端就能拿到一个 ContentPart[] 
+            }),
+          });
+          console.log("[confirmEditingMessage] response status =", res.status);
+          if (!res.ok) {
+            throw new Error("Failed to update message content");
+          }
+          console.log("Message content updated in DB!");
+        } catch (e) {
+          console.error("confirmEditingMessage error:", e);
         }
-        console.log("Message content updated in DB!");
-      } catch (e) {
-        console.error("confirmEditingMessage error:", e);
-      }
-    },
-    [editingContent, setEditingContent, setEditingMessage, setThreads]
-  ); */
+      },
+      [editingContent, setEditingContent, setEditingMessage, setThreads]
+    ); */
   const confirmEditingMessage = useCallback(
     async (threadId: string, messageId: string) => {
       console.log("[confirmEditingMessage] start, messageId =", messageId);
-  
+
       let finalContent: ContentPart[];
-  
+
       try {
         // 先尝试把编辑框内容 JSON.parse
         const maybeJson = JSON.parse(editingContent);
@@ -453,13 +451,13 @@ export default function ThreadedDocument() {
           { type: "text", text: editingContent.trim() },
         ];
       }
-  
+
       // 更新前端 threads（乐观更新）
       setThreads((prev) => {
         // 生成新 threads
         const newThreads = prev.map((thread) => {
           if (thread.id !== threadId) return thread;
-  
+
           const editMessage = (messages: Message[]): Message[] => {
             return messages.map((m) => {
               if (m.id === messageId) {
@@ -468,21 +466,21 @@ export default function ThreadedDocument() {
               return { ...m, replies: editMessage(m.replies) };
             });
           };
-  
+
           return { ...thread, messages: editMessage(thread.messages) };
         });
-  
+
         // 在回调里保存到 localStorage，就能拿到最新的 newThreads
-         storage.set("threads", newThreads);
-  console.log("thread:", newThreads);
+        storage.set("threads", newThreads);
+        console.log("thread:", newThreads);
         // 返回给 setThreads
         return newThreads;
       });
-  
+
       // 退出编辑态
       setEditingMessage(null);
       setEditingContent("");
-  
+
       // 发请求给后端
       try {
         console.log("[confirmEditingMessage] sending PATCH /api/messages/", messageId);
@@ -502,7 +500,7 @@ export default function ThreadedDocument() {
     },
     [editingContent, setEditingContent, setEditingMessage, setThreads]
   );
-  
+
   // Fetch available models from the API or cache
   const fetchAvailableModels = useCallback(async () => {
     try {
@@ -583,16 +581,14 @@ export default function ThreadedDocument() {
       await storage.setLarge("threads", threadsToSave);
 
       // Only try to save to backend if online
-      if (apiBaseUrl) {
-        const savePromises = threadsToSave.map((thread: Thread) =>
-          fetch(`/api/threads`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ threadId: thread.id, thread }),
-          })
-        );
-        await Promise.all(savePromises);
-      }
+      const savePromises = threadsToSave.map((thread: Thread) =>
+        fetch(`/api/threads`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ threadId: thread.id, thread }),
+        })
+      );
+      await Promise.all(savePromises);
     } catch (error) {
       console.error("Failed to save threads:", error);
     }
@@ -630,7 +626,7 @@ export default function ThreadedDocument() {
       id: frontEndId,
       title: "New Thread",
       isPinned: false,
-      role: "OWNER", 
+      role: "OWNER",
       messages: [],
     };
     // 先插入到前端
@@ -663,7 +659,7 @@ export default function ThreadedDocument() {
       // 6) 最后再选中它
       setCurrentThread(returnedThread.id);
       setEditingThreadTitle(returnedThread.id);
-      setOriginalThreadTitle(returnedThread.title || ""); 
+      setOriginalThreadTitle(returnedThread.title || "");
       setNewThreadId(returnedThread.id);
 
       console.log("[addThread] success => newThreadId =", returnedThread.id);
@@ -681,7 +677,125 @@ export default function ThreadedDocument() {
     setNewThreadId
   ]);
 
-/*   // Add message to a thread
+  /*   // Add message to a thread
+    const addMessage = useCallback(
+      async (
+        threadId: string,
+        parentId: string | null,
+        content: string | ContentPart[],
+        publisher: "user" | "ai",
+        newMessageId?: string,
+        modelDetails?: Model
+      ): Promise<void> => {
+        const realId = newMessageId || uuidv4();
+        // 1) 先在前端插入临时消息
+        console.log("[addMessage] about to add:", {
+          threadId,
+          parentId,
+          publisher,
+          realId,
+          newMessageId,
+          content,
+          modelDetails,
+        });
+        setThreads((prev) =>
+          prev.map((thread) => {
+            if (thread.id !== threadId) return thread;
+  
+            const newMessage: Message = {
+              id: newMessageId || realId,
+              content,
+              publisher,
+  
+              // 如果是用户，就带上本地用户名；如果是 AI，就带上 model 信息
+              userName: publisher === "user" ? (username ?? undefined) : undefined,
+              modelId: publisher === "ai" ? modelDetails?.id : undefined,
+              modelConfig:
+                publisher === "ai"
+                  ? {
+                    id: modelDetails?.id,
+                    name: modelDetails?.name,
+                    baseModel: modelDetails?.baseModel,
+                    systemPrompt: modelDetails?.systemPrompt,
+                    parameters: {
+                      ...modelDetails?.parameters,
+                    },
+                  }
+                  : undefined,
+              replies: [],
+              isCollapsed: false,
+              userCollapsed: false,
+            };
+  
+            // 选中这条消息
+            setSelectedMessages((prev) => ({ ...prev, [String(currentThread)]: newMessage.id }));
+  
+            // c) 插入树形结构
+            function addReplyToMessage(msg: Message): Message {
+              if (msg.id === parentId) {
+                return { ...msg, replies: [...msg.replies, newMessage] };
+              }
+              return {
+                ...msg,
+                replies: msg.replies.map(addReplyToMessage),
+              };
+            }
+  
+            // 如果没有 parentId，就插在根节点
+            if (!parentId) {
+              return { ...thread, messages: [...thread.messages, newMessage] };
+            }
+  
+            // 否则找到 parentId 在它的 replies 里插入
+            return {
+              ...thread,
+              messages: thread.messages.map(addReplyToMessage),
+            };
+          })
+        );
+  
+        // 2) 调后端 /api/messages 写入数据库
+        (async () => {
+          try {
+  
+            console.log("[addMessage] sending POST /api/messages with id=", realId);
+            const response = await fetch("/api/messages", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                id: realId,
+                threadId,
+                parentId,
+                publisher,
+                content,
+                modelConfig:
+                  publisher === "ai"
+                    ? {
+                      id: modelDetails?.id,
+                      name: modelDetails?.name,
+                      baseModel: modelDetails?.baseModel,
+                      systemPrompt: modelDetails?.systemPrompt,
+                      parameters: modelDetails?.parameters,
+                    }
+                    : null,
+              }),
+            });
+            console.log("[addMessage] got response status =", response.status);
+            if (!response.ok) {
+              throw new Error("Failed to create message");
+            }
+  
+          } catch (error) {
+            console.error("addMessage failed:", error);
+            // 如果想回滚插入的临时消息，可在这里做 setThreads() 移除 tempId
+          }
+        })();
+      },
+      [setThreads, setSelectedMessages, currentThread, username]
+    ); */
+  // 注意：如果你需要返回新消息的 ID，可以把返回类型改成 Promise<string>，并在最后 return realId；
+  // 这里仅演示 Promise<void> + 内部 await fetch
+
   const addMessage = useCallback(
     async (
       threadId: string,
@@ -691,8 +805,10 @@ export default function ThreadedDocument() {
       newMessageId?: string,
       modelDetails?: Model
     ): Promise<void> => {
+
+      // 生成实际的 messageId
       const realId = newMessageId || uuidv4();
-      // 1) 先在前端插入临时消息
+
       console.log("[addMessage] about to add:", {
         threadId,
         parentId,
@@ -702,17 +818,19 @@ export default function ThreadedDocument() {
         content,
         modelDetails,
       });
+
+      // (1) 先在前端插入临时消息（本地 state）
       setThreads((prev) =>
         prev.map((thread) => {
           if (thread.id !== threadId) return thread;
 
           const newMessage: Message = {
-            id: newMessageId || realId,
+            id: realId,
             content,
             publisher,
-
-            // 如果是用户，就带上本地用户名；如果是 AI，就带上 model 信息
+            // 如果是 user，就带上本地 username
             userName: publisher === "user" ? (username ?? undefined) : undefined,
+            // 如果是 AI，就附上 model 信息
             modelId: publisher === "ai" ? modelDetails?.id : undefined,
             modelConfig:
               publisher === "ai"
@@ -731,10 +849,13 @@ export default function ThreadedDocument() {
             userCollapsed: false,
           };
 
-          // 选中这条消息
-          setSelectedMessages((prev) => ({ ...prev, [String(currentThread)]: newMessage.id }));
+          // 选中这条新消息
+          setSelectedMessages((prev) => ({
+            ...prev,
+            [String(currentThread)]: newMessage.id,
+          }));
 
-          // c) 插入树形结构
+          // 插入到父节点的 replies，或者根节点
           function addReplyToMessage(msg: Message): Message {
             if (msg.id === parentId) {
               return { ...msg, replies: [...msg.replies, newMessage] };
@@ -745,185 +866,60 @@ export default function ThreadedDocument() {
             };
           }
 
-          // 如果没有 parentId，就插在根节点
           if (!parentId) {
+            // 插入根节点
             return { ...thread, messages: [...thread.messages, newMessage] };
+          } else {
+            // 找到 parentId
+            return {
+              ...thread,
+              messages: thread.messages.map(addReplyToMessage),
+            };
           }
-
-          // 否则找到 parentId 在它的 replies 里插入
-          return {
-            ...thread,
-            messages: thread.messages.map(addReplyToMessage),
-          };
         })
       );
 
-      // 2) 调后端 /api/messages 写入数据库
-      (async () => {
-        try {
-
-          console.log("[addMessage] sending POST /api/messages with id=", realId);
-          const response = await fetch("/api/messages", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              id: realId,
-              threadId,
-              parentId,
-              publisher,
-              content,
-              modelConfig:
-                publisher === "ai"
-                  ? {
-                    id: modelDetails?.id,
-                    name: modelDetails?.name,
-                    baseModel: modelDetails?.baseModel,
-                    systemPrompt: modelDetails?.systemPrompt,
-                    parameters: modelDetails?.parameters,
-                  }
-                  : null,
-            }),
-          });
-          console.log("[addMessage] got response status =", response.status);
-          if (!response.ok) {
-            throw new Error("Failed to create message");
-          }
-
-        } catch (error) {
-          console.error("addMessage failed:", error);
-          // 如果想回滚插入的临时消息，可在这里做 setThreads() 移除 tempId
-        }
-      })();
-    },
-    [setThreads, setSelectedMessages, currentThread, username]
-  ); */
-// 注意：如果你需要返回新消息的 ID，可以把返回类型改成 Promise<string>，并在最后 return realId；
- // 这里仅演示 Promise<void> + 内部 await fetch
-
- const addMessage = useCallback(
-  async (
-    threadId: string,
-    parentId: string | null,
-    content: string | ContentPart[],
-    publisher: "user" | "ai",
-    newMessageId?: string,
-    modelDetails?: Model
-  ): Promise<void> => {
-
-    // 生成实际的 messageId
-    const realId = newMessageId || uuidv4();
-
-    console.log("[addMessage] about to add:", {
-      threadId,
-      parentId,
-      publisher,
-      realId,
-      newMessageId,
-      content,
-      modelDetails,
-    });
-
-    // (1) 先在前端插入临时消息（本地 state）
-    setThreads((prev) =>
-      prev.map((thread) => {
-        if (thread.id !== threadId) return thread;
-
-        const newMessage: Message = {
-          id: realId,
-          content,
-          publisher,
-          // 如果是 user，就带上本地 username
-          userName: publisher === "user" ? (username ?? undefined) : undefined,
-          // 如果是 AI，就附上 model 信息
-          modelId: publisher === "ai" ? modelDetails?.id : undefined,
-          modelConfig:
-            publisher === "ai"
-              ? {
-                  id: modelDetails?.id,
-                  name: modelDetails?.name,
-                  baseModel: modelDetails?.baseModel,
-                  systemPrompt: modelDetails?.systemPrompt,
-                  parameters: {
-                    ...modelDetails?.parameters,
-                  },
-                }
-              : undefined,
-          replies: [],
-          isCollapsed: false,
-          userCollapsed: false,
-        };
-
-        // 选中这条新消息
-        setSelectedMessages((prev) => ({
-          ...prev,
-          [String(currentThread)]: newMessage.id,
-        }));
-
-        // 插入到父节点的 replies，或者根节点
-        function addReplyToMessage(msg: Message): Message {
-          if (msg.id === parentId) {
-            return { ...msg, replies: [...msg.replies, newMessage] };
-          }
-          return {
-            ...msg,
-            replies: msg.replies.map(addReplyToMessage),
-          };
-        }
-
-        if (!parentId) {
-          // 插入根节点
-          return { ...thread, messages: [...thread.messages, newMessage] };
-        } else {
-          // 找到 parentId
-          return {
-            ...thread,
-            messages: thread.messages.map(addReplyToMessage),
-          };
-        }
-      })
-    );
-
-    // (2) 再发请求到后端 /api/messages，等待插入数据库完成
-    try {
-      console.log("[addMessage] sending POST /api/messages with id =", realId);
-      const response = await fetch("/api/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: realId,
-          threadId,
-          parentId,
-          publisher,
-          content,
-          modelConfig:
-            publisher === "ai"
-              ? {
+      // (2) 再发请求到后端 /api/messages，等待插入数据库完成
+      try {
+        console.log("[addMessage] sending POST /api/messages with id =", realId);
+        const response = await fetch("/api/messages", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: realId,
+            threadId,
+            parentId,
+            publisher,
+            content,
+            modelConfig:
+              publisher === "ai"
+                ? {
                   id: modelDetails?.id,
                   name: modelDetails?.name,
                   baseModel: modelDetails?.baseModel,
                   systemPrompt: modelDetails?.systemPrompt,
                   parameters: modelDetails?.parameters,
                 }
-              : null,
-        }),
-      });
-      console.log("[addMessage] got response status =", response.status);
+                : null,
+          }),
+        });
+        console.log("[addMessage] got response status =", response.status);
 
-      if (!response.ok) {
-        // 如果要回滚前端临时插入，可以在这里做
-        throw new Error("Failed to create message");
+        if (!response.ok) {
+          // 如果要回滚前端临时插入，可以在这里做
+          throw new Error("Failed to create message");
+        }
+
+        // 如果后端有 JSON 返回，也可以在这里 `await response.json()`
+        // 并做一些后续处理
+
+      } catch (error) {
+        console.error("addMessage failed:", error);
+        // 在这里可 setThreads(...) 回滚移除本地临时消息
       }
-
-      // 如果后端有 JSON 返回，也可以在这里 `await response.json()`
-      // 并做一些后续处理
-
-    } catch (error) {
-      console.error("addMessage failed:", error);
-      // 在这里可 setThreads(...) 回滚移除本地临时消息
-    }
-  },
-  [setThreads, setSelectedMessages, currentThread, username] // 把需要的依赖加进来
-);
+    },
+    [setThreads, setSelectedMessages, currentThread, username] // 把需要的依赖加进来
+  );
 
 
   // Change the model
@@ -1095,23 +1091,30 @@ export default function ThreadedDocument() {
   );
   const startEditingMessage = useCallback(
     async (msg: Message) => {
-
-   try{
-    const lockedSuccessfully = await lockMessage(msg.id);
-    if (!lockedSuccessfully) {
-      alert(" editing......");
-      return;
-    }
+      try {
+        const lockedSuccessfully = await lockMessage(msg.id);
+        if (!lockedSuccessfully) {
+          toast({
+            title: "Message Locked",
+            description: "This message is currently being edited by another user",
+            variant: "destructive"
+          });
+          return;
+        }
 
         setEditingMessage(msg.id);
-        setEditingContent(extractTextFromContent(msg.content)); 
+        setEditingContent(extractTextFromContent(msg.content));
       } catch (err: any) {
-        alert(err.message || "cannot edit in starteditingmessage");
+        toast({
+          title: "Error",
+          description: err.message || "Failed to start editing message",
+          variant: "destructive"
+        });
       }
     },
-    [setEditingMessage, setEditingContent]
+    [setEditingMessage, setEditingContent, toast]
   );
-  
+
   // 把 message.content => string
   function extractTextFromContent(content: string | ContentPart[]) {
     if (typeof content === "string") {
@@ -1122,30 +1125,30 @@ export default function ThreadedDocument() {
     const textPart = content.find(p => p.type === "text");
     return textPart?.text || "";
   }
- /*  const startEditingMessage = useCallback(
-    (message: Message) => {
-      setEditingMessage(message.id);
-
-      if (Array.isArray(message.content)) {
-        // 只把 text 的部分拼起来
-        // （也可以只取第一个 textPart，或把它们加上分隔符拼一起）
-        const textParts = message.content
-          .filter((part) => part.type === "text")
-          .map((part) => part.text)
-          .join("\n\n");
-
-        setEditingContent(textParts || "");
-      } else if (typeof message.content === "string") {
-        // 老的情况，直接把 string 显示
-        setEditingContent(message.content);
-      } else {
-        // 如果根本没内容
-        setEditingContent("");
-      }
-    },
-    [setEditingContent, setEditingMessage]
-  );
- */
+  /*  const startEditingMessage = useCallback(
+     (message: Message) => {
+       setEditingMessage(message.id);
+ 
+       if (Array.isArray(message.content)) {
+         // 只把 text 的部分拼起来
+         // （也可以只取第一个 textPart，或把它们加上分隔符拼一起）
+         const textParts = message.content
+           .filter((part) => part.type === "text")
+           .map((part) => part.text)
+           .join("\n\n");
+ 
+         setEditingContent(textParts || "");
+       } else if (typeof message.content === "string") {
+         // 老的情况，直接把 string 显示
+         setEditingContent(message.content);
+       } else {
+         // 如果根本没内容
+         setEditingContent("");
+       }
+     },
+     [setEditingContent, setEditingMessage]
+   );
+  */
 
   const cancelEditThreadTitle = useCallback(() => {
     if (editingThreadTitle) {
@@ -1170,7 +1173,7 @@ export default function ThreadedDocument() {
     async (threadId: string, parentId: string | null, publisher: "user" | "ai" = "user") => {
       const newId = uuidv4();
 
-      await addMessage(threadId, parentId,"", publisher, newId);
+      await addMessage(threadId, parentId, "", publisher, newId);
 
 
       startEditingMessage({
@@ -1386,46 +1389,46 @@ export default function ThreadedDocument() {
     } catch (err) {
       console.error("Unlock error:", err);
     }
-  
+
     // 4) 本地退出编辑态
     setEditingMessage(null);
     setEditingContent("");
-  }, [ editingMessage,
+  }, [editingMessage,
     deleteMessage,
     setEditingContent,
     setEditingMessage,
     setThreads,]);
-  
+
   // Cancel editing a message
- /*  const cancelEditingMessage = useCallback(() => {
-    setThreads((prev: Thread[]) =>
-      prev.map((thread) => {
-        const removeEmptyMessage = (messages: Message[]): Message[] => {
-          if (!messages) return [];
-          return messages.reduce((acc: Message[], message) => {
-            if (message.id === editingMessage && (typeof message.content === "string"
-              ? !message.content.trim()
-              : (Array.isArray(message.content) && message.content.length === 0))) {
-              // 如果是空的
-              deleteMessage(thread.id, message.id, false);
-              return acc;
-            }
-            return [...acc, { ...message, replies: removeEmptyMessage(message.replies) }];
-          }, []);
-        };
-        return { ...thread, messages: removeEmptyMessage(thread.messages) };
-      })
-    );
-    setEditingMessage(null);
-    setEditingContent("");
-  }, [
-    editingMessage,
-    deleteMessage,
-    setEditingContent,
-    setEditingMessage,
-    setThreads,
-  ]);
- */
+  /*  const cancelEditingMessage = useCallback(() => {
+     setThreads((prev: Thread[]) =>
+       prev.map((thread) => {
+         const removeEmptyMessage = (messages: Message[]): Message[] => {
+           if (!messages) return [];
+           return messages.reduce((acc: Message[], message) => {
+             if (message.id === editingMessage && (typeof message.content === "string"
+               ? !message.content.trim()
+               : (Array.isArray(message.content) && message.content.length === 0))) {
+               // 如果是空的
+               deleteMessage(thread.id, message.id, false);
+               return acc;
+             }
+             return [...acc, { ...message, replies: removeEmptyMessage(message.replies) }];
+           }, []);
+         };
+         return { ...thread, messages: removeEmptyMessage(thread.messages) };
+       })
+     );
+     setEditingMessage(null);
+     setEditingContent("");
+   }, [
+     editingMessage,
+     deleteMessage,
+     setEditingContent,
+     setEditingMessage,
+     setThreads,
+   ]);
+  */
   const fetchModelParameters = async (modelId: string) => {
     // console.log(`Fetching parameters for model ID: ${modelId}`);
     try {
@@ -1739,7 +1742,11 @@ export default function ThreadedDocument() {
         };
 
         if (originalMessage && clipboardMessage.operation === "cut" && (parentId === clipboardMessage.originalMessageId || isDescendant(originalMessage))) {
-          window.alert("Cut and paste on children is now allowed!")
+          toast({
+            title: "Invalid Operation",
+            description: "Cut and paste on children is not allowed",
+            variant: "destructive"
+          });
           return;
         }
       }
@@ -1841,7 +1848,7 @@ export default function ThreadedDocument() {
       }
 
     },
-    [clipboardMessage, setClipboardMessage, clearGlowingMessages, setSelectedMessages, deleteMessage, updateMessageContent, findMessageById, threads, currentThread, setThreads]
+    [toast, clipboardMessage, setClipboardMessage, clearGlowingMessages, setSelectedMessages, deleteMessage, updateMessageContent, findMessageById, threads, currentThread, setThreads]
   );
 
   // Collapse deep children
@@ -1915,7 +1922,7 @@ export default function ThreadedDocument() {
         setIsGenerating((prev) => ({ ...prev, [messageId]: false }));
         return;
       }
- 
+
       const thread = threads.find((t: { id: string }) => t.id === threadId);
       if (!thread) return;
 
@@ -1923,21 +1930,38 @@ export default function ThreadedDocument() {
       if (!message) return;
       const selectedModelIds = selectedModels;
       if (selectedModelIds.length === 0) {
-         alert("No model selected. Please select a model in Models tab to proceed.");
-         setActiveTab("models");
-         return;
-       } 
+        if (models.length > 0) {
+          // Auto-select first model
+          toast({
+            title: "No Model Selected",
+            description: "First available model has been automatically selected.",
+          });
+          setActiveTab("models");
+          const firstModelId = models[0].id;
+          selectedModels.push(firstModelId);
+        } else {
+          toast({
+            title: "No Model Selected",
+            description: "Please select a model in Models tab to proceed.",
+            variant: "destructive"
+          });
+          setActiveTab("models");
+          return;
+        }
+      }
 
       try {
-     
-
         for (let i = 0; i < count; i++) {
           const promises = selectedModelIds.map(async (modelId) => {
             const model = models.find((m) => m.id === modelId);
             if (!model) return;
 
             if (!isSignedIn && !model.baseModel.endsWith(":free")) {
-              alert(`Sign in to use ${model.baseModel}`);
+              toast({
+                title: "Authentication Required",
+                description: `Sign in to use ${model.baseModel}`,
+                variant: "destructive"
+              });
               return;
             }
             const newId = uuidv4();
@@ -2037,6 +2061,7 @@ export default function ThreadedDocument() {
       }
     },
     [
+      toast,
       threads,
       models,
       selectedModels,
@@ -2044,7 +2069,8 @@ export default function ThreadedDocument() {
       findMessageById,
       updateMessageContent,
       isGenerating,
-      isSignedIn
+      isSignedIn,
+      reloadUserProfile
     ]
   );
 
@@ -2057,7 +2083,7 @@ export default function ThreadedDocument() {
       id: threadId,
       title: "Welcome to AIDE",
       isPinned: false,
-      role:"OWNER",
+      role: "OWNER",
       updatedAt: new Date().toISOString(),
       messages: [
         {
@@ -2087,7 +2113,7 @@ Feel free to delete this thread and create your own!`}
               content: [
                 {
                   type: "text",
-                  text: "This is a child message. You can navigate to parent messages using the 'Up' arrow key and to child messages using the 'Down' arrow key."
+                  text: "This is a child message. You can navigate to parent messages using the 'Left' arrow key and to child messages using the 'Right' arrow key."
                 }
               ],
               publisher: "ai",
@@ -2161,7 +2187,7 @@ Feel free to delete this thread and create your own!`}
     };
 
     loadThreads();
-  }, [setThreads]);
+  }, [setThreads, setCurrentThread, isSignedIn]);
 
   // Focus on thread title input when editing
   useEffect(() => {
@@ -2675,7 +2701,7 @@ Feel free to delete this thread and create your own!`}
   ]);
 
   return (
-    <div className="h-screen flex flex-col md:flex-row p-2 pb-0 md:pr-0 text-ellipsis ">
+    <div className="h-screen flex flex-col md:flex-row p-2 pb-0 md:pr-0 overflow-ellipsis ">
       <div className="sm:hidden bg-transparent">
         {/* Mobile layout with tabs for threads, messages, and models */}
         <Tabs
@@ -2793,9 +2819,9 @@ Feel free to delete this thread and create your own!`}
             }}
           >
             <SettingsPanel
-        keyInfo={keyInfo}
-        refreshUsage={refreshUsage}
-      />
+              keyInfo={keyInfo}
+              refreshUsage={refreshUsage}
+            />
           </TabsContent>
           <TabsList
             className="grid 
@@ -2857,7 +2883,7 @@ Feel free to delete this thread and create your own!`}
         }}
       >
         {/* Desktop layout with resizable panels */}
-        <ResizablePanelGroup direction="horizontal" className="grow">
+        <ResizablePanelGroup direction="horizontal" className="flex-grow">
           <ResizablePanel
             defaultSize={28}
             collapsible
@@ -2905,7 +2931,7 @@ Feel free to delete this thread and create your own!`}
               </TabsList>
               <TabsContent
                 value="threads"
-                className="grow overflow-y-clip"
+                className="flex-grow overflow-y-clip"
               >
                 <ThreadList
                   threads={threads}
@@ -2926,7 +2952,7 @@ Feel free to delete this thread and create your own!`}
                   setNewThreadId={setNewThreadId}
                 />
               </TabsContent>
-              <TabsContent value="models" className="grow overflow-y-clip">
+              <TabsContent value="models" className="flex-grow overflow-y-clip">
                 <ModelConfig
                   models={models}
                   selectedModels={selectedModels}
@@ -2943,7 +2969,7 @@ Feel free to delete this thread and create your own!`}
                   isSignedIn={isSignedIn}
                 />
               </TabsContent>
-              <TabsContent value="tools" className="grow overflow-y-clip">
+              <TabsContent value="tools" className="flex-grow overflow-y-clip">
                 <ToolManager
                   tools={tools}
                   setTools={setTools}
@@ -2954,15 +2980,15 @@ Feel free to delete this thread and create your own!`}
                   setModels={setModels}
                 />
               </TabsContent>
-              <TabsContent value="settings" className="grow overflow-y-clip">
-              <SettingsPanel
-        keyInfo={keyInfo}
-        refreshUsage={refreshUsage}
-      />
+              <TabsContent value="settings" className="flex-grow overflow-y-clip">
+                <SettingsPanel
+                  keyInfo={keyInfo}
+                  refreshUsage={refreshUsage}
+                />
               </TabsContent>
             </Tabs>
           </ResizablePanel>
-          <ResizableHandle withHandle hitAreaMargins={{ coarse: 16, fine: 8 }} className="mx-2 w-0 px-px bg-linear-to-b from-background via-transparent to-background" />
+          <ResizableHandle withHandle hitAreaMargins={{ coarse: 16, fine: 8 }} className="mx-2 w-0 px-px bg-gradient-to-b from-background via-transparent to-background" />
           <ResizablePanel defaultSize={72}>
             <div className="h-full overflow-y-auto">
               <RenderMessages

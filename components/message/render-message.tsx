@@ -412,7 +412,7 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
                     alt={part.image_url.detail || "image"}
                     width={500}
                     height={300}
-                    className="max-w-[50%] rounded shadow-xs"
+                    className="max-w-[50%] rounded shadow-sm"
                   />
                   {part.image_url.detail && (
                     <div className="text-sm text-muted-foreground italic">
@@ -498,7 +498,7 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
               } */
             }}
           >
-            <div className="grow p-0 overflow-hidden">
+            <div className="flex-grow p-0 overflow-hidden">
               <div className="flex flex-col">
                 {/* 顶部行：折叠按钮 + publisher */}
                 <div
@@ -508,11 +508,11 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
                   )}
                 >
                   {/* Left side: collapse button, publisher, badges */}
-                  <div className="flex grow items-start gap-2">
+                  <div className="flex flex-grow items-start gap-2">
                     {/* Collapse button */}
                     <Button
                       variant="outline"
-                      className="shrink-0 w-6 h-6 p-0 rounded-md relative"
+                      className="flex-shrink-0 w-6 h-6 p-0 rounded-md relative"
                       onClick={(e) => {
                         e.stopPropagation();
                         toggleCollapse(threadId, message.id);
@@ -595,7 +595,7 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
                   {/* Right side: navigation arrows */}
                   <div
                     className={cn(
-                      "flex shrink-0 space-x-1",
+                      "flex flex-shrink-0 space-x-1",
                       isSelected ? "opacity-100" : "opacity-0 hover:opacity-100",
                       "transition-opacity duration-200"
                     )}
@@ -681,7 +681,7 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
                     id={`message-edit-${message.id}`}
                     value={editingContent}
                     onChange={(e) => setEditingContent(e.target.value)}
-                    className="min-font-size font-serif grow w-auto m-1 p-0 bg-inherit"
+                    className="min-font-size font-serif flex-grow w-auto m-1 p-0 bg-inherit"
                     style={{
                       height: Math.max(80, Math.min(editingContent.split('\n').length * 24, window.innerHeight * 0.5)),
                       maxHeight: "50vh",

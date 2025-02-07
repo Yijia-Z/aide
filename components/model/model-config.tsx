@@ -79,7 +79,7 @@ const ModelConfig: React.FC<ModelConfigProps> = ({
   return (
     <div className="flex flex-col relative h-[calc(97vh)] overflow-clip select-none">
       <div
-        className="top-bar h-14 bg-linear-to-b from-background/100 to-background/00 flex items-center justify-between"
+        className="top-bar h-14 bg-gradient-to-b from-background/100 to-background/00 flex items-center justify-between"
         style={{
           mask: "linear-gradient(black, black, transparent)",
           backdropFilter: "blur(1px)",
@@ -109,9 +109,9 @@ const ModelConfig: React.FC<ModelConfigProps> = ({
           </Button>
         </div>
       </div>
-      <ScrollArea className="grow">
+      <ScrollArea className="flex-grow">
         <AnimatePresence>
-          <motion.div className="grow overflow-y-visible mt-2">
+          <motion.div className="flex-grow overflow-y-visible mt-2">
             {models.map((model) => (
               <motion.div
                 key={model.id}
@@ -128,7 +128,7 @@ const ModelConfig: React.FC<ModelConfigProps> = ({
                   ${editingModel?.id !== model.id ? 'md:hover:shadow-[inset_0_0_10px_10px_rgba(128,128,128,0.2)] bg-background cursor-pointer' : 'custom-shadow'}
                 `}
               >
-                <div className={`${editingModel?.id !== model.id ? 'grow justify-between items-start' : ''}`}>
+                <div className={`${editingModel?.id !== model.id ? 'flex-grow justify-between items-start' : ''}`}>
                   <div>
                     <div
                       className="flex cursor-pointer items-center"
@@ -138,7 +138,7 @@ const ModelConfig: React.FC<ModelConfigProps> = ({
                         }
                       }}
                     >
-                      <h3 className="font-bold text-xl grow">{model.name}</h3>
+                      <h3 className="font-bold text-xl flex-grow">{model.name}</h3>
                       {editingModel?.id !== model.id ? (
                         <div className="flex gap-1">
                           <Button

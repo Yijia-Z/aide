@@ -29,7 +29,11 @@ export async function POST(
     const invites: ThreadRole[] = Array.isArray(invitesRaw)
       ? invitesRaw
       : [body]; // 兼容单条
+console.log("userid: ",userId);
+console.log("threadid: ",threadId);
+
     const allowed = await canDoThreadOperation(userId, threadId, ThreadOperation.INVITE_MEMBER);
+    console.log(allowed);
     if (!allowed) {
       return NextResponse.json({ error: "No Permission" }, { status: 403 });
     }

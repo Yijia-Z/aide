@@ -5,7 +5,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { ListPlus, Check, X, Pin, PinOff, Trash, Share } from "lucide-react";
 import { Thread } from "@/components/types";
 import React, { useState } from "react";
-import { InviteModal } from "./InviteModal"; 
+import { InviteModal } from "./InviteModal";
 
 interface ThreadListProps {
   threads: Thread[];
@@ -50,12 +50,12 @@ const ThreadList: React.FC<ThreadListProps> = ({
   const sortedThreads = threads.sort((a, b) => {
     // 第一步：只要 a 是 pinned 而 b 不是，就让 a 排前；反之 b 排前
     if (a.isPinned && !b.isPinned) {
-      return -1; 
+      return -1;
     }
     if (!a.isPinned && b.isPinned) {
       return 1;
     }
-  
+
     // 第二步：能到这一步，说明:
     //  - 要么都 pinned
     //  - 要么都不 pinned
@@ -63,14 +63,14 @@ const ThreadList: React.FC<ThreadListProps> = ({
     const aTime = new Date(a.updatedAt ?? 0).getTime();
     const bTime = new Date(b.updatedAt ?? 0).getTime();
     return bTime - aTime;
-    
+
   });
-  
+
 
   return (
     <div className="flex flex-col relative h-[calc(97vh)]">
       <div
-        className="top-bar bg-linear-to-b from-background/100 to-background/00 select-none"
+        className="top-bar bg-gradient-to-b from-background/100 to-background/00 select-none"
         style={{
           mask: "linear-gradient(black, black, transparent)",
           backdropFilter: "blur(1px)",
@@ -125,11 +125,11 @@ const ThreadList: React.FC<ThreadListProps> = ({
                 `}
                 onClick={(e) => {
                   e.stopPropagation();
-                  console.log("Clicked thread:", thread.id); 
+                  console.log("Clicked thread:", thread.id);
                   setCurrentThread(thread.id);
                 }}
               >
-                <div className="grow group">
+                <div className="flex-grow group">
                   {editingThreadTitle === thread.id ? (
                     <div className="flex items-center justify-between">
                       <Input
@@ -146,7 +146,7 @@ const ThreadList: React.FC<ThreadListProps> = ({
                             )
                           )
                         }
-                        className="min-font-size grow h-8 p-1 my-1"
+                        className="min-font-size flex-grow h-8 p-1 my-1"
                         onClick={(e) => e.stopPropagation()}
                         maxLength={64}
                       />
@@ -189,11 +189,11 @@ const ThreadList: React.FC<ThreadListProps> = ({
                         startEditingThreadTitle(thread.id, thread.title);
                       }}
                     >
-                      <span className="pl-1 grow">{thread.title || <span className="text-muted-foreground">Unamed Thread</span>}</span>
-                      
+                      <span className="pl-1 flex-grow">{thread.title || <span className="text-muted-foreground">Unamed Thread</span>}</span>
+
                       <div className="flex items-center">
 
-                      {thread.role === "OWNER" && (
+                        {thread.role === "OWNER" && (
                           <Button
                             variant="ghost"
                             size="icon"
@@ -202,7 +202,7 @@ const ThreadList: React.FC<ThreadListProps> = ({
                               setInviteThreadId(thread.id);
                             }}
                           >
-                            <Share className="h-4 w-4" />
+                            <Share className="h-4 w-4 md:opacity-0 md:group-hover:opacity-100" />
                           </Button>
                         )}
 
