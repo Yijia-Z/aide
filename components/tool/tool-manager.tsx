@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useToast } from "@/components/hooks/use-toast";
 
 interface Tool {
   id: string;
@@ -64,6 +65,7 @@ export function ToolManager({
   error,
   setModels,
 }: ToolManagerProps) {
+  const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTool, setEditingTool] = useState<Partial<Tool> | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
@@ -80,13 +82,17 @@ export function ToolManager({
         }
       } catch (err) {
         console.error("[handleAddTool]", err);
-        alert("Add tool failed!");
+        toast({
+          title: "Error",
+          description: "Failed to add tool",
+          variant: "destructive"
+        });
         setAvailableTools(
           availableTools.filter((t) => t.id !== tool.id)
         );
       }
     },
-    [availableTools, setAvailableTools]
+    [toast, availableTools, setAvailableTools]
   );
 
   const handleRemoveTool = useCallback(
@@ -120,11 +126,15 @@ export function ToolManager({
         }
       } catch (err) {
         console.error("[handleRemoveTool]", err);
-        alert("Remove tool failed!");
+        toast({
+          title: "Error",
+          description: "Failed to remove tool",
+          variant: "destructive"
+        });
         setAvailableTools([...availableTools, tool]);
       }
     },
-    [availableTools, setAvailableTools, setModels]
+    [toast, availableTools, setAvailableTools, setModels]
   );
 
   const handleCreateTool = async (toolData: Omit<Tool, "id">) => {
@@ -143,7 +153,11 @@ export function ToolManager({
       setEditingTool(null);
     } catch (err) {
       console.error("[handleCreateTool]", err);
-      alert("Failed to create tool!");
+      toast({
+        title: "Error",
+        description: "Failed to create tool",
+        variant: "destructive"
+      });
     }
   };
 

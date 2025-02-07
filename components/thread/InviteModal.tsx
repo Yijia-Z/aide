@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useToast } from "@/components/hooks/use-toast"
 import {
   Dialog,
   DialogContent,
@@ -35,6 +36,7 @@ export function InviteModal({ threadId, onClose }: InviteModalProps) {
   >([
     { email: "", role: "VIEWER" }, // 初始先有一行
   ]);
+  const { toast } = useToast();
 
   /** 增加一行邀请 */
   function handleAddRow() {
@@ -64,32 +66,55 @@ export function InviteModal({ threadId, onClose }: InviteModalProps) {
     );
   }
 
+  function isValidEmail(email: string) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  }
+
   /** 点击 OK => 一次性发送所有邀请 */
   async function handleConfirmInvites() {
     try {
-      const hasEmptyEmail = inviteList.some((item) => !item.email.trim());
-      if (hasEmptyEmail) {
-        alert("empty email");
+      // Check for empty or invalid emails
+      const invalidEmails = inviteList.filter(
+        item => !item.email.trim() || !isValidEmail(item.email.trim())
+      );
+
+      if (invalidEmails.length > 0) {
+        toast({
+          title: "Error",
+          description: "Please enter valid email addresses",
+          variant: "destructive"
+        });
         return;
       }
-      // 你可以把后端的 API 改成 /invite/bulk 或 /multi-invite 等
+
       const res = await fetch(`/api/threads/${threadId}/multi-invite`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ invites: inviteList }),
       });
+
       if (!res.ok) {
         const err = await res.json();
-        alert("Invite failed: " + err.error);
+        toast({
+          title: "Error",
+          description: `Invite failed: ${err.error}`,
+          variant: "destructive"
+        });
         return;
       }
-      alert("Invite success!");
+
+      toast({
+        title: "Success",
+        description: "Invites sent successfully!"
+      });
       onClose();
-      // 这里也可以清空 inviteList，但通常关掉弹窗就够了
-      // setInviteList([{ email: "", role: "VIEWER" }]);
     } catch (err) {
       console.error("Error inviting =>", err);
-      alert("Server error");
+      toast({
+        title: "Error",
+        description: "Server error occurred",
+        variant: "destructive"
+      });
     }
   }
 
@@ -102,7 +127,7 @@ export function InviteModal({ threadId, onClose }: InviteModalProps) {
 
   return (
     <Dialog open={true} onOpenChange={() => handleCancel()}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[425px] custom-shadow">
         <DialogHeader>
           <DialogTitle>Invite users to thread</DialogTitle>
         </DialogHeader>
@@ -115,7 +140,10 @@ export function InviteModal({ threadId, onClose }: InviteModalProps) {
                 placeholder="Email"
                 value={item.email}
                 onChange={(e) => handleEmailChange(index, e.target.value)}
-                className="flex-1"
+                className={`flex-1 ${item.email && !isValidEmail(item.email) ? "border-red-500" : ""
+                  }`}
+                required
+                pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$"
               />
               <Select
                 value={item.role}

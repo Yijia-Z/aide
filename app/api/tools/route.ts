@@ -2,7 +2,6 @@
 
 import { Tool, ToolUseRequest, ToolUseResponse } from '@/types/models'
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db/prismadb";
 import { randomUUID } from "crypto";
 
@@ -19,7 +18,7 @@ export async function GET() {
             id: randomUUID(),
             name: "Get Current Weather",
             description: "Provides the current weather for a specified location.",
-            
+
             type: "function",
             function: {
               name: "get_current_weather",
@@ -44,7 +43,7 @@ export async function GET() {
             id: randomUUID(),
             name: "Calculate",
             description: "Performs basic arithmetic calculations.",
-           
+
             type: "function",
             function: {
               name: "calculate",
@@ -79,6 +78,29 @@ export async function GET() {
     const tools = await prisma.tool.findMany();
     return NextResponse.json({ tools }, { status: 200 });
   } catch (err: any) {
+    return NextResponse.json({ error: String(err) }, { status: 500 });
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+
+    const toolData = await req.json();
+
+    // Create the new tool
+    const newTool = await prisma.tool.create({
+      data: {
+        id: randomUUID(),
+        name: toolData.name,
+        description: toolData.description,
+        type: toolData.type,
+        function: toolData.function,
+      },
+    });
+
+    return NextResponse.json(newTool, { status: 201 });
+  } catch (err: any) {
+    console.error("[POST /api/tools]", err);
     return NextResponse.json({ error: String(err) }, { status: 500 });
   }
 }

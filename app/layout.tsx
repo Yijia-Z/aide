@@ -5,6 +5,7 @@ import { Averia_Serif_Libre } from 'next/font/google';
 import localfont from "next/font/local";
 import { Providers } from "./providers";
 import { registerServiceWorker } from '@/components/utils/register-sw';
+import { Toaster } from "@/components/ui/toaster"
 
 export const metadata: Metadata = {
   title: "Aide",
@@ -79,6 +80,7 @@ export default function RootLayout({
       <body className={`font-sans overflow-hidden`}>
         <Providers>
           {children}
+          <Toaster />
         </Providers>
       </body>
     </html>

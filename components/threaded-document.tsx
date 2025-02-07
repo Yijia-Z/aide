@@ -29,6 +29,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { useClearStorageOnExit } from "./useClearStorageOnExit";
 import { fetchMessageLatest, lockMessage, unlockMessage } from "@/lib/frontapi/messageApi";
 import { handleSelectMessage } from "./utils/handleSelectMessage";
+import { useToast } from "./hooks/use-toast";
 
 export default function ThreadedDocument() {
   useClearStorageOnExit();
@@ -94,6 +95,7 @@ export default function ThreadedDocument() {
   } = useModels();
 
   // Connection and generation states
+  const { toast } = useToast()
   const [lastAttemptTime, setLastAttemptTime] = useState<number | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isGenerating, setIsGenerating] = useState<{ [key: string]: boolean }>({});
@@ -207,58 +209,11 @@ export default function ThreadedDocument() {
     fetchSingleThread();
   }, [currentThread, setThreads]); */
 
-  useEffect(() => {
-    // 如果没选中任何 thread，就不做任何请求
-    if (!currentThread) {
-      console.log("[ThreadedDocument] no currentThread => skip fetchSingleThread");
-      return;
-    }
-    const localThread = threads.find(t => t.id === currentThread)
-    if (!localThread) {
-      // localThread === undefined，必须 return 或 fetch
-      return
-    }
-    if (!localThread.hasFetchedMessages) {
-      fetchSingleThread(currentThread)
-      return
-    }
-    // 1) 解析本地 thread 的 updatedAt
-    console.log("localThread.updatedAt =", localThread.updatedAt);
-    // 然后再写 new Date(...)
-
-    const localUpdatedTime = new Date(localThread.updatedAt || 0).getTime();
-
-    // 2) 先请求后端查看是否有更新的 updatedAt (轻量接口)
-    //    如果你已经有 /api/threads/:id，可以只拿 { updatedAt } 再决定是否要拉 messages
-    //    这里示例写个 fetchHeadThread 只返回 updatedAt
-    const checkBackend = async () => {
-      try {
-        const res = await fetch(`/api/threads/${currentThread}?only=updatedAt`);
-        if (!res.ok) throw new Error("Failed to fetch thread's updatedAt");
-        const data = await res.json();
-        const serverUpdatedTime = new Date(data.thread.updatedAt).getTime();
-
-        if (serverUpdatedTime > localUpdatedTime) {
-          // 说明服务器更新 => 去拉全量消息
-          fetchSingleThread(currentThread);
-        } else {
-          // 本地已经比服务端新或相等 => 什么都不做，直接用本地
-          console.log("[fetchSingleThread] local is up-to-date, skip");
-        }
-      } catch (err) {
-        console.error("[checkBackend updatedAt] error =>", err);
-        // 这里可决定：如果后端出错，就直接用本地
-      }
-    };
-
-    checkBackend();
-  }, [currentThread, fetchSingleThread, threads]);
-
   /**
    * 真正从后端拉取 messages 的函数
    * 拉取后更新 setThreads，并写进 localStorage
    */
-  async function fetchSingleThread(threadId: string) {
+  const fetchSingleThread = useCallback(async (threadId: string) => {
     try {
       console.log("[fetchSingleThread] actually fetching => threadId =", threadId);
 
@@ -315,7 +270,54 @@ export default function ThreadedDocument() {
     } catch (err) {
       console.error("[fetchSingleThread] error =>", err);
     }
-  }
+  }, [setThreads]);
+
+  useEffect(() => {
+    // 如果没选中任何 thread，就不做任何请求
+    if (!currentThread) {
+      console.log("[ThreadedDocument] no currentThread => skip fetchSingleThread");
+      return;
+    }
+    const localThread = threads.find(t => t.id === currentThread)
+    if (!localThread) {
+      // localThread === undefined，必须 return 或 fetch
+      return
+    }
+    if (!localThread.hasFetchedMessages) {
+      fetchSingleThread(currentThread)
+      return
+    }
+    // 1) 解析本地 thread 的 updatedAt
+    console.log("localThread.updatedAt =", localThread.updatedAt);
+    // 然后再写 new Date(...)
+
+    const localUpdatedTime = new Date(localThread.updatedAt || 0).getTime();
+
+    // 2) 先请求后端查看是否有更新的 updatedAt (轻量接口)
+    //    如果你已经有 /api/threads/:id，可以只拿 { updatedAt } 再决定是否要拉 messages
+    //    这里示例写个 fetchHeadThread 只返回 updatedAt
+    const checkBackend = async () => {
+      try {
+        const res = await fetch(`/api/threads/${currentThread}?only=updatedAt`);
+        if (!res.ok) throw new Error("Failed to fetch thread's updatedAt");
+        const data = await res.json();
+        const serverUpdatedTime = new Date(data.thread.updatedAt).getTime();
+
+        if (serverUpdatedTime > localUpdatedTime) {
+          // 说明服务器更新 => 去拉全量消息
+          fetchSingleThread(currentThread);
+        } else {
+          // 本地已经比服务端新或相等 => 什么都不做，直接用本地
+          console.log("[fetchSingleThread] local is up-to-date, skip");
+        }
+      } catch (err) {
+        console.error("[checkBackend updatedAt] error =>", err);
+        // 这里可决定：如果后端出错，就直接用本地
+      }
+    };
+
+    checkBackend();
+  }, [currentThread, fetchSingleThread, threads]);
 
   /*   useEffect(() => {
       const offlineDetector = createOfflineDetector();
@@ -1089,21 +1091,28 @@ export default function ThreadedDocument() {
   );
   const startEditingMessage = useCallback(
     async (msg: Message) => {
-
       try {
         const lockedSuccessfully = await lockMessage(msg.id);
         if (!lockedSuccessfully) {
-          alert(" editing......");
+          toast({
+            title: "Message Locked",
+            description: "This message is currently being edited by another user",
+            variant: "destructive"
+          });
           return;
         }
 
         setEditingMessage(msg.id);
         setEditingContent(extractTextFromContent(msg.content));
       } catch (err: any) {
-        alert(err.message || "cannot edit in starteditingmessage");
+        toast({
+          title: "Error",
+          description: err.message || "Failed to start editing message",
+          variant: "destructive"
+        });
       }
     },
-    [setEditingMessage, setEditingContent]
+    [setEditingMessage, setEditingContent, toast]
   );
 
   // 把 message.content => string
@@ -1733,7 +1742,11 @@ export default function ThreadedDocument() {
         };
 
         if (originalMessage && clipboardMessage.operation === "cut" && (parentId === clipboardMessage.originalMessageId || isDescendant(originalMessage))) {
-          window.alert("Cut and paste on children is now allowed!")
+          toast({
+            title: "Invalid Operation",
+            description: "Cut and paste on children is not allowed",
+            variant: "destructive"
+          });
           return;
         }
       }
@@ -1835,7 +1848,7 @@ export default function ThreadedDocument() {
       }
 
     },
-    [clipboardMessage, setClipboardMessage, clearGlowingMessages, setSelectedMessages, deleteMessage, updateMessageContent, findMessageById, threads, currentThread, setThreads]
+    [toast, clipboardMessage, setClipboardMessage, clearGlowingMessages, setSelectedMessages, deleteMessage, updateMessageContent, findMessageById, threads, currentThread, setThreads]
   );
 
   // Collapse deep children
@@ -1919,25 +1932,36 @@ export default function ThreadedDocument() {
       if (selectedModelIds.length === 0) {
         if (models.length > 0) {
           // Auto-select first model
+          toast({
+            title: "No Model Selected",
+            description: "First available model has been automatically selected.",
+          });
+          setActiveTab("models");
           const firstModelId = models[0].id;
           selectedModels.push(firstModelId);
         } else {
-          alert("No model selected. Please select a model in Models tab to proceed.");
+          toast({
+            title: "No Model Selected",
+            description: "Please select a model in Models tab to proceed.",
+            variant: "destructive"
+          });
           setActiveTab("models");
           return;
         }
       }
 
       try {
-
-
         for (let i = 0; i < count; i++) {
           const promises = selectedModelIds.map(async (modelId) => {
             const model = models.find((m) => m.id === modelId);
             if (!model) return;
 
             if (!isSignedIn && !model.baseModel.endsWith(":free")) {
-              alert(`Sign in to use ${model.baseModel}`);
+              toast({
+                title: "Authentication Required",
+                description: `Sign in to use ${model.baseModel}`,
+                variant: "destructive"
+              });
               return;
             }
             const newId = uuidv4();
@@ -2037,6 +2061,7 @@ export default function ThreadedDocument() {
       }
     },
     [
+      toast,
       threads,
       models,
       selectedModels,
