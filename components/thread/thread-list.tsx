@@ -70,7 +70,7 @@ const ThreadList: React.FC<ThreadListProps> = ({
   return (
     <div className="flex flex-col relative h-[calc(97vh)]">
       <div
-        className="top-bar bg-linear-to-b from-background/100 to-background/00 select-none"
+        className="top-bar bg-gradient-to-b from-background/100 to-background/00 select-none"
         style={{
           mask: "linear-gradient(black, black, transparent)",
           backdropFilter: "blur(1px)",
@@ -129,7 +129,7 @@ const ThreadList: React.FC<ThreadListProps> = ({
                   setCurrentThread(thread.id);
                 }}
               >
-                <div className="grow group">
+                <div className="flex-grow group">
                   {editingThreadTitle === thread.id ? (
                     <div className="flex items-center justify-between">
                       <Input
@@ -146,7 +146,7 @@ const ThreadList: React.FC<ThreadListProps> = ({
                             )
                           )
                         }
-                        className="min-font-size grow h-8 p-1 my-1"
+                        className="min-font-size flex-grow h-8 p-1 my-1"
                         onClick={(e) => e.stopPropagation()}
                         maxLength={64}
                       />
@@ -189,7 +189,7 @@ const ThreadList: React.FC<ThreadListProps> = ({
                         startEditingThreadTitle(thread.id, thread.title);
                       }}
                     >
-                      <span className="pl-1 grow">{thread.title || <span className="text-muted-foreground">Unamed Thread</span>}</span>
+                      <span className="pl-1 flex-grow">{thread.title || <span className="text-muted-foreground">Unamed Thread</span>}</span>
 
                       <div className="flex items-center">
 
