@@ -5,31 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import DraggableDialog from "@/components/ui/draggable-dialog";
+import { ToolParameter,ToolFunction,Tool } from "../types";
 
-// Define backend data structures
-export interface ToolParameter {
-  type: string;
-  description?: string;
-  enum?: string[];
-}
-
-export interface ToolFunction {
-  name: string;
-  description: string;
-  parameters: {
-    type: string;
-    properties: Record<string, ToolParameter>;
-    required: string[];
-  };
-}
-
-export interface Tool {
-  id: string;
-  name: string;
-  description: string;
-  type: string;
-  function: ToolFunction;
-}
 
 // Interface for storing parameter rows in the frontend
 interface ParamField {
@@ -43,7 +20,10 @@ interface ParamField {
 interface CreateToolDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onCreate: (toolData: Omit<Tool, "id">) => void;
+  
+  onCreate: (toolData: Omit<Tool, "id">) => Promise<Tool>; 
+  // ↑ 改成返回 Promise，父组件中是 async function
+  isLoading: boolean; 
 }
 
 /**
@@ -53,7 +33,9 @@ interface CreateToolDialogProps {
 export function CreateToolDialog({
   open,
   onOpenChange,
+  
   onCreate,
+  isLoading,
 }: CreateToolDialogProps) {
   // Top-level Tool Info
   const [toolName, setToolName] = useState("");
@@ -104,8 +86,8 @@ export function CreateToolDialog({
     );
   }
 
-  function handleCreate() {
-    // Basic validations
+  async function handleCreate() {
+    // 1) 简单校验
     if (!toolName.trim()) {
       alert("Tool name is required!");
       return;
@@ -115,13 +97,15 @@ export function CreateToolDialog({
       return;
     }
 
-    // Convert parameters => properties + required
+    // 2) 组装 parameters => { [paramName]: {...}, ...}
     const properties: Record<string, ToolParameter> = {};
     const requiredArr: string[] = [];
 
     for (const param of parameters) {
-      if (!param.paramName.trim()) continue;
-      const paramObj: ToolParameter = { type: param.paramType };
+      if (!param.paramName.trim()) continue; // 跳过空行
+      const paramObj: ToolParameter = {
+        type: param.paramType,
+      };
       if (param.paramDescription.trim()) {
         paramObj.description = param.paramDescription.trim();
       }
@@ -134,26 +118,45 @@ export function CreateToolDialog({
       }
     }
 
-    const newToolData = {
-      name: toolName.trim(),
-      description: toolDescription.trim(),
-      type: toolType.trim(),
-      function: {
-        name: functionName.trim(),
-        description: functionDesc.trim(),
-        parameters: {
-          type: "object",
-          properties,
-          required: requiredArr,
-        },
+    // 3) 最终function JSON  => { name, description, parameters }
+    const functionJson = {
+      name: functionName.trim(),
+      description: functionDesc.trim(),
+      parameters: {
+        type: "object",
+        properties,
+        required: requiredArr,
       },
     };
 
-    onCreate(newToolData);
+    // 4) assemble newToolData => shape matches your "Tool" minus "id"
+    const newToolData: Omit<Tool, "id"> = {
+      name: toolName.trim(),
+      description: toolDescription.trim(),
+      type: toolType.trim(),
+      function: functionJson,
+      
+    };
+
+    // 5) 调用父组件
+    try {
+      await onCreate(newToolData);
+      // 父组件成功 => 这里也可以直接 onOpenChange(false) if you want
+      // (看你是否更喜欢在父组件中关闭弹窗)
+    } catch (err) {
+      console.error("Create tool error =>", err);
+      alert("Failed to create tool => " + err);
+    }
   }
 
+  
   return (
     <DraggableDialog open={open} onOpenChange={onOpenChange}>
+       {isLoading ? (
+        <div className="p-4">
+          <p className="text-center">Saving... Please wait.</p>
+        </div>
+      ) :(
       <div className="p-4 sm:p-6 flex flex-col gap-4 h-full w-full">
         <h2 className="text-xs font-bold mb-2">Create New Tool</h2>
 
@@ -293,6 +296,7 @@ export function CreateToolDialog({
           <Button onClick={handleCreate}>Create Tool</Button>
         </div>
       </div>
+        )}
     </DraggableDialog>
   );
 }

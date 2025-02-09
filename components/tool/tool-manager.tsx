@@ -142,7 +142,7 @@ export function ToolManager({
     [availableTools, setAvailableTools, setModels]
   );
 
-  // 注意，这里不再使用内部 `isCreateDialogOpen`，而是让父组件控制
+
 
   return (
     <div className="flex flex-col relative h-[calc(97vh)] overflow-clip select-none">

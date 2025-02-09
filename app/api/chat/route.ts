@@ -160,6 +160,7 @@ export async function POST(req: NextRequest) {
                         });
                         assistantMessages = ''; // Reset assistant message
                       }
+                      
                       let parsedArgs;
                       try {
                         parsedArgs = JSON.parse(currentToolCall.function.arguments);

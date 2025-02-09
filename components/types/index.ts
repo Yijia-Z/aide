@@ -105,6 +105,7 @@ export interface Tool {
   description: string;
   type: string;
   function: ToolFunction;
+  approvalRate?:number;
 }
 
 export type ToolChoice = "auto" | "none" | "required" | { type: "function"; function: { name: string } };
