@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/hooks/use-toast"
@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Crown, Edit, Eye, Minus, Send, Plus } from "lucide-react";
+import { Crown, Edit, Eye, Minus, Send, UserPlus, Check, X, UserMinus, Users } from "lucide-react";
 
 // 可以按你自己的枚举定义改动
 type ThreadRole = "VIEWER" | "PUBLISHER" | "EDITOR" | "OWNER";
@@ -37,6 +37,24 @@ export function InviteModal({ threadId, onClose }: InviteModalProps) {
     { email: "", role: "VIEWER" }, // 初始先有一行
   ]);
   const { toast } = useToast();
+  const [invitedUsers, setInvitedUsers] = useState<{ id: string; name: string; role: ThreadRole; }[]>([]);
+
+  useEffect(() => {
+    async function fetchInvitedUsers() {
+      try {
+        const res = await fetch(`/api/threads/${threadId}/invited-users`);
+        if (!res.ok) {
+          throw new Error('Failed to fetch invited users');
+        }
+        const data = await res.json();
+        setInvitedUsers(data.users);
+      } catch (error) {
+        console.error('Error fetching invited users:', error);
+      }
+    }
+
+    fetchInvitedUsers();
+  }, [threadId]);
 
   /** 增加一行邀请 */
   function handleAddRow() {
@@ -46,7 +64,7 @@ export function InviteModal({ threadId, onClose }: InviteModalProps) {
   /** 删除指定行 */
   function handleRemoveRow(index: number) {
     // 如果只剩一行，也可以允许删到0行，按需求可自己决定
-    if (inviteList.length === 1) {
+    if (inviteList.length < 1) {
       return;
     }
     setInviteList((prev) => prev.filter((_, i) => i !== index));
@@ -127,24 +145,56 @@ export function InviteModal({ threadId, onClose }: InviteModalProps) {
 
   return (
     <Dialog open={true} onOpenChange={() => handleCancel()}>
-      <DialogContent className="sm:max-w-[425px] custom-shadow">
+      <DialogContent className="sm:max-w-[425px] custom-shadow select-none">
         <DialogHeader>
-          <DialogTitle>Invite users to thread</DialogTitle>
+          <DialogTitle>Invite Collaborators</DialogTitle>
         </DialogHeader>
 
-        <div className="py-4">
+        <div className="py-2">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              <h3 className="text-lg font-semibold">Users</h3>
+            </div>
+            <Button
+              variant="outline"
+              className="custom-shadow"
+              onClick={() => handleAddRow()}
+            >
+              <UserPlus className="h-4 w-4 mr-2" />
+              Add User
+            </Button>
+          </div>
+
+          {/* Current Users */}
+          {[
+            { id: 1, name: "John Doe", role: "EDITOR", lastActive: new Date() },
+            { id: 2, name: "Jane Smith", role: "VIEWER", lastActive: new Date(Date.now() - 24 * 60 * 60 * 1000) }
+          ].map((user) => (
+            <div key={user.id} className="flex items-center gap-2 mb-2 custom-shadow">
+              <div className="flex-1 flex items-center justify-between py-1 px-3 border rounded-md">
+                <div className="flex items-center gap-2">
+                  {user.role === "VIEWER" && <Eye className="h-4 w-4" />}
+                  {user.role === "PUBLISHER" && <Send className="h-4 w-4" />}
+                  {user.role === "EDITOR" && <Edit className="h-4 w-4" />}
+                  {user.role === "OWNER" && <Crown className="h-4 w-4" />}
+                  <span>{user.name}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-500">
+                    {user.lastActive.toDateString() === new Date().toDateString()
+                      ? user.lastActive.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                      : user.lastActive.toLocaleDateString()}
+                  </span>
+                  <UserMinus className="h-4 w-4 hover:text-red-500 cursor-pointer" />
+                </div>
+              </div>
+            </div>
+          ))}
+
+          {/* New Invites */}
           {inviteList.map((item, index) => (
             <div key={index} className="flex items-center gap-2 mb-2">
-              <Input
-                type="email"
-                placeholder="Email"
-                value={item.email}
-                onChange={(e) => handleEmailChange(index, e.target.value)}
-                className={`flex-1 ${item.email && !isValidEmail(item.email) ? "border-red-500" : ""
-                  }`}
-                required
-                pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$"
-              />
               <Select
                 value={item.role}
                 onValueChange={(value) => handleRoleChange(index, value as ThreadRole)}
@@ -180,30 +230,45 @@ export function InviteModal({ threadId, onClose }: InviteModalProps) {
                 </SelectContent>
               </Select>
 
+              <Input
+                type="email"
+                placeholder="Email"
+                value={item.email}
+                onChange={(e) => handleEmailChange(index, e.target.value)}
+                className={`flex-1 ${item.email && !isValidEmail(item.email) ? "border-red-500" : ""}`}
+                required
+                pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$"
+              />
+
               <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => handleAddRow()}
-              >
-                <Plus />
-              </Button>
-              <Button
-                variant="ghost"
+                variant="outline"
                 size="icon"
                 onClick={() => handleRemoveRow(index)}
-                disabled={inviteList.length <= 1}
               >
-                <Minus />
+                <UserMinus className="h-4 w-4" />
               </Button>
             </div>
           ))}
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={handleCancel}>
-            Cancel
-          </Button>
-          <Button onClick={handleConfirmInvites}>Invite</Button>
+          {inviteList.length > 0 && (
+            <div className="flex gap-2">
+              <Button
+                onClick={handleConfirmInvites}
+              >
+                <Check className="h-4 w-4" />
+                Confirm
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleCancel}
+              >
+                <X className="h-4 w-4" />
+                Cancel
+              </Button>
+            </div>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
