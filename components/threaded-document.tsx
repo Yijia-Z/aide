@@ -28,7 +28,7 @@ import { useUserProfile } from "./hooks/use-userprofile";
 import { AlignJustify, MessageSquare, Sparkle, Settings, Package } from "lucide-react";
 import { v4 as uuidv4 } from 'uuid';
 import { useClearStorageOnExit } from "./useClearStorageOnExit";
-import { fetchMessageLatest, lockMessage, unlockMessage } from "@/lib/frontapi/messageApi";
+import { fetchMessageLatest } from "@/lib/frontapi/messageApi";
 import { handleSelectMessage } from "./utils/handleSelectMessage";
 import { useToast } from "./hooks/use-toast";
 
@@ -178,7 +178,7 @@ export default function ThreadedDocument() {
     workerRef.current.postMessage({ code });
   }
 
-  const onCreateTool = useCallback(
+  /* const onCreateTool = useCallback(
     async (toolData: Omit<Tool, "id">): Promise<Tool> => {
       console.log("[onCreateTool] 收到的 toolData =>", toolData);
       setIsLoading(true);
@@ -248,7 +248,7 @@ export default function ThreadedDocument() {
   useEffect(() => {
     storage.set('activeTab', activeTab);
   }, [activeTab]);
-
+ */
 
   /* useEffect(() => {
     if (!currentThread) {
@@ -452,8 +452,7 @@ export default function ThreadedDocument() {
     };
   };
 
-  // 你的 confirmEditingMessage
-  /*   const confirmEditingMessage = useCallback(
+     const confirmEditingMessage = useCallback(
       async (threadId: string, messageId: string) => {
         console.log("[confirmEditingMessage] start, messageId =", messageId);
   
@@ -533,8 +532,8 @@ export default function ThreadedDocument() {
         }
       },
       [editingContent, setEditingContent, setEditingMessage, setThreads]
-    ); */
-  const confirmEditingMessage = useCallback(
+    );
+ /*  const confirmEditingMessage = useCallback(
     async (threadId: string, messageId: string) => {
       console.log("[confirmEditingMessage] start, messageId =", messageId);
 
@@ -606,7 +605,7 @@ export default function ThreadedDocument() {
       }
     },
     [editingContent, setEditingContent, setEditingMessage, setThreads]
-  );
+  ); */
 
   // Fetch available models from the API or cache
   const fetchAvailableModels = useCallback(async () => {
@@ -784,7 +783,7 @@ export default function ThreadedDocument() {
     setNewThreadId
   ]);
 
-  /*   // Add message to a thread
+ 
     const addMessage = useCallback(
       async (
         threadId: string,
@@ -899,11 +898,11 @@ export default function ThreadedDocument() {
         })();
       },
       [setThreads, setSelectedMessages, currentThread, username]
-    ); */
+    ); 
   // 注意：如果你需要返回新消息的 ID，可以把返回类型改成 Promise<string>，并在最后 return realId；
   // 这里仅演示 Promise<void> + 内部 await fetch
 
-  const addMessage = useCallback(
+ /*  const addMessage = useCallback(
     async (
       threadId: string,
       parentId: string | null,
@@ -1028,7 +1027,7 @@ export default function ThreadedDocument() {
     [setThreads, setSelectedMessages, currentThread, username] // 把需要的依赖加进来
   );
 
-
+ */
   // Change the model
   const handleModelChange = useCallback(
     (field: keyof Model, value: string | number | Partial<ModelParameters> | Tool[]) => {
@@ -1196,7 +1195,7 @@ export default function ThreadedDocument() {
       setThreads,
     ]
   );
-  const startEditingMessage = useCallback(
+ /*  const startEditingMessage = useCallback(
     async (msg: Message) => {
       try {
         const lockedSuccessfully = await lockMessage(msg.id);
@@ -1221,7 +1220,7 @@ export default function ThreadedDocument() {
     },
     [setEditingMessage, setEditingContent, toast]
   );
-
+ */
   // 把 message.content => string
   function extractTextFromContent(content: string | ContentPart[]) {
     if (typeof content === "string") {
@@ -1232,7 +1231,7 @@ export default function ThreadedDocument() {
     const textPart = content.find(p => p.type === "text");
     return textPart?.text || "";
   }
-  /*  const startEditingMessage = useCallback(
+    const startEditingMessage = useCallback(
      (message: Message) => {
        setEditingMessage(message.id);
  
@@ -1255,7 +1254,7 @@ export default function ThreadedDocument() {
      },
      [setEditingContent, setEditingMessage]
    );
-  */
+  
 
   const cancelEditThreadTitle = useCallback(() => {
     if (editingThreadTitle) {
@@ -1280,7 +1279,7 @@ export default function ThreadedDocument() {
     async (threadId: string, parentId: string | null, publisher: "user" | "ai" = "user") => {
       const newId = uuidv4();
 
-      await addMessage(threadId, parentId, "", publisher, newId);
+      addMessage(threadId, parentId, "", publisher, newId);
 
 
       startEditingMessage({
@@ -1470,7 +1469,7 @@ export default function ThreadedDocument() {
     ]
   );
 
-  const cancelEditingMessage = useCallback(async () => {
+ /*  const cancelEditingMessage = useCallback(async () => {
 
     setThreads((prev: Thread[]) =>
       prev.map((thread) => {
@@ -1504,10 +1503,9 @@ export default function ThreadedDocument() {
     deleteMessage,
     setEditingContent,
     setEditingMessage,
-    setThreads,]);
+    setThreads,]); */
 
-  // Cancel editing a message
-  /*  const cancelEditingMessage = useCallback(() => {
+ const cancelEditingMessage = useCallback(() => {
      setThreads((prev: Thread[]) =>
        prev.map((thread) => {
          const removeEmptyMessage = (messages: Message[]): Message[] => {
@@ -1535,7 +1533,7 @@ export default function ThreadedDocument() {
      setEditingMessage,
      setThreads,
    ]);
-  */
+ 
   const fetchModelParameters = async (modelId: string) => {
     // console.log(`Fetching parameters for model ID: ${modelId}`);
     try {
@@ -2916,7 +2914,7 @@ Feel free to delete this thread and create your own!`}
               availableTools={availableTools}
               setAvailableTools={setAvailableTools}
               setModels={setModels}
-              openCreateDialog={handleOpenCreateDialog} 
+             
             />
           </TabsContent>
           <TabsContent
@@ -3086,7 +3084,7 @@ Feel free to delete this thread and create your own!`}
                   availableTools={availableTools}
                   setAvailableTools={setAvailableTools}
                   setModels={setModels}
-                  openCreateDialog={() => setIsCreateDialogOpen(true)}
+                
                 />
               </TabsContent>
               <TabsContent value="settings" className="flex-grow overflow-y-clip">
@@ -3142,19 +3140,6 @@ Feel free to delete this thread and create your own!`}
 
       </div>
 
-      <CreateToolDialog
-        open={isCreateDialogOpen}
-        onOpenChange={setIsCreateDialogOpen} 
-        onCreate={onCreateTool}
-        isLoading={isLoading}
-      />
-   <ScriptEditorDialog
-        open={scriptDialogOpen}
-        onOpenChange={setScriptDialogOpen}
-        toolId={scriptDialogTool ? scriptDialogTool.id : ""} // 传入当前要编辑的工具
-        onSaveScript={onSaveScript}
-        onUploadScript={handleUploadScript}
-      />
    
     </div>
   );

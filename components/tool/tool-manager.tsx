@@ -113,14 +113,13 @@ export function ToolManager({
         }
         const data = await res.json();
         if (data.updatedModelIds && Array.isArray(data.updatedModelIds)) {
-          setModels((prev) =>
-            prev.map((m) => {
+          
           setModels((prev) =>
             prev.map((m) => {
               if (!data.updatedModelIds.includes(m.id)) {
                 return m;
               }
-              const filtered = (m.parameters?.tools ?? []).filter(
+         
               const filtered = (m.parameters?.tools ?? []).filter(
                 (toolItem: { id: string }) => toolItem.id !== tool.id
               );

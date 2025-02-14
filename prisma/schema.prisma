@@ -116,9 +116,7 @@ model Message {
 
    isDeleted   Boolean      @default(false)
   deletedAt   DateTime?
-  // 新增：被谁锁定、何时锁定
-  editingBy    String?
-  editingAt    DateTime?
+ 
 
   thread      Thread       @relation(fields: [threadId], references: [id], onDelete: Cascade)
   userProfile UserProfile? @relation(fields: [userId], references: [id], onDelete: Cascade)

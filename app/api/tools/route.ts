@@ -4,7 +4,7 @@ import { Tool, ToolUseRequest, ToolUseResponse } from '@/types/models'
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prismadb";
 import { randomUUID } from "crypto";
-
+import { auth } from "@clerk/nextjs/server";
 export async function GET() {
   try {
     // 检查是否空表
