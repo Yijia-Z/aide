@@ -19,7 +19,7 @@ import {
 import { Crown, Edit, Eye, Minus, Send, UserPlus, Check, X, UserMinus, Users } from "lucide-react";
 
 // 可以按你自己的枚举定义改动
-type ThreadRole = "VIEWER" | "PUBLISHER" | "EDITOR" | "OWNER";
+type ThreadRole = "VIEWER" | "EDITOR" | "OWNER";
 
 interface InviteModalProps {
   threadId: string;     // 要邀请到的 Thread ID
@@ -175,7 +175,7 @@ export function InviteModal({ threadId, onClose }: InviteModalProps) {
               <div className="flex-1 flex items-center justify-between py-1 px-3 border rounded-md">
                 <div className="flex items-center gap-2">
                   {user.role === "VIEWER" && <Eye className="h-4 w-4" />}
-                  {user.role === "PUBLISHER" && <Send className="h-4 w-4" />}
+                 
                   {user.role === "EDITOR" && <Edit className="h-4 w-4" />}
                   {user.role === "OWNER" && <Crown className="h-4 w-4" />}
                   <span>{user.name}</span>
@@ -209,12 +209,12 @@ export function InviteModal({ threadId, onClose }: InviteModalProps) {
                       Viewer
                     </div>
                   </SelectItem>
-                  <SelectItem value="PUBLISHER">
+          {/*         <SelectItem value="PUBLISHER">
                     <div className="flex items-center">
                       <Send className="mr-2 h-4 w-4" />
                       Publisher
                     </div>
-                  </SelectItem>
+                  </SelectItem> */}
                   <SelectItem value="EDITOR">
                     <div className="flex items-center">
                       <Edit className="mr-2 h-4 w-4" />
