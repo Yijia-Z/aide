@@ -76,6 +76,7 @@ export async function GET() {
 
     // 再从数据库读取并返回
     const tools = await prisma.tool.findMany();
+    console.log("api/tools/route.js:get",tools);
     return NextResponse.json({ tools }, { status: 200 });
   } catch (err: any) {
     return NextResponse.json({ error: String(err) }, { status: 500 });
@@ -84,23 +85,34 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const body = await req.json();
+  
+    const newId = randomUUID();
 
-    const toolData = await req.json();
-
-    // Create the new tool
-    const newTool = await prisma.tool.create({
+  
+    const createdRow = await prisma.tool.create({
       data: {
-        id: randomUUID(),
-        name: toolData.name,
-        description: toolData.description,
-        type: toolData.type,
-        function: toolData.function,
+        id: newId,
+        name: body.name,
+        description: body.description,
+        type: body.type,
+        function: body.function, 
+        createdBy:userId,
+        
       },
     });
 
-    return NextResponse.json(newTool, { status: 201 });
+   
+    return NextResponse.json(createdRow, { status: 200 });
   } catch (err: any) {
-    console.error("[POST /api/tools]", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    console.error("[POST /api/tools] error =>", err);
+    return NextResponse.json(
+      { error: String(err) },
+      { status: 500 }
+    );
   }
 }

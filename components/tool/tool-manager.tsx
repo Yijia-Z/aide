@@ -1,5 +1,7 @@
 "use client";
 
+"use client";
+
 import React, { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Package, PackagePlus, Check, X, Trash, Edit } from "lucide-react";
@@ -30,6 +32,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/hooks/use-toast";
 
+// Tool类型可根据后端结构而定
 interface Tool {
   id: string;
   type: string;
@@ -47,6 +50,7 @@ interface Tool {
 }
 
 interface ToolManagerProps {
+  /** 后端返回的所有工具（大列表） */
   tools: Tool[];
   setTools: React.Dispatch<React.SetStateAction<Tool[]>>;
   availableTools: Tool[];
@@ -111,9 +115,12 @@ export function ToolManager({
         if (data.updatedModelIds && Array.isArray(data.updatedModelIds)) {
           setModels((prev) =>
             prev.map((m) => {
+          setModels((prev) =>
+            prev.map((m) => {
               if (!data.updatedModelIds.includes(m.id)) {
                 return m;
               }
+              const filtered = (m.parameters?.tools ?? []).filter(
               const filtered = (m.parameters?.tools ?? []).filter(
                 (toolItem: { id: string }) => toolItem.id !== tool.id
               );
@@ -518,6 +525,7 @@ export function ToolManager({
         </AnimatePresence>
       </ScrollArea>
 
+      {/* “Add Tool” => 普通对话框 */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="custom-shadow bg-background/80 select-none">
           <DialogHeader className="font-serif">

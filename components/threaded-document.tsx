@@ -14,6 +14,7 @@ import { storage } from "./store";
 import ThreadList from "@/components/thread/thread-list";
 import ModelConfig from "./model/model-config";
 import RenderMessages from "@/components/message/render-all-messages";
+import DraggableDialog from "@/components/ui/draggable-dialog"
 import { ToolManager } from "./tool/tool-manager";
 import { generateAIResponse } from "@/components/utils/api";
 import { Thread, Message, Model, ModelParameters, Tool, ContentPart, KeyInfo } from "./types";
@@ -101,7 +102,9 @@ export default function ThreadedDocument() {
   const [isGenerating, setIsGenerating] = useState<{ [key: string]: boolean }>({});
   const [copiedStates, setCopiedStates] = useState<{ [key: string]: boolean }>({});
   // const [scrollPosition, setScrollPosition] = useState<number>(0);
-
+  
+  
+  
   // Tool-related states
   const {
     tools,
@@ -113,7 +116,111 @@ export default function ThreadedDocument() {
     availableTools,
     setAvailableTools,
   } = useTools();
+  
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [currentToolId, setCurrentToolId] = useState<string>("");
+  // 3) 控制“脚本编辑”弹窗
+  const [toolScripts, setToolScripts] = useState<{ [id: string]: string }>({});
+  const [scriptDialogOpen, setScriptDialogOpen] = useState(false);
+  // 当前要编辑哪个工具的脚本
+  const [scriptDialogTool, setScriptDialogTool] = useState<Tool | null>(null);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+ const [isLoading, setIsLoading] = useState(false);
+  // Worker
+  const workerRef = useRef<Worker | null>(null);
 
+  useEffect(() => {
+    // 页面加载时，先创建 Worker
+    const w = new Worker("/scriptWorker.js");
+    w.onmessage = (e) => {
+      const { result } = e.data;
+      alert("脚本执行结果: " + result);
+      console.log("脚本执行完成 =>", result);
+    };
+    workerRef.current = w;
+
+    // 卸载时销毁
+    return () => {
+      w.terminate();
+      workerRef.current = null;
+    };
+  }, []);
+  function handleEditScript(toolId: string) {
+    setCurrentToolId(toolId);
+    setEditorOpen(true);
+  }
+
+  // 2) 获取初始脚本 (localStorage)
+  function getInitialScript(toolId: string) {
+    const saved = window.localStorage.getItem(`script_${toolId}`);
+    return saved || ""; // 如果没有就返回空
+  }
+
+  // 3) 保存脚本时
+  function handleSaveScript(toolId: string, script: string) {
+    // 存入 localStorage
+    window.localStorage.setItem(`script_${toolId}`, script);
+    console.log("脚本已保存 =>", { toolId, script });
+  }
+
+  // ---------- 4) 自动执行脚本 ----------
+  async function runScriptForTool(toolId: string) {
+    if (!workerRef.current) {
+      console.error("Worker not ready");
+      return;
+    }
+    const code = window.localStorage.getItem(`script_${toolId}`);
+    if (!code) {
+      alert(`没有在 localStorage 找到脚本 => script_${toolId}`);
+      return;
+    }
+    // 发送到 Worker
+    workerRef.current.postMessage({ code });
+  }
+
+  const onCreateTool = useCallback(
+    async (toolData: Omit<Tool, "id">): Promise<Tool> => {
+      console.log("[onCreateTool] 收到的 toolData =>", toolData);
+      setIsLoading(true);
+
+      try {
+        const created = await upsertNewTool(toolData);
+        console.log("Created =>", created);
+        setTools((prev) => [...prev, created]);
+        setScriptDialogTool(created);
+        setScriptDialogOpen(true);
+        
+      
+        return created;
+      } catch (err) {
+        console.error("[onCreateTool] 出错 =>", err);
+        throw err;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+   [setTools, setIsCreateDialogOpen, setScriptDialogOpen, setScriptDialogTool]);
+
+   async function onSaveScript(toolId: string, scriptContent: string) {
+    try {
+      await saveToolScript(toolId, scriptContent);
+      setToolScripts((prev) => ({
+        ...prev,
+        [toolId]: scriptContent,
+      }));
+      console.log("脚本已保存在前端 state =>", { toolId, scriptContent });
+      console.log("脚本成功保存到数据库！");
+    } catch (err) {
+      console.error("Save script error =>", err);
+      alert("保存脚本失败 => " + err);
+    }
+  }
+  const handleOpenCreateDialog = useCallback(() => {
+    setIsCreateDialogOpen(true);
+  }, []);
+  const handleCloseCreateDialog = useCallback(() => {
+    setIsCreateDialogOpen(false);
+  }, []);
   // Load tools
   const loadTools = useCallback(async () => {
     setToolsLoading(true);
@@ -2809,6 +2916,7 @@ Feel free to delete this thread and create your own!`}
               availableTools={availableTools}
               setAvailableTools={setAvailableTools}
               setModels={setModels}
+              openCreateDialog={handleOpenCreateDialog} 
             />
           </TabsContent>
           <TabsContent
@@ -2978,6 +3086,7 @@ Feel free to delete this thread and create your own!`}
                   availableTools={availableTools}
                   setAvailableTools={setAvailableTools}
                   setModels={setModels}
+                  openCreateDialog={() => setIsCreateDialogOpen(true)}
                 />
               </TabsContent>
               <TabsContent value="settings" className="flex-grow overflow-y-clip">
@@ -3028,7 +3137,25 @@ Feel free to delete this thread and create your own!`}
             </div>
           </ResizablePanel>
         </ResizablePanelGroup>
+
+
+
       </div>
+
+      <CreateToolDialog
+        open={isCreateDialogOpen}
+        onOpenChange={setIsCreateDialogOpen} 
+        onCreate={onCreateTool}
+        isLoading={isLoading}
+      />
+   <ScriptEditorDialog
+        open={scriptDialogOpen}
+        onOpenChange={setScriptDialogOpen}
+        toolId={scriptDialogTool ? scriptDialogTool.id : ""} // 传入当前要编辑的工具
+        onSaveScript={onSaveScript}
+        onUploadScript={handleUploadScript}
+      />
+   
     </div>
   );
 }

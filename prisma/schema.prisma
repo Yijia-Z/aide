@@ -157,10 +157,12 @@ model Tool {
   type           String?
   function       Json?
   createdBy      String?
+  script         Json?  
   isDeleted      Boolean         @default(false)
   deletedAt      DateTime?
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @default(now())
+   approvalRate   Int             @default(0)
   availableTools AvailableTool[] @relation("UserAvailableToolsForTool")
   modelTools     ModelTool[]     @relation("ModelToolsRelation")
   userProfile    UserProfile?    @relation("UserCreatedTools", fields: [createdBy], references: [id], onDelete: Cascade)
