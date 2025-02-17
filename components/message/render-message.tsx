@@ -276,7 +276,7 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
   // inView 优化
   const [ref, inView] = useInView({ threshold: 0, rootMargin: "200px 0px" });
   const renderedContentRef = useRef<string | null>(null);
-  const isLocked = !!message.locked;
+  
   useEffect(() => {
     if (inView && !renderedContentRef.current) {
       if (typeof message.content === "string") {
@@ -483,19 +483,10 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
               isGlowing && "glow-effect"
             )}
             onClick={(e) => {
-              if (editingMessage ) {
-              e.stopPropagation();   
-               return; // 不再调用 handleSelectMessage
-            }
-              handleSelectMessage({
-                message,
-                setSelectedMessages,
-                currentThread: currentThread || "", // 这里如果可能为 null，就给个空字符串或直接判空
-                setThreads,
-              });
-             /*  if (currentThread && selectedMessages[currentThread] !== message.id) {
+              e.stopPropagation();
+          if (currentThread && selectedMessages[currentThread] !== message.id) {
                 setSelectedMessages((prev) => ({ ...prev, [currentThread]: message.id }));
-              } */
+              } 
             }}
           >
             <div className="flex-grow p-0 overflow-hidden">
@@ -702,22 +693,12 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
                               : "border-l-2 ml-3"
                             : "ml-3.5"
                     )}
-                    onDoubleClick={async (e) => {
-                    
-                        e.stopPropagation();   
-                      
-                        handleSelectMessage({
-                          message,
-                          setSelectedMessages,
-                          currentThread: currentThread || "", // 这里如果可能为 null，就给个空字符串或直接判空
-                          setThreads,
-                        });
+                    onDoubleClick={() => {
                   
                       cancelEditingMessage();
                       // 2. 再根据锁定状态，决定是否进入编辑
-                      if (!message.locked) {
-                        // 未锁定 => 进入编辑
-                        startEditingMessage(message);   }
+                     
+                        startEditingMessage(message);  
                       }}
                   >
                     {message.isCollapsed ? (
@@ -882,7 +863,7 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
                           </MenubarMenu>
                         </Menubar>
                       )}
-
+{/*
 <Button
   // variant、size、className 跟其他按钮相同
   variant="ghost"
@@ -905,15 +886,15 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
     }
   }}
 >
-  {/* 同样，图标 + 文字和其他按钮一致 */}
+
   <Edit className="h-4 w-4" />
   <span className="hidden md:inline">
     {message.locked ? "Editing" : "Edit"}
   </span>
-</Button>
+</Button> */}
+        
 
-
-                    {/*   <Button
+                     <Button
                         className="h-10 hover:bg-background transition-scale-zoom"
                         size="sm"
                         variant="ghost"
@@ -924,7 +905,7 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
                       >
                         <Edit className="h-4 w-4" />
                         <span className="hidden md:inline">Edit</span>
-                      </Button> */}
+                      </Button> 
 
                       {/* Copy / Cut / Paste */}
                       <Menubar className="p-0 border-none bg-transparent">
@@ -1067,24 +1048,10 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
             <ContextMenuShortcut className="hidden md:inline">Enter</ContextMenuShortcut>
           </ContextMenuItem>
           <ContextMenuItem
-           onClick={async (e) => {
-            e.stopPropagation();
-            // 先取消其他编辑态
+           onClick={() => {
             cancelEditingMessage();
         
-            // 如果本地判断未锁定 => 直接进入编辑
-            if (!message.locked) {
-              startEditingMessage(message);
-            } else {
-              // 若发现 locked=true => 调用 handleSelectMessage 来拉取最新消息
-              // （如果要用最新 locked 状态再决定，需让 handleSelectMessage return freshMsg）
-              await handleSelectMessage({
-                message,
-                setSelectedMessages,
-                currentThread: currentThread || "",
-                setThreads,
-              });
-            }
+            startEditingMessage(message);
           }}
         >
             <Edit className="h-4 w-4 mr-2" />

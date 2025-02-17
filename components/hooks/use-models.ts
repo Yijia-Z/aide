@@ -29,6 +29,13 @@ export function useModels() {
     }
   }, [availableModels, selectedModels, modelsLoaded]);
 
+  // Auto-select first model when models are loaded and none is selected
+  useEffect(() => {
+    if (modelsLoaded && models.length > 0 && selectedModels.length === 0) {
+      setSelectedModels([models[0].id]);
+    }
+  }, [modelsLoaded, models, selectedModels, setSelectedModels]);
+
   return {
     modelsLoaded,
     setModelsLoaded,

@@ -1,6 +1,6 @@
 // handleSelectMessage.ts
 import { updateMessageInThread } from "./updateMessageInThread";
-import { fetchMessageLatest,lockMessage  } from "../../lib/frontapi/messageApi";
+import { fetchMessageLatest } from "../../lib/frontapi/messageApi";
 import type { Thread, Message } from "../types";
 
 interface HandleSelectMessageArgs {
@@ -27,11 +27,11 @@ export async function handleSelectMessage({
   // 如果 publisher !== "ai"，想更新最新状态
   if (message.publisher !== "ai") {
     try {
-     
+
       const freshMsg = await fetchMessageLatest(message.id);
       // 拿到 freshMsg 后，更新 threads
       console.log("[handleSelectMessage] => freshMsg =", freshMsg);
-      setThreads((prevThreads) => 
+      setThreads((prevThreads) =>
         updateMessageInThread(prevThreads, currentThread, freshMsg)
       );
     } catch (err) {

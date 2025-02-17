@@ -151,7 +151,7 @@ export function SelectBaseModel({
       // Special handling for tools and tool_choice
       if (param === 'tools') {
         updatedParameters.tools = newValue.map((tool: Tool) => ({
-          id: tool.id, 
+          id: tool.id,
           type: "function",
           function: {
             name: tool.function.name,
@@ -282,6 +282,12 @@ export function SelectBaseModel({
       case "logprobs":
         tooltip = "Whether to return log probabilities of the output tokens.";
         break;
+      case "include_reasoning":
+        tooltip = "When enabled, the model will include its reasoning process in the response.";
+        break;
+      case "structured_outputs":
+        tooltip = "When enabled, the model will return responses in a structured format.";
+        break;
       default:
         console.warn(`Unknown parameter: ${param}`);
         return null;
@@ -400,6 +406,8 @@ export function SelectBaseModel({
             />
           </div>
         );
+      case "include_reasoning":
+      case "structured_outputs":
       case "logprobs":
         return (
           <div key={param} className="flex items-center space-x-2">

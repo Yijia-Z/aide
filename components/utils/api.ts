@@ -45,7 +45,7 @@ export async function generateAIResponse(
       signal: abortController?.signal
     }
   );
-  console.log("res:", response);
+ 
   if (!response.ok) {
     throw new Error("Failed to generate AI response");
   }

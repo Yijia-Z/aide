@@ -110,8 +110,7 @@ export async function GET(req: NextRequest) {
         createdAt: true,
         updatedAt: true,
         isDeleted:true,
-        editingBy: true,
-        editingAt: true,
+        
         userProfile: {
           select: {
             username: true,
@@ -120,10 +119,10 @@ export async function GET(req: NextRequest) {
       },
     });
     const  rawMessages =frontMessages.map((m) => {
-      const locked = m.editingBy !== null && m.editingBy !== userId;
+   
       return {
         ...m,
-        locked,
+    
         userName: m.userProfile?.username ?? null,
         // 如果你不想给前端看到 editingBy, 设为 undefined
         editingBy: undefined,

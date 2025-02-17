@@ -61,6 +61,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { useMessagesQuery } from '@/lib/hooks/use-messages-query';
+import { MessageSkeleton } from './message-skeleton';
 
 interface RenderMessagesProps {
   threads: Thread[];
@@ -133,6 +135,27 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
 }) => {
   const currentThreadData = threads.find((t) => t.id === currentThread);
   const [showHelpDialog, setShowHelpDialog] = React.useState(false);
+
+  // Add TanStack Query hook
+  const { data: messages, isLoading, isError, error } = useMessagesQuery({
+    threadId: currentThread,
+    enabled: !!currentThread && !currentThreadData?.hasFetchedMessages,
+  });
+
+  // Update thread data when messages are loaded
+  React.useEffect(() => {
+    if (messages && currentThread) {
+      setThreads(prev => prev.map(thread => {
+        if (thread.id !== currentThread) return thread;
+        return {
+          ...thread,
+          messages,
+          hasFetchedMessages: true
+        };
+      }));
+    }
+  }, [messages, currentThread, setThreads]);
+
   React.useEffect(() => {
     const handleKeyPress = (event: KeyboardEvent) => {
       // Check if the pressed key is "?" and no input element is focused
@@ -222,45 +245,58 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
           </div>
           <ScrollArea className="flex-gro md:pr-2" onClick={() => setSelectedMessages((prev) => ({ ...prev, [String(currentThread)]: null }))}>
             <div onClick={(e) => e.stopPropagation()}>
-              {(currentThreadData?.messages?? []).map((message: Message) => (
-                <RenderMessage
-                  key={message.id}
-                  message={message}
-                  threadId={currentThread}
-                  threads={threads}
-                  currentThread={currentThread}
-                  selectedMessages={selectedMessages}
-                  editingMessage={editingMessage}
-                  editingContent={editingContent}
-                  glowingMessageIds={glowingMessageIds}
-                  addGlowingMessage={addGlowingMessage}
-                  removeGlowingMessage={removeGlowingMessage}
-                  clearGlowingMessages={clearGlowingMessages}
-                  copiedStates={copiedStates}
-                  clipboardMessage={clipboardMessage}
-                  isGenerating={isGenerating}
-                  setSelectedMessages={setSelectedMessages}
-                  toggleCollapse={toggleCollapse}
-                  setEditingContent={setEditingContent}
-                  confirmEditingMessage={confirmEditingMessage}
-                  cancelEditingMessage={cancelEditingMessage}
-                  startEditingMessage={startEditingMessage}
-                  addEmptyReply={addEmptyReply}
-                  generateAIReply={generateAIReply}
-                  copyOrCutMessage={copyOrCutMessage}
-                  pasteMessage={pasteMessage}
-                  deleteMessage={deleteMessage}
-                  findMessageById={findMessageById}
-                  findMessageAndParents={findMessageAndParents}
-                  getSiblings={getSiblings}
-                  getModelDetails={getModelDetails}
-                  setCopiedStates={setCopiedStates}
-                  setThreads={setThreads}
-                  setClipboardMessage={setClipboardMessage}
-                  lastGenerateCount={lastGenerateCount}
-                  setLastGenerateCount={setLastGenerateCount}
-                />
-              ))}
+              {isLoading ? (
+                // Show skeletons while loading
+                <>
+                  <MessageSkeleton />
+                  <MessageSkeleton hasReplies={true} />
+                  <MessageSkeleton />
+                </>
+              ) : isError ? (
+                <div className="flex items-center justify-center h-32 text-destructive">
+                  Error loading messages: {error?.message}
+                </div>
+              ) : currentThreadData?.messages ? (
+                currentThreadData.messages.map((message: Message) => (
+                  <RenderMessage
+                    key={message.id}
+                    message={message}
+                    threadId={currentThread}
+                    threads={threads}
+                    currentThread={currentThread}
+                    selectedMessages={selectedMessages}
+                    editingMessage={editingMessage}
+                    editingContent={editingContent}
+                    glowingMessageIds={glowingMessageIds}
+                    addGlowingMessage={addGlowingMessage}
+                    removeGlowingMessage={removeGlowingMessage}
+                    clearGlowingMessages={clearGlowingMessages}
+                    copiedStates={copiedStates}
+                    clipboardMessage={clipboardMessage}
+                    isGenerating={isGenerating}
+                    setSelectedMessages={setSelectedMessages}
+                    toggleCollapse={toggleCollapse}
+                    setEditingContent={setEditingContent}
+                    confirmEditingMessage={confirmEditingMessage}
+                    cancelEditingMessage={cancelEditingMessage}
+                    startEditingMessage={startEditingMessage}
+                    addEmptyReply={addEmptyReply}
+                    generateAIReply={generateAIReply}
+                    copyOrCutMessage={copyOrCutMessage}
+                    pasteMessage={pasteMessage}
+                    deleteMessage={deleteMessage}
+                    findMessageById={findMessageById}
+                    findMessageAndParents={findMessageAndParents}
+                    getSiblings={getSiblings}
+                    getModelDetails={getModelDetails}
+                    setCopiedStates={setCopiedStates}
+                    setThreads={setThreads}
+                    setClipboardMessage={setClipboardMessage}
+                    lastGenerateCount={lastGenerateCount}
+                    setLastGenerateCount={setLastGenerateCount}
+                  />
+                ))
+              ) : null}
             </div>
           </ScrollArea>
         </>

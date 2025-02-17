@@ -46,8 +46,7 @@ export async function PATCH(req: NextRequest,
       where: { id: messageId },
       data: {
         content: Array.isArray(content) ? content : [content],
-        editingBy: null, 
-        editingAt: null, 
+    
       },
     });
     console.log("[PATCH /api/messages/:id] updated:", updated);
@@ -177,16 +176,16 @@ if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 }
     select: {
       id: true,
       content: true,
-      editingBy: true,
+    
       // ...
     },
   });
   if (!fmsg) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  const locked = fmsg.editingBy !== null && fmsg.editingBy !== userId;
+  
   const msg = {
     id: fmsg.id,
     content: fmsg.content,
-    locked,           // 新增 locked
+       // 新增 locked
     // 你如果还想把编辑者是不是自己锁，改写成
     // locked = (msg.editingBy !== null && msg.editingBy !== userId)
     // 或者 lockedByMe = (msg.editingBy === userId)
