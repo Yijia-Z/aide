@@ -10,8 +10,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { storage } from "@/components/store";
+import { Badge } from "@/components/ui/badge";
 import { useUserProfile } from "../hooks/use-userprofile";
-import { Check, Edit, Lock } from "lucide-react";
+import { Check, DollarSign, Edit, Lock } from "lucide-react";
 
 /**
  * 接口：SettingsPanel 需要从父组件接收：
@@ -112,20 +113,20 @@ export function SettingsPanel({ keyInfo, refreshUsage }: SettingsPanelProps) {
                 </Button>
               </div>
             ) : (
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-4 pl-2">
                 <UserButton />
                 <div className="flex flex-col flex-grow">
                   {!isEditingUsername ? (
-                    <div className="flex items-center justify-between">
-                      <p className="text-lg">{userNameLocal || "🤔..."}</p>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-lg">{userNameLocal || "Loading..."}</p>
                       <Button variant="ghost" size="sm" onClick={() => setIsEditingUsername(true)}>
                         <Edit className="h-4 w-4" />
                       </Button>
                     </div>
                   ) : (
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-2">
                       <Input
-                        className="flex-grow"
+                        className="flex-grow text-lg h-8 pl-2 -ml-2"
                         value={userNameLocal || ""}
                         onChange={(e) => setUserNameLocal(e.target.value.slice(0, 50))}
                         maxLength={20}
@@ -136,8 +137,8 @@ export function SettingsPanel({ keyInfo, refreshUsage }: SettingsPanelProps) {
                     </div>
                   )}
                   {/*//不想显示可以把balance注销。需要的时候解除即可。*/}
-                  <p className="text-sm text-muted-foreground">
-                    Balance: {balance}
+                  <p className="text-sm text-green-600 flex items-center gap-1">
+                    ${Number(balance).toFixed(2)}
                   </p>
                 </div>
               </div>
@@ -160,13 +161,14 @@ export function SettingsPanel({ keyInfo, refreshUsage }: SettingsPanelProps) {
             }}
           >
             <div>
-              <div className="flex cursor-pointer justify-between items-center">
+              <div className="flex cursor-pointer justify-between items-start">
                 <h3 className="font-bold text-xl">API Settings</h3>
                 {isSignedIn && (
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => setIsEditingApiKey(!isEditingApiKey)}
+                    className="md:opacity-0 md:group-hover:opacity-100 transition-opacity"
                   >
                     {isEditingApiKey ? <Check className="h-4 w-4" /> : <Edit className="h-4 w-4" />}
                   </Button>

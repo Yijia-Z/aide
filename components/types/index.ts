@@ -3,7 +3,7 @@ export interface KeyInfo {
     label: string;
     usage: number;            // 已使用多少 credits
     limit: number | null;     // 如果是 null，表示无限制
-    is_free_tier: boolean;    
+    is_free_tier: boolean;
     rate_limit: {
       requests: number;       // 每秒可发请求数
       interval: string;       // 时间区间，如 "10s"
@@ -30,7 +30,7 @@ export interface Message {
   id: string;
   content: string | ContentPart[];
   publisher: "user" | "ai";
-  userName?:string;
+  userName?: string;
   modelId?: string;
   modelConfig?: Partial<Model>;
   replies: Message[];
@@ -46,9 +46,9 @@ export interface Thread {
   title: string;
   messages: Message[];
   isPinned: boolean;
-  role?:string;
+  role?: string;
   updatedAt?: string;
-  hasFetchedMessages?:boolean;
+  hasFetchedMessages?: boolean;
 }
 
 export interface Model {
@@ -100,19 +100,27 @@ export interface ToolFunction {
 
 export interface Tool {
   id: string;
+  type: string;
   name: string;
   description: string;
-  type: string;
-  function: ToolFunction;
-  approvalRate?:number;
+  script?: string;
+  function: {
+    name: string;
+    description: string;
+    parameters: {
+      type: string;
+      properties: Record<string, any>;
+      required: string[];
+    };
+  };
 }
 
 export type ToolChoice = "auto" | "none" | "required" | { type: "function"; function: { name: string } };
 
 
 export interface UserProfile {
-  id: string;        
-  username?: string;  
-  createdAt: string;  
-  updatedAt: string;  
+  id: string;
+  username?: string;
+  createdAt: string;
+  updatedAt: string;
 }

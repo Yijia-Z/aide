@@ -1,10 +1,8 @@
 "use client";
 
-"use client";
-
 import React, { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Package, PackagePlus, Check, X, Trash, Edit } from "lucide-react";
+import { Package, PackagePlus, Check, X, Trash, Edit, User, PackageMinus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Model } from "@/components/types";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -31,6 +29,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/hooks/use-toast";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@clerk/nextjs";
 
 // Tool类型可根据后端结构而定
 interface Tool {
@@ -38,6 +39,7 @@ interface Tool {
   type: string;
   name: string;
   description: string;
+  script?: string;
   function: {
     name: string;
     description: string;
@@ -47,6 +49,7 @@ interface Tool {
       required: string[];
     };
   };
+  createdBy?: string | null;
 }
 
 interface ToolManagerProps {
@@ -54,7 +57,7 @@ interface ToolManagerProps {
   tools: Tool[];
   setTools: React.Dispatch<React.SetStateAction<Tool[]>>;
   availableTools: Tool[];
-  setAvailableTools: (tools: Tool[]) => void;
+  setAvailableTools: React.Dispatch<React.SetStateAction<Tool[]>>;
   setModels: React.Dispatch<React.SetStateAction<Model[]>>;
   isLoading: boolean;
   error: string;
@@ -69,6 +72,7 @@ export function ToolManager({
   error,
   setModels,
 }: ToolManagerProps) {
+  const { userId } = useAuth();
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTool, setEditingTool] = useState<Partial<Tool> | null>(null);
@@ -113,13 +117,13 @@ export function ToolManager({
         }
         const data = await res.json();
         if (data.updatedModelIds && Array.isArray(data.updatedModelIds)) {
-          
+
           setModels((prev) =>
             prev.map((m) => {
               if (!data.updatedModelIds.includes(m.id)) {
                 return m;
               }
-         
+
               const filtered = (m.parameters?.tools ?? []).filter(
                 (toolItem: { id: string }) => toolItem.id !== tool.id
               );
@@ -165,6 +169,66 @@ export function ToolManager({
         variant: "destructive"
       });
     }
+  };
+
+  const handleUpdateTool = async (toolId: string, toolData: Omit<Tool, "id">) => {
+    try {
+      const res = await fetch(`/api/tools/${toolId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(toolData),
+      });
+
+      if (!res.ok) throw new Error(`Update tool failed => status = ${res.status}`);
+
+      const updatedTool = await res.json();
+      setTools(prev => prev.map(t => t.id === toolId ? updatedTool as Tool : t));
+      setAvailableTools(prev => prev.map(t => t.id === toolId ? updatedTool as Tool : t));
+      setEditingTool(null);
+      toast({
+        title: "Success",
+        description: "Tool updated successfully",
+      });
+    } catch (err) {
+      console.error("[handleUpdateTool]", err);
+      toast({
+        title: "Error",
+        description: "Failed to update tool",
+        variant: "destructive"
+      });
+    }
+  };
+  const addNewParameter = () => {
+    if (!editingTool?.function?.parameters?.properties) return;
+    const newParamKey = `param_${Object.keys(editingTool.function.parameters.properties).length + 1}`;
+    setEditingTool(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        function: {
+          ...prev.function!,
+          parameters: {
+            ...prev!.function!.parameters,
+            properties: {
+              ...prev!.function!.parameters.properties,
+              [newParamKey]: {
+                type: 'string',
+                description: ''
+              }
+            }
+          }
+        }
+      }
+    });
+  };
+
+  // Helper function to check if user can edit a tool
+  const canEditTool = (tool: Tool) => {
+    return tool.createdBy === userId;
+  };
+
+  const isUserCreatedTool = (tool: Tool) => {
+    return tool.createdBy === userId;
   };
 
   return (
@@ -215,7 +279,335 @@ export function ToolManager({
       <ScrollArea className="flex-grow">
         <AnimatePresence>
           <motion.div className="space-y-2 mt-2">
-            {editingTool && (
+            {availableTools.map((tool) => (
+              editingTool?.id === tool.id ? (
+                <motion.div
+                  key={tool.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  className="p-2 rounded-lg custom-shadow bg-background"
+                >
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-bold text-xl">Edit Tool</h3>
+                    <div className="space-x-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleUpdateTool(tool.id, editingTool as Omit<Tool, "id">)}
+                      >
+                        <Check className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setEditingTool(null)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="flex flex-col space-y-2">
+                      <Label>Tool Name</Label>
+                      <Input
+                        value={editingTool.name}
+                        onChange={(e) => setEditingTool(prev => ({ ...prev!, name: e.target.value }))}
+                        placeholder="e.g. WeatherTool"
+                      />
+                    </div>
+
+                    <div className="flex flex-col space-y-2">
+                      <Label>Tool Description</Label>
+                      <Input
+                        value={editingTool.description}
+                        onChange={(e) => setEditingTool(prev => ({ ...prev!, description: e.target.value }))}
+                        placeholder="e.g. Used to query weather for a location"
+                      />
+                    </div>
+
+                    <div className="flex flex-col space-y-2">
+                      <Label>Tool Type</Label>
+                      <Input
+                        value={editingTool.type}
+                        onChange={(e) => setEditingTool(prev => ({ ...prev!, type: e.target.value }))}
+                        placeholder="function"
+                      />
+                    </div>
+
+                    <hr className="my-2 opacity-50" />
+
+                    <div className="flex flex-col space-y-2">
+                      <Label>Function Name</Label>
+                      <Input
+                        value={editingTool.function?.name}
+                        onChange={(e) => setEditingTool(prev => ({
+                          ...prev!,
+                          function: { ...prev!.function!, name: e.target.value }
+                        }))}
+                        placeholder="e.g. get_current_weather"
+                      />
+                    </div>
+
+                    <div className="flex flex-col space-y-2">
+                      <Label>Function Description</Label>
+                      <Input
+                        value={editingTool.function?.description}
+                        onChange={(e) => setEditingTool(prev => ({
+                          ...prev!,
+                          function: { ...prev!.function!, description: e.target.value }
+                        }))}
+                        placeholder="e.g. Get the current weather in a given location"
+                      />
+                    </div>
+
+                    <hr className="my-2 opacity-50" />
+                    <h3 className="font-semibold">Parameter List</h3>
+
+                    {editingTool.function?.parameters?.properties && Object.entries(editingTool.function.parameters.properties).map(([key, param], idx) => (
+                      <div key={idx} className="border border-border rounded-md p-3 relative mb-4">
+                        <div className="flex flex-col space-y-4">
+                          <div className="flex flex-col space-y-2">
+                            <Label>Parameter Name (properties key)</Label>
+                            <Input
+                              value={key}
+                              onChange={(e) => {
+                                const newProps = { ...editingTool.function!.parameters.properties };
+                                const value = newProps[key];
+                                delete newProps[key];
+                                newProps[e.target.value] = value;
+                                setEditingTool(prev => ({
+                                  ...prev!,
+                                  function: {
+                                    ...prev!.function!,
+                                    parameters: {
+                                      ...prev!.function!.parameters,
+                                      properties: newProps
+                                    }
+                                  }
+                                }));
+                              }}
+                              placeholder="e.g. location / unit"
+                            />
+                          </div>
+
+                          <div className="flex flex-col space-y-2">
+                            <Label>Type (string/number/...)</Label>
+                            <Input
+                              value={param.type}
+                              onChange={(e) => {
+                                const newProps = { ...editingTool.function!.parameters.properties };
+                                newProps[key] = { ...param, type: e.target.value };
+                                setEditingTool(prev => ({
+                                  ...prev!,
+                                  function: {
+                                    ...prev!.function!,
+                                    parameters: {
+                                      ...prev!.function!.parameters,
+                                      properties: newProps
+                                    }
+                                  }
+                                }));
+                              }}
+                              placeholder="string"
+                            />
+                          </div>
+
+                          <div className="flex flex-col space-y-2">
+                            <Label>Description</Label>
+                            <Input
+                              value={param.description || ''}
+                              onChange={(e) => {
+                                const newProps = { ...editingTool.function!.parameters.properties };
+                                newProps[key] = { ...param, description: e.target.value };
+                                setEditingTool(prev => ({
+                                  ...prev!,
+                                  function: {
+                                    ...prev!.function!,
+                                    parameters: {
+                                      ...prev!.function!.parameters,
+                                      properties: newProps
+                                    }
+                                  }
+                                }));
+                              }}
+                              placeholder="e.g. The city and state, e.g. Boston, MA"
+                            />
+                          </div>
+
+                          <div className="flex flex-col space-y-2">
+                            <Label>Enum (comma-separated, optional)</Label>
+                            <Input
+                              value={param.enum?.join(',') || ''}
+                              onChange={(e) => {
+                                const newProps = { ...editingTool.function!.parameters.properties };
+                                newProps[key] = {
+                                  ...param,
+                                  enum: e.target.value ? e.target.value.split(',').map(s => s.trim()) : undefined
+                                };
+                                setEditingTool(prev => ({
+                                  ...prev!,
+                                  function: {
+                                    ...prev!.function!,
+                                    parameters: {
+                                      ...prev!.function!.parameters,
+                                      properties: newProps
+                                    }
+                                  }
+                                }));
+                              }}
+                              placeholder="e.g. celsius,fahrenheit"
+                            />
+                          </div>
+
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                              <Label htmlFor={`required-${idx}`}>Required?</Label>
+                              <input
+                                id={`required-${idx}`}
+                                type="checkbox"
+                                className="h-5 w-5 rounded border-border text-primary"
+                                checked={editingTool.function!.parameters.required.includes(key)}
+                                onChange={(e) => {
+                                  const newRequired = e.target.checked
+                                    ? [...editingTool.function!.parameters.required, key]
+                                    : editingTool.function!.parameters.required.filter(r => r !== key);
+                                  setEditingTool(prev => ({
+                                    ...prev!,
+                                    function: {
+                                      ...prev!.function!,
+                                      parameters: {
+                                        ...prev!.function!.parameters,
+                                        required: newRequired
+                                      }
+                                    }
+                                  }));
+                                }}
+                              />
+                            </div>
+
+                            <div className="flex space-x-2">
+                              <Button
+                                variant="outline"
+                                onClick={() => {
+                                  const newProps = { ...editingTool.function!.parameters.properties };
+                                  newProps['new_param'] = { type: 'string' };
+                                  setEditingTool(prev => ({
+                                    ...prev!,
+                                    function: {
+                                      ...prev!.function!,
+                                      parameters: {
+                                        ...prev!.function!.parameters,
+                                        properties: newProps
+                                      }
+                                    }
+                                  }));
+                                }}
+                              >
+                                +
+                              </Button>
+                              <Button
+                                variant="outline"
+                                onClick={() => {
+                                  const newProps = { ...editingTool.function!.parameters.properties };
+                                  delete newProps[key];
+                                  setEditingTool(prev => ({
+                                    ...prev!,
+                                    function: {
+                                      ...prev!.function!,
+                                      parameters: {
+                                        ...prev!.function!.parameters,
+                                        properties: newProps,
+                                        required: prev!.function!.parameters.required.filter(r => r !== key)
+                                      }
+                                    }
+                                  }));
+                                }}
+                                disabled={Object.keys(editingTool.function!.parameters.properties).length <= 1}
+                              >
+                                -
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+
+                    {(!editingTool.function?.parameters?.properties ||
+                      Object.keys(editingTool.function.parameters.properties).length === 0) && (
+                        <Button
+                          variant="outline"
+                          onClick={addNewParameter}
+                        >
+                          Add Parameter
+                        </Button>
+                      )}
+
+                    <div className="flex flex-col space-y-2">
+                      <Label>Script (Optional)</Label>
+                      <Textarea
+                        value={editingTool.script || ''}
+                        onChange={(e) => setEditingTool(prev => ({
+                          ...prev!,
+                          script: e.target.value
+                        }))}
+                        placeholder="Enter tool implementation script..."
+                        className="min-h-[100px] font-mono"
+                      />
+                    </div>
+                  </div>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key={tool.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  whileHover={{ y: -2 }}
+                  className="group p-2 rounded-lg md:hover:shadow-[inset_0_0_10px_10px_rgba(128,128,128,0.2)]"
+                >
+                  <div className="flex-grow justify-between items-start">
+                    <div className="flex cursor-pointer justify-between items-start">
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-bold text-xl">{tool.name}</h3>
+                        {isUserCreatedTool(tool) && (
+                          <Badge variant="secondary" className="gap-1">
+                            <User className="w-3 h-3 m-0.5" />
+                            you
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex space-x-2">
+                        {canEditTool(tool) && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setEditingTool(tool)}
+                            className="transition-scale-zoom md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemoveTool(tool)}
+                          className="transition-scale-zoom md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+                        >
+                          <PackageMinus className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {tool.description}
+                    </p>
+                  </div>
+                </motion.div>
+              )
+            ))}
+
+            {editingTool && !editingTool.id && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -242,6 +634,7 @@ export function ToolManager({
                   </div>
                 </div>
 
+                {/* Same form fields as edit mode */}
                 <div className="space-y-4">
                   <div className="flex flex-col space-y-2">
                     <Label>Tool Name</Label>
@@ -472,19 +865,7 @@ export function ToolManager({
                     Object.keys(editingTool.function.parameters.properties).length === 0) && (
                       <Button
                         variant="outline"
-                        onClick={() => {
-                          setEditingTool(prev => ({
-                            ...prev!,
-                            function: {
-                              ...prev!.function!,
-                              parameters: {
-                                type: 'object',
-                                properties: { 'new_param': { type: 'string' } },
-                                required: []
-                              }
-                            }
-                          }));
-                        }}
+                        onClick={addNewParameter}
                       >
                         Add Parameter
                       </Button>
@@ -492,39 +873,11 @@ export function ToolManager({
                 </div>
               </motion.div>
             )}
-
-            {availableTools.map((tool) => (
-              <motion.div
-                key={tool.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                whileHover={{ y: -2 }}
-                className="group p-2 rounded-lg md:hover:shadow-[inset_0_0_10px_10px_rgba(128,128,128,0.2)]"
-              >
-                <div className="flex-grow justify-between items-start">
-                  <div className="flex cursor-pointer justify-between items-center">
-                    <h3 className="font-bold text-xl">{tool.name}</h3>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleRemoveTool(tool)}
-                      className="transition-scale-zoom md:opacity-0 md:group-hover:opacity-100 transition-opacity"
-                    >
-                      <Trash className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    {tool.description}
-                  </p>
-                </div>
-              </motion.div>
-            ))}
           </motion.div>
         </AnimatePresence>
       </ScrollArea>
 
-      {/* “Add Tool” => 普通对话框 */}
+      {/* "Add Tool" => 普通对话框 */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="custom-shadow bg-background/80 select-none">
           <DialogHeader className="font-serif">
