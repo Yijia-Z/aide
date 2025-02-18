@@ -8,11 +8,11 @@ import React, { useState } from "react";
 import { InviteModal } from "./InviteModal";
 import { useThreadsQuery } from "@/components/hooks/use-threads-query";
 import { Skeleton } from "@/components/ui/skeleton";
+import { v4 as uuidv4 } from "uuid";
 
 interface ThreadListProps {
   currentThread: string | null;
   editingThreadTitle: string | null;
-  addThread: () => void;
   setCurrentThread: (id: string | null) => void;
   setSelectedMessages: React.Dispatch<React.SetStateAction<{ [key: string]: string | null }>>;
   cancelEditThreadTitle: () => void;
@@ -29,7 +29,6 @@ interface ThreadListProps {
 const ThreadList: React.FC<ThreadListProps> = ({
   currentThread,
   editingThreadTitle,
-  addThread,
   setCurrentThread,
   setSelectedMessages,
   cancelEditThreadTitle,
@@ -43,19 +42,19 @@ const ThreadList: React.FC<ThreadListProps> = ({
   setNewThreadId,
 }) => {
   const [inviteThreadId, setInviteThreadId] = useState<string | null>(null);
-  const { data: threads = [], isLoading, updateThread, togglePin } = useThreadsQuery();
+  const {
+    data: threads = [],
+    isLoading,
+    updateThread,
+    togglePin,
+    deleteThread: deleteThreadMutation,
+    addThread: addThreadMutation
+  } = useThreadsQuery();
 
   // Sort threads with pinned threads first, then by id in descending order
   const sortedThreads = threads.sort((a, b) => {
-    // First: pinned threads go first
-    if (a.isPinned && !b.isPinned) {
-      return -1;
-    }
-    if (!a.isPinned && b.isPinned) {
-      return 1;
-    }
-
-    // Second: sort by updatedAt in descending order
+    if (a.isPinned && !b.isPinned) return -1;
+    if (!a.isPinned && b.isPinned) return 1;
     const aTime = new Date(a.updatedAt ?? 0).getTime();
     const bTime = new Date(b.updatedAt ?? 0).getTime();
     return bTime - aTime;
@@ -64,9 +63,62 @@ const ThreadList: React.FC<ThreadListProps> = ({
   const handleTogglePin = async (threadId: string) => {
     try {
       await togglePin.mutateAsync(threadId);
-      toggleThreadPin(threadId); // Call the parent's toggleThreadPin for any additional side effects
+      // Call parent's toggleThreadPin for any additional side effects
+      toggleThreadPin(threadId);
     } catch (error) {
       console.error('Failed to toggle pin:', error);
+    }
+  };
+
+  const handleDeleteThread = async (threadId: string) => {
+    try {
+      // First call the mutation to handle optimistic updates and server sync
+      await deleteThreadMutation.mutateAsync(threadId);
+
+      // Then handle UI state updates
+      setThreadToDelete(null);
+      if (currentThread === threadId) {
+        setCurrentThread(null);
+      }
+
+      // Call parent's deleteThread for any additional side effects
+      deleteThread(threadId);
+    } catch (error) {
+      console.error('Failed to delete thread:', error);
+    }
+  };
+
+  const handleUpdateTitle = async (threadId: string, title: string) => {
+    try {
+      await updateThread.mutateAsync({
+        threadId,
+        updates: { title }
+      });
+      confirmEditThreadTitle(threadId, title);
+      if (threadId === newThreadId) {
+        setNewThreadId(null);
+      }
+    } catch (error) {
+      console.error('Failed to update thread title:', error);
+    }
+  };
+
+  const handleAddThread = async () => {
+    try {
+      const newId = uuidv4();
+      const result = await addThreadMutation.mutateAsync({
+        id: newId,
+        title: "Unnamed Thread"
+      });
+
+      if (result?.thread) {
+        setSelectedMessages((prev) => ({ ...prev, [String(currentThread)]: null }));
+        startEditingThreadTitle(result.thread.id, result.thread.title);
+        setNewThreadId(result.thread.id);
+        setCurrentThread(result.thread.id);
+      }
+    } catch (error) {
+      console.error('Failed to add thread:', error);
     }
   };
 
@@ -83,10 +135,7 @@ const ThreadList: React.FC<ThreadListProps> = ({
         <Button
           className="bg-background hover:bg-secondary custom-shadow transition-scale-zoom text-primary border border-border absolute right-0"
           size="default"
-          onClick={() => {
-            addThread();
-            setSelectedMessages((prev) => ({ ...prev, [String(currentThread)]: null }));
-          }}
+          onClick={handleAddThread}
         >
           <ListPlus className="h-4 w-4" />
           <span className="ml-2 hidden lg:inline">New Thread</span>
@@ -104,9 +153,8 @@ const ThreadList: React.FC<ThreadListProps> = ({
         <AnimatePresence>
           <motion.div className="my-2">
             {isLoading ? (
-              // Loading skeletons
               Array.from({ length: 8 }).map((_, index) => (
-                <div key={index} className="mb-2 px-2">
+                <div key={index} className="mb-2 pl-2">
                   <Skeleton
                     className="h-10 w-full rounded-lg"
                     style={{
@@ -140,7 +188,6 @@ const ThreadList: React.FC<ThreadListProps> = ({
                   `}
                   onClick={(e) => {
                     e.stopPropagation();
-                    console.log("Clicked thread:", thread.id);
                     setCurrentThread(thread.id);
                   }}
                 >
@@ -168,10 +215,7 @@ const ThreadList: React.FC<ThreadListProps> = ({
                             variant="ghost"
                             onClick={(e) => {
                               e.stopPropagation();
-                              confirmEditThreadTitle(thread.id, thread.title);
-                              if (thread.id === newThreadId) {
-                                setNewThreadId(null);
-                              }
+                              handleUpdateTitle(thread.id, thread.title);
                             }}
                           >
                             <Check className="h-4 w-4" />
@@ -181,10 +225,8 @@ const ThreadList: React.FC<ThreadListProps> = ({
                             variant="ghost"
                             onClick={(e) => {
                               e.stopPropagation();
-                              console.log(thread.id, newThreadId)
                               if (thread.id === newThreadId) {
-                                deleteThread(newThreadId);
-                                setNewThreadId(null);
+                                handleDeleteThread(newThreadId);
                               }
                               cancelEditThreadTitle();
                             }}
@@ -221,7 +263,7 @@ const ThreadList: React.FC<ThreadListProps> = ({
                               )}
                             </Button>
                           </div>
-                          <span className="pl-1 flex-grow">{thread.title || <span className="text-muted-foreground">Unamed Thread</span>}</span>
+                          <span className="pl-1 flex-grow">{thread.title || <span className="text-muted-foreground">Unnamed Thread</span>}</span>
                         </div>
 
                         <div className="flex items-center">
@@ -246,8 +288,7 @@ const ThreadList: React.FC<ThreadListProps> = ({
                                   size="icon"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    deleteThread(thread.id);
-                                    setThreadToDelete(null);
+                                    handleDeleteThread(thread.id);
                                   }}
                                 >
                                   <Check className="h-4 w-4" />
