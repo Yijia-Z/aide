@@ -68,7 +68,7 @@ import { Prism, SyntaxHighlighterProps } from "react-syntax-highlighter";
 import { gruvboxDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
-import {handleSelectMessage} from "../utils/handleSelectMessage";
+import { handleSelectMessage } from "../utils/handleSelectMessage";
 import {
   ArrowUp,
   ArrowDown,
@@ -276,7 +276,7 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
   // inView 优化
   const [ref, inView] = useInView({ threshold: 0, rootMargin: "200px 0px" });
   const renderedContentRef = useRef<string | null>(null);
-  
+
   useEffect(() => {
     if (inView && !renderedContentRef.current) {
       if (typeof message.content === "string") {
@@ -314,9 +314,18 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
     }, 2000);
   };
 
-  // 截断长文本
-  const truncateContent = (input: string, keepFull: boolean) => {
-    if (keepFull) return input;
+  // Modify the truncateContent function to check for parent/child relationships
+  const truncateContent = (input: string, keepFull: boolean, messageId: string) => {
+    // Always show full content if:
+    // 1. keepFull is true (selected message)
+    // 2. Message is parent of selected message
+    // 3. Message is child of selected message
+    if (keepFull ||
+      (selectedMessage && message.replies?.some(r => r.id === selectedMessage)) ||
+      (selectedMessage && parentId === selectedMessage)) {
+      return input;
+    }
+
     const maxLength = 500;
     const lines = input.split("\n");
     const firstFourLines = lines.slice(0, 4).join("\n");
@@ -386,7 +395,7 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
             },
           }}
         >
-          {truncateContent(content, showFull)}
+          {truncateContent(content, showFull, message.id)}
         </Markdown>
       );
     } else {
@@ -401,7 +410,7 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
                   remarkPlugins={[remarkGfm, remarkMath]}
                   rehypePlugins={[rehypeRaw, rehypeKatex]}
                 >
-                  {truncateContent(part.text, showFull)}
+                  {truncateContent(part.text, showFull, message.id)}
                 </Markdown>
               );
             } else if (part.type === "image_url") {
@@ -484,9 +493,9 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
             )}
             onClick={(e) => {
               e.stopPropagation();
-          if (currentThread && selectedMessages[currentThread] !== message.id) {
+              if (currentThread && selectedMessages[currentThread] !== message.id) {
                 setSelectedMessages((prev) => ({ ...prev, [currentThread]: message.id }));
-              } 
+              }
             }}
           >
             <div className="flex-grow p-0 overflow-hidden">
@@ -694,12 +703,12 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
                             : "ml-3.5"
                     )}
                     onDoubleClick={() => {
-                  
+
                       cancelEditingMessage();
                       // 2. 再根据锁定状态，决定是否进入编辑
-                     
-                        startEditingMessage(message);  
-                      }}
+
+                      startEditingMessage(message);
+                    }}
                   >
                     {message.isCollapsed ? (
                       <div className="flex flex-col">
@@ -863,7 +872,7 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
                           </MenubarMenu>
                         </Menubar>
                       )}
-{/*
+                      {/*
 <Button
   // variant、size、className 跟其他按钮相同
   variant="ghost"
@@ -892,9 +901,9 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
     {message.locked ? "Editing" : "Edit"}
   </span>
 </Button> */}
-        
 
-                     <Button
+
+                      <Button
                         className="h-10 hover:bg-background transition-scale-zoom"
                         size="sm"
                         variant="ghost"
@@ -905,7 +914,7 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
                       >
                         <Edit className="h-4 w-4" />
                         <span className="hidden md:inline">Edit</span>
-                      </Button> 
+                      </Button>
 
                       {/* Copy / Cut / Paste */}
                       <Menubar className="p-0 border-none bg-transparent">
@@ -1048,12 +1057,12 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
             <ContextMenuShortcut className="hidden md:inline">Enter</ContextMenuShortcut>
           </ContextMenuItem>
           <ContextMenuItem
-           onClick={() => {
-            cancelEditingMessage();
-        
-            startEditingMessage(message);
-          }}
-        >
+            onClick={() => {
+              cancelEditingMessage();
+
+              startEditingMessage(message);
+            }}
+          >
             <Edit className="h-4 w-4 mr-2" />
             Edit
             <ContextMenuShortcut className="hidden md:inline">E</ContextMenuShortcut>
@@ -1092,13 +1101,15 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
             </ContextMenuItem>
           )}
           <ContextMenuSeparator />
-          <ContextMenuLabel>Delete</ContextMenuLabel>
+          {message.replies?.length > 0 && (
+            <ContextMenuLabel>Delete</ContextMenuLabel>
+          )}
           <ContextMenuItem
             className="text-red-500"
             onClick={() => deleteMessage(threadId, message.id, false)}
           >
             <Trash className="h-4 w-4 mr-2" />
-            Keep Replies
+            {message.replies?.length > 0 ? "Keep Replies" : "Delete"}
             <ContextMenuShortcut className="hidden md:inline">⌫</ContextMenuShortcut>
           </ContextMenuItem>
           {message.replies?.length > 0 && (
