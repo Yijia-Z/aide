@@ -59,8 +59,9 @@ export function useThreadsQuery() {
             const threads = queryClient.getQueryData<Thread[]>(['threads']) || [];
             const thread = threads.find(t => t.id === threadId);
             if (!thread) throw new Error('Thread not found');
-
-            const newPinnedState = !thread.isPinned;
+           
+            const newPinnedState = thread.isPinned;
+          
 
             const response = await fetch("/api/membership/insertpin", {
                 method: "PATCH",

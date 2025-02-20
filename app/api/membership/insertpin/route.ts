@@ -23,6 +23,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     const { threadId, pinned }: { threadId: string; pinned?: boolean } = await req.json();
+    console.log('PATCH /api/membership/insertpin body:', threadId, pinned);
     if (!threadId) {
       return NextResponse.json({ error: "Missing threadId" }, { status: 400 });
     }
