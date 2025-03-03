@@ -6,7 +6,7 @@ import { ListPlus, Check, X, Pin, PinOff, Trash, Share } from "lucide-react";
 import { Thread } from "@/components/types";
 import React, { useState } from "react";
 import { InviteModal } from "./InviteModal";
-import { useThreadsQuery } from "@/components/hooks/use-threads-query";
+import { useThreadsQuery } from "@/lib/hooks/use-threads-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import { v4 as uuidv4 } from "uuid";
 
@@ -18,7 +18,6 @@ interface ThreadListProps {
   cancelEditThreadTitle: () => void;
   confirmEditThreadTitle: (id: string, title: string) => void;
   startEditingThreadTitle: (id: string, title: string) => void;
-  toggleThreadPin: (id: string) => void;
   deleteThread: (id: string) => void;
   threadToDelete: string | null;
   setThreadToDelete: React.Dispatch<React.SetStateAction<string | null>>;
@@ -34,7 +33,6 @@ const ThreadList: React.FC<ThreadListProps> = ({
   cancelEditThreadTitle,
   confirmEditThreadTitle,
   startEditingThreadTitle,
-  toggleThreadPin,
   threadToDelete,
   setThreadToDelete,
   deleteThread,
@@ -63,8 +61,6 @@ const ThreadList: React.FC<ThreadListProps> = ({
   const handleTogglePin = async (threadId: string) => {
     try {
       await togglePin.mutateAsync(threadId);
-      // Call parent's toggleThreadPin for any additional side effects
-      toggleThreadPin(threadId);
     } catch (error) {
       console.error('Failed to toggle pin:', error);
     }

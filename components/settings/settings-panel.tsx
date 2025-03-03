@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { storage } from "@/components/store";
 import { Badge } from "@/components/ui/badge";
-import { useUserProfile } from "../hooks/use-userprofile";
+import { useUserProfile } from "../../lib/hooks/use-userprofile";
 import { Check, DollarSign, Edit, Lock } from "lucide-react";
 
 /**

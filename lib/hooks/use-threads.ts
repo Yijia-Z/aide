@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
-import { Thread } from "../types";
+import { Thread } from "../../components/types";
 
 export function useThreads() {
   const [threads, setThreads] = useState<Thread[]>([]);
