@@ -589,6 +589,7 @@ export default function ThreadedDocument() {
               setThreadToDelete={setThreadToDelete}
               newThreadId={newThreadId}
               setNewThreadId={setNewThreadId}
+              setThreads={setThreads}
             />
           </TabsContent>
           <TabsContent
@@ -803,6 +804,7 @@ export default function ThreadedDocument() {
                   setSelectedMessages={setSelectedMessages}
                   newThreadId={newThreadId}
                   setNewThreadId={setNewThreadId}
+                  setThreads={setThreads}
                 />
               </TabsContent>
               <TabsContent value="models" className="flex-grow overflow-y-clip">

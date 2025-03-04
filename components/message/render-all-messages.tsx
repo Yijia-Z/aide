@@ -139,7 +139,7 @@ const RenderMessages: React.FC<RenderMessagesProps> = ({
   // Add TanStack Query hook
   const { data: messages, isLoading, isError, error } = useMessagesQuery({
     threadId: currentThread,
-    enabled: !!currentThread ,
+    enabled: !!currentThread,
   });
 
   // Update thread data when messages are loaded

@@ -9,6 +9,8 @@ import { InviteModal } from "./InviteModal";
 import { useThreadsQuery } from "@/lib/hooks/use-threads-query";
 import { Skeleton } from "@/components/ui/skeleton";
 import { v4 as uuidv4 } from "uuid";
+import { useQueryClient } from '@tanstack/react-query';
+import { storage } from '@/components/store';
 
 interface ThreadListProps {
   currentThread: string | null;
@@ -23,6 +25,7 @@ interface ThreadListProps {
   setThreadToDelete: React.Dispatch<React.SetStateAction<string | null>>;
   newThreadId: string | null;
   setNewThreadId: React.Dispatch<React.SetStateAction<string | null>>;
+  setThreads?: React.Dispatch<React.SetStateAction<Thread[]>>;
 }
 
 const ThreadList: React.FC<ThreadListProps> = ({
@@ -38,6 +41,7 @@ const ThreadList: React.FC<ThreadListProps> = ({
   deleteThread,
   newThreadId,
   setNewThreadId,
+  setThreads,
 }) => {
   const [inviteThreadId, setInviteThreadId] = useState<string | null>(null);
   const {
@@ -48,6 +52,7 @@ const ThreadList: React.FC<ThreadListProps> = ({
     deleteThread: deleteThreadMutation,
     addThread: addThreadMutation
   } = useThreadsQuery();
+  const queryClient = useQueryClient();
 
   // Sort threads with pinned threads first, then by id in descending order
   const sortedThreads = threads.sort((a, b) => {
@@ -108,10 +113,27 @@ const ThreadList: React.FC<ThreadListProps> = ({
       });
 
       if (result?.thread) {
+        console.log("New thread created:", result.thread);
         setSelectedMessages((prev) => ({ ...prev, [String(currentThread)]: null }));
         startEditingThreadTitle(result.thread.id, result.thread.title);
         setNewThreadId(result.thread.id);
         setCurrentThread(result.thread.id);
+
+        // Ensure the threads state in parent component is updated with the new thread
+        // This addresses the issue where newly created threads don't appear in message tabs
+        const threadsFromQueryCache = await queryClient.getQueryData<Thread[]>(['threads']) || [];
+        console.log("Threads from query cache:", threadsFromQueryCache);
+
+        // Get the thread data from the components/threaded-document.tsx parent component
+        // which is passed to the RenderMessages component
+        storage.set("threads", threadsFromQueryCache);
+
+        if (setThreads) {
+          console.log("Updating setThreads with:", threadsFromQueryCache);
+          setThreads(threadsFromQueryCache);
+        } else {
+          console.warn("setThreads prop is not available");
+        }
       }
     } catch (error) {
       console.error('Failed to add thread:', error);
