@@ -21,6 +21,16 @@ import { useAuth } from "@clerk/nextjs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 // Types
 type ThreadRole = "VIEWER" | "EDITOR" | "OWNER" | "CREATOR";
@@ -49,6 +59,8 @@ export function InviteModal({ threadId, onClose }: InviteModalProps) {
   // State for existing invited users
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [editingRole, setEditingRole] = useState<ThreadRole | null>(null);
+  const [confirmRemoveUserId, setConfirmRemoveUserId] = useState<string | null>(null);
+  const [confirmTransferUserId, setConfirmTransferUserId] = useState<string | null>(null);
 
   // State for new invites
   const [inviteList, setInviteList] = useState<InviteEntry[]>([
@@ -70,6 +82,19 @@ export function InviteModal({ threadId, onClose }: InviteModalProps) {
     },
     staleTime: 30000, // Consider data fresh for 30 seconds
     gcTime: 5 * 60 * 1000, // Keep cache for 5 minutes
+  });
+
+  // Query to get the thread creator
+  const { data: threadCreator } = useQuery({
+    queryKey: ['threadCreator', threadId],
+    queryFn: async () => {
+      const res = await fetch(`/api/threads/${threadId}/invited-users`);
+      if (!res.ok) throw new Error('Failed to fetch thread creator');
+      const data = await res.json();
+      return data.users.find((user: InvitedUser) => user.role === "CREATOR");
+    },
+    staleTime: 30000,
+    gcTime: 5 * 60 * 1000,
   });
 
   // Mutation for updating user role
@@ -98,6 +123,69 @@ export function InviteModal({ threadId, onClose }: InviteModalProps) {
         description: "Failed to update user role",
         variant: "destructive"
       });
+    }
+  });
+
+  // Mutation for removing a user
+  const removeUserMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      const res = await fetch(`/api/threads/${threadId}/invited-users/${userId}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Failed to remove user');
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['invitedUsers', threadId] });
+      toast({
+        title: "Success",
+        description: "User removed successfully"
+      });
+      setConfirmRemoveUserId(null);
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to remove user",
+        variant: "destructive"
+      });
+      setConfirmRemoveUserId(null);
+    }
+  });
+
+  // Mutation for transferring ownership
+  const transferOwnershipMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      const res = await fetch(`/api/threads/${threadId}/transfer-ownership`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId })
+      });
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Failed to transfer ownership');
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['invitedUsers', threadId] });
+      queryClient.invalidateQueries({ queryKey: ['threadCreator', threadId] });
+      toast({
+        title: "Success",
+        description: "Ownership transferred successfully"
+      });
+      setConfirmTransferUserId(null);
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to transfer ownership",
+        variant: "destructive"
+      });
+      setConfirmTransferUserId(null);
     }
   });
 
@@ -134,6 +222,16 @@ export function InviteModal({ threadId, onClose }: InviteModalProps) {
 
   // Handlers for existing users
   async function handleEditUserRole(userId: string, currentRole: ThreadRole) {
+    // Don't allow non-creators to edit owners
+    if (currentRole === "OWNER" && threadCreator?.userId !== currentUserId) {
+      toast({
+        title: "Permission Denied",
+        description: "Only the creator can modify owners",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setEditingUserId(userId);
     setEditingRole(currentRole);
   }
@@ -146,6 +244,28 @@ export function InviteModal({ threadId, onClose }: InviteModalProps) {
   function handleCancelRoleChange() {
     setEditingUserId(null);
     setEditingRole(null);
+  }
+
+  // Handler for removing a user
+  function handleRemoveUser(userId: string) {
+    setConfirmRemoveUserId(userId);
+  }
+
+  function handleConfirmRemoveUser() {
+    if (confirmRemoveUserId) {
+      removeUserMutation.mutate(confirmRemoveUserId);
+    }
+  }
+
+  // Handler for transferring ownership
+  function handleTransferOwnership(userId: string) {
+    setConfirmTransferUserId(userId);
+  }
+
+  function handleConfirmTransferOwnership() {
+    if (confirmTransferUserId) {
+      transferOwnershipMutation.mutate(confirmTransferUserId);
+    }
   }
 
   // Handlers for new invites
@@ -207,6 +327,9 @@ export function InviteModal({ threadId, onClose }: InviteModalProps) {
     setInviteList([{ email: "", role: "VIEWER" }]);
     onClose();
   }
+
+  // Check if current user is the creator
+  const isCreator = threadCreator?.userId === currentUserId;
 
   return (
     <Dialog open={true} onOpenChange={() => handleCancel()}>
@@ -274,12 +397,15 @@ export function InviteModal({ threadId, onClose }: InviteModalProps) {
                                 Editor
                               </div>
                             </SelectItem>
-                            <SelectItem value="OWNER">
-                              <div className="flex items-center">
-                                <Crown className="mr-2 h-4 w-4" />
-                                Owner
-                              </div>
-                            </SelectItem>
+                            {/* Only show Owner option if current user is creator */}
+                            {threadCreator?.userId === currentUserId && (
+                              <SelectItem value="OWNER">
+                                <div className="flex items-center">
+                                  <Crown className="mr-2 h-4 w-4" />
+                                  Owner
+                                </div>
+                              </SelectItem>
+                            )}
                           </SelectContent>
                         </Select>
                         <span>{user.username}</span>
@@ -306,10 +432,31 @@ export function InviteModal({ threadId, onClose }: InviteModalProps) {
                         {user.userId === currentUserId ? (
                           <span className="text-sm">You</span>
                         ) : (
-                          <UserPen
-                            className="h-4 w-4 hover:text-background cursor-pointer"
-                            onClick={() => handleEditUserRole(user.userId, user.role)}
-                          />
+                          <div className="flex items-center gap-1">
+                            {/* Edit user role button - shown to all, but restricted in handler */}
+                            <UserPen
+                              className="h-4 w-4 hover:text-background cursor-pointer"
+                              onClick={() => handleEditUserRole(user.userId, user.role)}
+                            />
+
+                            {/* Remove user button - only shown if:
+                                - user is creator (can remove anyone)
+                                - OR user is owner AND target is not an owner */}
+                            {(isCreator || (threadCreator?.role === "OWNER" && user.role !== "OWNER")) && (
+                              <UserMinus
+                                className="h-4 w-4 hover:text-red-500 cursor-pointer"
+                                onClick={() => handleRemoveUser(user.userId)}
+                              />
+                            )}
+
+                            {/* Transfer ownership button - only shown if current user is creator */}
+                            {isCreator && (
+                              <Crown
+                                className="h-4 w-4 hover:text-yellow-500 cursor-pointer"
+                                onClick={() => handleTransferOwnership(user.userId)}
+                              />
+                            )}
+                          </div>
                         )}
                       </div>
                     </div>
@@ -370,12 +517,15 @@ export function InviteModal({ threadId, onClose }: InviteModalProps) {
                         Editor
                       </div>
                     </SelectItem>
-                    <SelectItem value="OWNER">
-                      <div className="flex items-center">
-                        <Crown className="mr-2 h-4 w-4" />
-                        Owner
-                      </div>
-                    </SelectItem>
+                    {/* Only show Owner option if current user is creator */}
+                    {threadCreator?.userId === currentUserId && (
+                      <SelectItem value="OWNER">
+                        <div className="flex items-center">
+                          <Crown className="mr-2 h-4 w-4" />
+                          Owner
+                        </div>
+                      </SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
 
@@ -429,6 +579,48 @@ export function InviteModal({ threadId, onClose }: InviteModalProps) {
             )}
           </AnimatePresence>
         </DialogFooter>
+
+        {/* Confirmation dialog for removing a user - Now inside DialogContent */}
+        {confirmRemoveUserId && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+            onClick={(e) => e.stopPropagation()}>
+            <div className="bg-background p-6 rounded-lg shadow-lg max-w-md w-full">
+              <h3 className="text-lg font-semibold mb-2">Remove User</h3>
+              <p className="mb-4">
+                Are you sure you want to remove this user from the thread? This action cannot be undone.
+              </p>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setConfirmRemoveUserId(null)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleConfirmRemoveUser} className="bg-red-500 hover:bg-red-600">
+                  Remove
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Confirmation dialog for transferring ownership - Now inside DialogContent */}
+        {confirmTransferUserId && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+            onClick={(e) => e.stopPropagation()}>
+            <div className="bg-background p-6 rounded-lg shadow-lg max-w-md w-full">
+              <h3 className="text-lg font-semibold mb-2">Transfer Ownership</h3>
+              <p className="mb-4">
+                Are you sure you want to transfer ownership of this thread? You will no longer be the creator, but will remain as an owner.
+              </p>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setConfirmTransferUserId(null)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleConfirmTransferOwnership} className="bg-yellow-500 hover:bg-yellow-600">
+                  Transfer
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
