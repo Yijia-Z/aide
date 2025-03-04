@@ -11,7 +11,7 @@ import { ThreadRole } from "@/types/models";
  */
 export async function PATCH(
     req: NextRequest,
-    { params }: { params: { id: string; userId: string } }
+    { params }: { params: Promise<{ id: string; userId: string }> }
 ) {
     try {
         const { userId: currentUserId } = await auth();
@@ -19,7 +19,7 @@ export async function PATCH(
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        const { id: threadId, userId: targetUserId } = params;
+        const { id: threadId, userId: targetUserId } = await params;
         const { role } = await req.json() as { role: ThreadRole };
 
         // Check if current user has permission to update roles
@@ -99,7 +99,7 @@ export async function PATCH(
  */
 export async function DELETE(
     req: NextRequest,
-    { params }: { params: { id: string; userId: string } }
+    { params }: { params: Promise<{ id: string; userId: string }> }
 ) {
     try {
         const { userId: currentUserId } = await auth();
@@ -107,7 +107,7 @@ export async function DELETE(
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        const { id: threadId, userId: targetUserId } = params;
+        const { id: threadId, userId: targetUserId } = await params;
 
         // Check if current user has permission to remove users
         const canRemove = await canDoThreadOperation(

@@ -10,7 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
  */
 export async function POST(
     req: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
         const { userId: currentUserId } = await auth();
@@ -18,7 +18,7 @@ export async function POST(
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        const { id: threadId } = params;
+        const { id: threadId } = await params;
         const { userId: newOwnerId } = await req.json() as { userId: string };
 
         // Get the thread to check if the current user is the creator
