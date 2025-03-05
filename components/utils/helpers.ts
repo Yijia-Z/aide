@@ -1,6 +1,44 @@
 import { Message, Thread } from "../types";
 import { useCallback } from "react";
 
+/**
+ * Check if content is likely HTML by looking for common HTML tags
+ * @param content String to check
+ * @returns boolean indicating if content appears to be HTML
+ */
+export function isContentHTML(content: string): boolean {
+  if (!content || typeof content !== 'string') return false;
+  
+  // Check for complete HTML documents (with <!DOCTYPE> or <html>...</html>)
+  const hasCompleteHtmlDocument = /<!DOCTYPE[\s\S]*?>[\s\S]*?<html[\s\S]*?>|<html[\s\S]*?>[\s\S]*?<\/html>/i.test(content);
+  
+  // If we have a complete HTML document, consider it HTML
+  if (hasCompleteHtmlDocument) {
+    return true;
+  }
+  
+  // For more complex heuristics, look for combinations of HTML structural tags
+  const htmlTags = [
+    '<script', '</script>',
+    '<style', '</style>',
+    '<div', '</div>',
+    '<body', '</body>',
+    '<head', '</head>',
+    '<table', '</table>',
+    '<form', '</form>'
+  ];
+  
+  // Count matches for common HTML tags
+  const tagCount = htmlTags.filter(tag => content.includes(tag)).length;
+  
+  // If we have multiple HTML tag matches, it's likely HTML content
+  if (tagCount >= 3) {
+    return true;
+  }
+  
+  return false;
+}
+
 export function findMessageAndParents(
   messages: Message[],
   targetId: string,

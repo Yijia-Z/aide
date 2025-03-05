@@ -69,6 +69,8 @@ import { gruvboxDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 import { handleSelectMessage } from "../utils/handleSelectMessage";
+import { isContentHTML } from "../utils/helpers";
+import HTMLPreview from "./html-preview";
 import {
   ArrowUp,
   ArrowDown,
@@ -339,12 +341,116 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
     return input;
   };
 
+  // Helper function to extract HTML blocks from content
+  const extractHTMLBlocks = (content: string): { htmlParts: string[], textParts: string[] } => {
+    const htmlRegex = /<html[\s>][\s\S]*?<\/html>|<!DOCTYPE[\s\S]*?<\/html>/gi;
+    const htmlParts: string[] = [];
+    const textParts: string[] = [];
+    
+    let lastIndex = 0;
+    let match;
+    
+    while ((match = htmlRegex.exec(content)) !== null) {
+      // Add text before the match
+      if (match.index > lastIndex) {
+        textParts.push(content.substring(lastIndex, match.index));
+      }
+      
+      // Add the HTML part
+      htmlParts.push(match[0]);
+      
+      lastIndex = match.index + match[0].length;
+    }
+    
+    // Add remaining text
+    if (lastIndex < content.length) {
+      textParts.push(content.substring(lastIndex));
+    }
+    
+    return { htmlParts, textParts };
+  };
+
   const renderMessageContent = (
     content: string | ContentPart[],
     showFull: boolean
   ) => {
     if (typeof content === "string") {
-      // 纯文字，走 Markdown
+      // Check if the content contains HTML blocks
+      if (isContentHTML(content)) {
+        const { htmlParts, textParts } = extractHTMLBlocks(content);
+        
+        // If we have both HTML and text parts, render them separately
+        if (htmlParts.length > 0) {
+          return (
+            <>
+              {textParts.map((text, idx) => (
+                text.trim() && (
+                  <Markdown
+                    key={`text-${idx}`}
+                    remarkPlugins={[remarkGfm, remarkMath]}
+                    rehypePlugins={[rehypeRaw, rehypeKatex]}
+                    components={{
+                      code({ node, inline, className, children, ...props }: any) {
+                        const match = /language-(\w+)/.exec(className || "");
+                        const codeString = String(children).replace(/\n$/, "");
+                        const codeBlockId = `${message.id}-${match?.[1] || "unknown"
+                          }-${codeString.slice(0, 32)}-${idx}`;
+                        return !inline && match ? (
+                          <div className="relative">
+                            <div className="absolute -top-7 w-full flex justify-between items-center p-1 pl-3 rounded-t-lg border-b-[1.5px] text-[14px] font-[Consolas] border-[#A8998480] bg-[#1D2021] text-[#A89984]">
+                              <span>{match[1]}</span>
+                              <Button
+                                className="rounded-md w-6 h-6 p-0"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleCopyCode(codeString, codeBlockId)}
+                              >
+                                {copiedStates[codeBlockId] ? (
+                                  <Check className="h-4 w-4" />
+                                ) : (
+                                  <Copy className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </div>
+                            <SyntaxHighlighter
+                              className="text-xs"
+                              PreTag={"pre"}
+                              style={gruvboxDark}
+                              language={match[1]}
+                              wrapLines
+                              showLineNumbers
+                              lineProps={{
+                                style: { whiteSpace: "pre-wrap", wordBreak: "break-word" },
+                              }}
+                              {...props}
+                            >
+                              {codeString}
+                            </SyntaxHighlighter>
+                          </div>
+                        ) : (
+                          <code className={className} {...props}>
+                            {children}
+                          </code>
+                        );
+                      },
+                    }}
+                  >
+                    {truncateContent(text, showFull, message.id)}
+                  </Markdown>
+                )
+              ))}
+              
+              {htmlParts.map((html, idx) => (
+                <div key={`html-${idx}`} className="my-2">
+                  <HTMLPreview htmlContent={html} />
+                </div>
+              ))}
+            </>
+          );
+        }
+      }
+      
+      // Regular text content, render as Markdown
       return (
         <Markdown
           remarkPlugins={[remarkGfm, remarkMath]}
@@ -404,6 +510,33 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
         <>
           {content.map((part, idx) => {
             if (part.type === "text") {
+              // Check if the text part contains HTML
+              if (isContentHTML(part.text)) {
+                const { htmlParts, textParts } = extractHTMLBlocks(part.text);
+                
+                return (
+                  <div key={`part-${idx}`}>
+                    {textParts.map((text, textIdx) => (
+                      text.trim() && (
+                        <Markdown
+                          key={`text-${textIdx}`}
+                          remarkPlugins={[remarkGfm, remarkMath]}
+                          rehypePlugins={[rehypeRaw, rehypeKatex]}
+                        >
+                          {truncateContent(text, showFull, message.id)}
+                        </Markdown>
+                      )
+                    ))}
+                    
+                    {htmlParts.map((html, htmlIdx) => (
+                      <div key={`html-${htmlIdx}`} className="my-2">
+                        <HTMLPreview htmlContent={html} />
+                      </div>
+                    ))}
+                  </div>
+                );
+              }
+              
               return (
                 <Markdown
                   key={idx}
