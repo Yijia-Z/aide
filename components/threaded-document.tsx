@@ -296,7 +296,7 @@ export default function ThreadedDocument() {
       fetchSingleThread(currentThread)
       return
     }
-    // 1) 解析本地 thread 的 updatedAt
+    // 1) 解析本地 thread 的 updatedAtÍ
     console.log("localThread.updatedAt =", localThread.updatedAt);
     // 然后再写 new Date(...)
 
