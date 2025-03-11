@@ -68,7 +68,9 @@ import { Prism, SyntaxHighlighterProps } from "react-syntax-highlighter";
 import { gruvboxDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
-import {handleSelectMessage} from "../utils/handleSelectMessage";
+import { handleSelectMessage } from "../utils/handleSelectMessage";
+import { isContentHTML } from "../utils/helpers";
+import HTMLPreview from "./html-preview";
 import {
   ArrowUp,
   ArrowDown,
@@ -276,7 +278,7 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
   // inView 优化
   const [ref, inView] = useInView({ threshold: 0, rootMargin: "200px 0px" });
   const renderedContentRef = useRef<string | null>(null);
-  
+
   useEffect(() => {
     if (inView && !renderedContentRef.current) {
       if (typeof message.content === "string") {
@@ -314,9 +316,18 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
     }, 2000);
   };
 
-  // 截断长文本
-  const truncateContent = (input: string, keepFull: boolean) => {
-    if (keepFull) return input;
+  // Modify the truncateContent function to check for parent/child relationships
+  const truncateContent = (input: string, keepFull: boolean, messageId: string) => {
+    // Always show full content if:
+    // 1. keepFull is true (selected message)
+    // 2. Message is parent of selected message
+    // 3. Message is child of selected message
+    if (keepFull ||
+      (selectedMessage && message.replies?.some(r => r.id === selectedMessage)) ||
+      (selectedMessage && parentId === selectedMessage)) {
+      return input;
+    }
+
     const maxLength = 500;
     const lines = input.split("\n");
     const firstFourLines = lines.slice(0, 4).join("\n");
@@ -330,12 +341,116 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
     return input;
   };
 
+  // Helper function to extract HTML blocks from content
+  const extractHTMLBlocks = (content: string): { htmlParts: string[], textParts: string[] } => {
+    const htmlRegex = /<html[\s>][\s\S]*?<\/html>|<!DOCTYPE[\s\S]*?<\/html>/gi;
+    const htmlParts: string[] = [];
+    const textParts: string[] = [];
+    
+    let lastIndex = 0;
+    let match;
+    
+    while ((match = htmlRegex.exec(content)) !== null) {
+      // Add text before the match
+      if (match.index > lastIndex) {
+        textParts.push(content.substring(lastIndex, match.index));
+      }
+      
+      // Add the HTML part
+      htmlParts.push(match[0]);
+      
+      lastIndex = match.index + match[0].length;
+    }
+    
+    // Add remaining text
+    if (lastIndex < content.length) {
+      textParts.push(content.substring(lastIndex));
+    }
+    
+    return { htmlParts, textParts };
+  };
+
   const renderMessageContent = (
     content: string | ContentPart[],
     showFull: boolean
   ) => {
     if (typeof content === "string") {
-      // 纯文字，走 Markdown
+      // Check if the content contains HTML blocks
+      if (isContentHTML(content)) {
+        const { htmlParts, textParts } = extractHTMLBlocks(content);
+        
+        // If we have both HTML and text parts, render them separately
+        if (htmlParts.length > 0) {
+          return (
+            <>
+              {textParts.map((text, idx) => (
+                text.trim() && (
+                  <Markdown
+                    key={`text-${idx}`}
+                    remarkPlugins={[remarkGfm, remarkMath]}
+                    rehypePlugins={[rehypeRaw, rehypeKatex]}
+                    components={{
+                      code({ node, inline, className, children, ...props }: any) {
+                        const match = /language-(\w+)/.exec(className || "");
+                        const codeString = String(children).replace(/\n$/, "");
+                        const codeBlockId = `${message.id}-${match?.[1] || "unknown"
+                          }-${codeString.slice(0, 32)}-${idx}`;
+                        return !inline && match ? (
+                          <div className="relative">
+                            <div className="absolute -top-7 w-full flex justify-between items-center p-1 pl-3 rounded-t-lg border-b-[1.5px] text-[14px] font-[Consolas] border-[#A8998480] bg-[#1D2021] text-[#A89984]">
+                              <span>{match[1]}</span>
+                              <Button
+                                className="rounded-md w-6 h-6 p-0"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleCopyCode(codeString, codeBlockId)}
+                              >
+                                {copiedStates[codeBlockId] ? (
+                                  <Check className="h-4 w-4" />
+                                ) : (
+                                  <Copy className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </div>
+                            <SyntaxHighlighter
+                              className="text-xs"
+                              PreTag={"pre"}
+                              style={gruvboxDark}
+                              language={match[1]}
+                              wrapLines
+                              showLineNumbers
+                              lineProps={{
+                                style: { whiteSpace: "pre-wrap", wordBreak: "break-word" },
+                              }}
+                              {...props}
+                            >
+                              {codeString}
+                            </SyntaxHighlighter>
+                          </div>
+                        ) : (
+                          <code className={className} {...props}>
+                            {children}
+                          </code>
+                        );
+                      },
+                    }}
+                  >
+                    {truncateContent(text, showFull, message.id)}
+                  </Markdown>
+                )
+              ))}
+              
+              {htmlParts.map((html, idx) => (
+                <div key={`html-${idx}`} className="my-2">
+                  <HTMLPreview htmlContent={html} />
+                </div>
+              ))}
+            </>
+          );
+        }
+      }
+      
+      // Regular text content, render as Markdown
       return (
         <Markdown
           remarkPlugins={[remarkGfm, remarkMath]}
@@ -386,7 +501,7 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
             },
           }}
         >
-          {truncateContent(content, showFull)}
+          {truncateContent(content, showFull, message.id)}
         </Markdown>
       );
     } else {
@@ -395,13 +510,40 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
         <>
           {content.map((part, idx) => {
             if (part.type === "text") {
+              // Check if the text part contains HTML
+              if (isContentHTML(part.text)) {
+                const { htmlParts, textParts } = extractHTMLBlocks(part.text);
+                
+                return (
+                  <div key={`part-${idx}`}>
+                    {textParts.map((text, textIdx) => (
+                      text.trim() && (
+                        <Markdown
+                          key={`text-${textIdx}`}
+                          remarkPlugins={[remarkGfm, remarkMath]}
+                          rehypePlugins={[rehypeRaw, rehypeKatex]}
+                        >
+                          {truncateContent(text, showFull, message.id)}
+                        </Markdown>
+                      )
+                    ))}
+                    
+                    {htmlParts.map((html, htmlIdx) => (
+                      <div key={`html-${htmlIdx}`} className="my-2">
+                        <HTMLPreview htmlContent={html} />
+                      </div>
+                    ))}
+                  </div>
+                );
+              }
+              
               return (
                 <Markdown
                   key={idx}
                   remarkPlugins={[remarkGfm, remarkMath]}
                   rehypePlugins={[rehypeRaw, rehypeKatex]}
                 >
-                  {truncateContent(part.text, showFull)}
+                  {truncateContent(part.text, showFull, message.id)}
                 </Markdown>
               );
             } else if (part.type === "image_url") {
@@ -484,9 +626,9 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
             )}
             onClick={(e) => {
               e.stopPropagation();
-          if (currentThread && selectedMessages[currentThread] !== message.id) {
+              if (currentThread && selectedMessages[currentThread] !== message.id) {
                 setSelectedMessages((prev) => ({ ...prev, [currentThread]: message.id }));
-              } 
+              }
             }}
           >
             <div className="flex-grow p-0 overflow-hidden">
@@ -694,12 +836,12 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
                             : "ml-3.5"
                     )}
                     onDoubleClick={() => {
-                  
+
                       cancelEditingMessage();
                       // 2. 再根据锁定状态，决定是否进入编辑
-                     
-                        startEditingMessage(message);  
-                      }}
+
+                      startEditingMessage(message);
+                    }}
                   >
                     {message.isCollapsed ? (
                       <div className="flex flex-col">
@@ -863,7 +1005,7 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
                           </MenubarMenu>
                         </Menubar>
                       )}
-{/*
+                      {/*
 <Button
   // variant、size、className 跟其他按钮相同
   variant="ghost"
@@ -892,9 +1034,9 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
     {message.locked ? "Editing" : "Edit"}
   </span>
 </Button> */}
-        
 
-                     <Button
+
+                      <Button
                         className="h-10 hover:bg-background transition-scale-zoom"
                         size="sm"
                         variant="ghost"
@@ -905,7 +1047,7 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
                       >
                         <Edit className="h-4 w-4" />
                         <span className="hidden md:inline">Edit</span>
-                      </Button> 
+                      </Button>
 
                       {/* Copy / Cut / Paste */}
                       <Menubar className="p-0 border-none bg-transparent">
@@ -1048,12 +1190,12 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
             <ContextMenuShortcut className="hidden md:inline">Enter</ContextMenuShortcut>
           </ContextMenuItem>
           <ContextMenuItem
-           onClick={() => {
-            cancelEditingMessage();
-        
-            startEditingMessage(message);
-          }}
-        >
+            onClick={() => {
+              cancelEditingMessage();
+
+              startEditingMessage(message);
+            }}
+          >
             <Edit className="h-4 w-4 mr-2" />
             Edit
             <ContextMenuShortcut className="hidden md:inline">E</ContextMenuShortcut>
@@ -1092,13 +1234,15 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
             </ContextMenuItem>
           )}
           <ContextMenuSeparator />
-          <ContextMenuLabel>Delete</ContextMenuLabel>
+          {message.replies?.length > 0 && (
+            <ContextMenuLabel>Delete</ContextMenuLabel>
+          )}
           <ContextMenuItem
             className="text-red-500"
             onClick={() => deleteMessage(threadId, message.id, false)}
           >
             <Trash className="h-4 w-4 mr-2" />
-            Keep Replies
+            {message.replies?.length > 0 ? "Keep Replies" : "Delete"}
             <ContextMenuShortcut className="hidden md:inline">⌫</ContextMenuShortcut>
           </ContextMenuItem>
           {message.replies?.length > 0 && (

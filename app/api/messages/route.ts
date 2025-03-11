@@ -6,60 +6,127 @@ import { canDoThreadOperation, ThreadOperation } from "@/lib/permission";
 
 export async function POST(req: NextRequest) {
   console.log("[POST /api/messages] Entered");
-    const { userId } = await auth();
+  const { userId } = await auth();
   if (!userId) {
     console.log("[POST /api/messages] => No userId, returning 401.");
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  
+
   try {
-    // 2) 解析请求体
-    const { id,threadId, parentId, publisher, content,modelConfig,  } = await req.json() as {
-      id:string,
+    // Parse request body
+    const { id, threadId, parentId, publisher, content, modelConfig, messageTree, idMap } = await req.json() as {
+      id?: string,
       threadId: string;
       parentId?: string | null;
-      publisher: "user" | "ai";
-      content: string | any[]; 
+      publisher?: "user" | "ai";
+      content?: string | any[];
       modelConfig?: any;
-      // content 可能是 string 或 ContentPart[]，视你需求
+      messageTree?: any;
+      idMap?: Record<string, string>;
     };
-    console.log("[POST /api/messages] incoming content =>", content);
-    // 3) 查看用户是否在此 thread 有 membership
-    if(publisher!="ai"){
-    const allowed = await canDoThreadOperation(userId, threadId, ThreadOperation.SEND_MESSAGE);
-    if (!allowed) {
-      console.log(
-        `[POST /api/messages] userId=${userId} is not allowed to SEND_MESSAGE in threadId=${threadId}`
-      );
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+    // Handle message tree paste operation
+    if (messageTree) {
+      // Check permission for the thread
+      const allowed = await canDoThreadOperation(userId, threadId, ThreadOperation.SEND_MESSAGE);
+      if (!allowed) {
+        console.log(
+          `[POST /api/messages] userId=${userId} is not allowed to SEND_MESSAGE in threadId=${threadId}`
+        );
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+
+      // Helper function to create messages recursively
+      const createMessageTree = async (msg: any, parentId: string | null = null): Promise<any> => {
+        const newMsg = await prisma.message.create({
+          data: {
+            id: msg.id,
+            threadId,
+            parentId,
+            publisher: msg.publisher,
+            userId: msg.publisher === "user" ? userId : null,
+            content: Array.isArray(msg.content) ? msg.content : [msg.content],
+            modelConfig: msg.modelConfig ?? null,
+          },
+          include: {
+            userProfile: {
+              select: {
+                username: true
+              }
+            }
+          }
+        });
+
+        // Recursively create all replies
+        for (const reply of msg.replies || []) {
+          await createMessageTree(reply, newMsg.id);
+        }
+
+        return newMsg;
+      };
+
+      // Create the root message and all its replies
+      const rootMessage = await createMessageTree(messageTree, parentId);
+
+      return NextResponse.json({
+        message: {
+          ...rootMessage,
+          userName: rootMessage.userProfile?.username ?? null
+        },
+      }, { status: 201 });
     }
-  }
-    const finalContent = Array.isArray(content) ? content : [content];
+
+    // Handle regular single message creation
+    if (!id) {
+      return NextResponse.json({ error: "Missing message id" }, { status: 400 });
+    }
+
+    if (!threadId) {
+      return NextResponse.json({ error: "Missing threadId" }, { status: 400 });
+    }
+
+    // Check permission for non-AI messages
+    if (publisher !== "ai") {
+      const allowed = await canDoThreadOperation(userId, threadId, ThreadOperation.SEND_MESSAGE);
+      if (!allowed) {
+        console.log(
+          `[POST /api/messages] userId=${userId} is not allowed to SEND_MESSAGE in threadId=${threadId}`
+        );
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+    }
+
+    // Ensure content is in the correct format
+    const finalContent = content
+      ? (Array.isArray(content) ? content : [{ type: "text", text: content as string }])
+      : [{ type: "text", text: "" }];
+
     console.log("[POST /api/messages] finalContent =>", finalContent);
-    // 4) 创建消息
-    // 如果 publisher="user"，就设置 userId；若是 "ai"，可以不设
+
     const newMsg = await prisma.message.create({
       data: {
         id,
         threadId,
         parentId: parentId ?? null,
-        publisher,
-        userId: publisher === "user" ? userId : null,
-        
-        // content 存储到 Json 字段
+        publisher: publisher || "user",
+        userId: publisher === "ai" ? null : userId,
         content: finalContent,
         modelConfig: modelConfig ?? null,
       },
-      // 也可以 `select` 一些字段
+      include: {
+        userProfile: {
+          select: {
+            username: true
+          }
+        }
+      }
     });
     console.log("[POST /api/messages] created message:", newMsg);
 
-    // 6) 返回前端
-    //    带上 newMsg 以及 username
     return NextResponse.json({
       message: {
         ...newMsg,
-        
+        userName: newMsg.userProfile?.username ?? null
       },
     }, { status: 201 });
   } catch (error: any) {
@@ -76,7 +143,7 @@ export async function GET(req: NextRequest) {
       console.log("[GET /api/messages] => No user, 401");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-   
+
     console.log('ENV CHECK =>', process.env.DATABASE_URL);
 
     // e.g. /api/messages?threadId=xxxx
@@ -98,7 +165,7 @@ export async function GET(req: NextRequest) {
 
     // 3) 查询该 thread 下的所有 messages
     const frontMessages = await prisma.message.findMany({
-      where: { threadId,isDeleted: false,  },
+      where: { threadId, isDeleted: false, },
       orderBy: { createdAt: "asc" },  // 比如按时间排序
       select: {
         id: true,
@@ -109,8 +176,8 @@ export async function GET(req: NextRequest) {
         modelConfig: true,
         createdAt: true,
         updatedAt: true,
-        isDeleted:true,
-        
+        isDeleted: true,
+
         userProfile: {
           select: {
             username: true,
@@ -118,17 +185,17 @@ export async function GET(req: NextRequest) {
         },
       },
     });
-    const  rawMessages =frontMessages.map((m) => {
-   
+    const rawMessages = frontMessages.map((m) => {
+
       return {
         ...m,
-    
+
         userName: m.userProfile?.username ?? null,
         // 如果你不想给前端看到 editingBy, 设为 undefined
-        editingBy: undefined,
+        // editingBy: undefined,
       };
     });
-  
+
     function buildTree(messages: typeof rawMessages) {
       const map: Record<string, typeof rawMessages[number] & { replies: any[] }> = {};
       const roots: (typeof rawMessages[number] & { replies: any[] })[] = [];
@@ -162,7 +229,7 @@ export async function GET(req: NextRequest) {
     console.log("[GET /api/messages] nestedMessages =>", nestedMessages);
     // 4) 返回给前端
     //    前端会把这里的 messages 合并进 thread 对象
-    return NextResponse.json({messages: nestedMessages}, { status: 200 });
+    return NextResponse.json({ messages: nestedMessages }, { status: 200 });
   } catch (error: any) {
     console.error("[GET /api/messages] error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });

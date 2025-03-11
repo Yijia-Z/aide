@@ -1,6 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
-import { Thread } from "../types";
-import { storage } from "../store";
+import { Thread } from "../../components/types";
 
 export function useThreads() {
   const [threads, setThreads] = useState<Thread[]>([]);
@@ -10,14 +9,6 @@ export function useThreads() {
   const [threadToDelete, setThreadToDelete] = useState<string | null>(null);
   const [newThreadId, setNewThreadId] = useState<string | null>(null);
 
-  // Save currentThread to localStorage whenever it changes
-  useEffect(() => {
-    if (currentThread) {
-      storage.set('currentThread', currentThread);
-    } else {
-      storage.remove('currentThread');
-    }
-  }, [currentThread]);
   return {
     threads,
     setThreads,

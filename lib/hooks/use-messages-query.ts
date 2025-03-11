@@ -18,26 +18,38 @@ export const useMessagesQuery = ({ threadId, enabled = true }: UseMessagesQueryP
                 return [];
             }
 
+            console.log('Fetching messages for thread:', threadId);
             const response = await fetch(`/api/messages?threadId=${threadId}`);
             if (!response.ok) {
                 throw new Error('Failed to fetch messages');
             }
             const data: MessagesResponse = await response.json();
+            console.log('Received messages:', data.messages);
 
-            // Initialize collapse states for messages
-            function initCollapse(messages: Message[]): Message[] {
+            // Initialize collapse states for messages and handle potential null/undefined
+            function initCollapse(messages: Message[] | null | undefined): Message[] {
+                if (!messages || !Array.isArray(messages)) {
+                    return [];
+                }
                 return messages.map(msg => ({
                     ...msg,
                     isCollapsed: false,
                     userCollapsed: false,
-                    replies: Array.isArray(msg.replies) ? initCollapse(msg.replies) : []
+                    content: Array.isArray(msg.content) ? msg.content : [{ type: "text", text: msg.content as string }],
+                    replies: initCollapse(msg.replies)
                 }));
             }
 
-            return initCollapse(data.messages || []);
+            const initializedMessages = initCollapse(data.messages);
+            return initializedMessages;
         },
         enabled: !!threadId && enabled,
-        staleTime: 1000 * 60, // Consider data fresh for 1 minute
+        staleTime: 0, // Always fetch fresh data
         gcTime: 1000 * 60 * 5, // Keep unused data in cache for 5 minutes
+        refetchOnMount: "always", // Always refetch when component mounts
+        refetchOnWindowFocus: true, // Refetch when window regains focus
+        refetchOnReconnect: true, // Refetch when reconnecting
+        retry: 3, // Retry failed requests 3 times
+        retryDelay: 1000, // Wait 1 second between retries
     });
 }; 

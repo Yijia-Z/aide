@@ -5,6 +5,7 @@ import { ThemeProvider } from '@/components/theme-provider';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState } from 'react';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient({
@@ -35,6 +36,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
           {children}
           <SpeedInsights />
         </ThemeProvider>
+        <ReactQueryDevtools initialIsOpen={false} />
       </ClerkProvider>
     </QueryClientProvider>
   );

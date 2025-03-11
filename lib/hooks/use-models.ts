@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
-import { Model } from "../types";
-import { storage } from "../store";
+import { Model } from "../../components/types";
+import { storage } from "../../components/store";
 
 export function useModels() {
   const [modelsLoaded, setModelsLoaded] = useState(false);

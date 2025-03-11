@@ -11,8 +11,6 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  
-  console.log('ENV CHECK =>', process.env.aide_POSTGRES_URL);
   try {
     // 查询 Thread 并联表拿到 pinned
     // 其中 pinned 存在 membership 里，而 membership 用 userId_threadId 做外键

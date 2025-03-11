@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
-import { Message } from "../types";
+import { Message } from "../../components/types";
 
 export function useMessages() {
   const [selectedMessages, setSelectedMessages] = useState<{ [key: string]: string | null }>({});
