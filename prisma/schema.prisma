@@ -17,6 +17,7 @@ model UserProfile {
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
   balance        Decimal            @default(0)
+  globalPrompt   String?
 
   availableTools AvailableTool[]    @relation("UserAvailableTools")
   messages       Message[]

@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { storage } from "@/components/store";
 import { Badge } from "@/components/ui/badge";
 import { useUserProfile } from "../../lib/hooks/use-userprofile";
+import { GlobalPrompt } from "./global-prompt";
 import { Check, DollarSign, Edit, Lock } from "lucide-react";
 
 /**
@@ -26,7 +27,7 @@ interface SettingsPanelProps {
 
 export function SettingsPanel({ keyInfo, refreshUsage }: SettingsPanelProps) {
   const { user, isSignedIn } = useUser();
-  const { username, saveUsername, balance } = useUserProfile();
+  const { username, saveUsername, balance, globalPrompt, saveGlobalPrompt } = useUserProfile();
 
   // 本地 state: username + apiKey
   const [isEditingUsername, setIsEditingUsername] = useState(false);
@@ -145,6 +146,13 @@ export function SettingsPanel({ keyInfo, refreshUsage }: SettingsPanelProps) {
             )}
           </motion.div>
 
+          {/* Global Prompt Block */}
+          <GlobalPrompt
+            globalPrompt={globalPrompt}
+            saveGlobalPrompt={saveGlobalPrompt}
+            isSignedIn={!!isSignedIn}
+          />
+
           {/* API Key 块 */}
           <motion.div
             key="api-settings"
@@ -155,7 +163,7 @@ export function SettingsPanel({ keyInfo, refreshUsage }: SettingsPanelProps) {
             className={`group p-2 rounded-lg mb-2 ${isEditingApiKey ? "custom-shadow" : "md:hover:shadow-[inset_0_0_10px_10px_rgba(128,128,128,0.2)] bg-background cursor-pointer"
               }`}
             onDoubleClick={() => {
-              if (isSignedIn) {
+              if (isSignedIn && !isEditingApiKey) {
                 setIsEditingApiKey((prev) => !prev);
               }
             }}

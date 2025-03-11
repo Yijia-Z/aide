@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 interface UserProfileData {
   username: string | null;
   balance: string;
+  globalPrompt: string | null;
 }
 
 /**
@@ -26,7 +27,8 @@ export function useUserProfile() {
       const data = await res.json();
       return {
         username: data.username ?? null,
-        balance: data.balance ?? "0"
+        balance: data.balance ?? "0",
+        globalPrompt: data.globalPrompt ?? null
       };
     },
     enabled: !!isSignedIn, // Only run query when user is signed in
@@ -80,6 +82,47 @@ export function useUserProfile() {
     queryClient.invalidateQueries({ queryKey: ['userProfile'] });
   };
 
+  // Mutation for updating global prompt
+  const { mutate: saveGlobalPrompt } = useMutation({
+    mutationFn: async (newPrompt: string) => {
+      const res = await fetch("/api/user/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ globalPrompt: newPrompt }),
+      });
+      if (!res.ok) {
+        throw new Error(`Failed to update global prompt: ${res.status}`);
+      }
+      return res.json();
+    },
+    onMutate: async (newPrompt) => {
+      // Cancel any outgoing refetches to avoid overwriting optimistic update
+      await queryClient.cancelQueries({ queryKey: ['userProfile'] });
+
+      // Snapshot the previous value
+      const previousProfile = queryClient.getQueryData<UserProfileData>(['userProfile']);
+
+      // Optimistically update to the new value
+      queryClient.setQueryData<UserProfileData>(['userProfile'], old => ({
+        ...old!,
+        globalPrompt: newPrompt
+      }));
+
+      // Return context with the previous value
+      return { previousProfile };
+    },
+    onError: (err, newPrompt, context) => {
+      // On error, roll back to the previous value
+      if (context?.previousProfile) {
+        queryClient.setQueryData(['userProfile'], context.previousProfile);
+      }
+    },
+    onSettled: () => {
+      // Always refetch after error or success
+      queryClient.invalidateQueries({ queryKey: ['userProfile'] });
+    },
+  });
+
   return {
     username: data?.username ?? null,
     setUsername: (name: string | null) => {
@@ -89,6 +132,8 @@ export function useUserProfile() {
       }));
     },
     saveUsername,
+    globalPrompt: data?.globalPrompt ?? null,
+    saveGlobalPrompt,
     balance: data?.balance ?? "0",
     reloadUserProfile,
     error: error instanceof Error ? error.message : null,

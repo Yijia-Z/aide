@@ -16,6 +16,7 @@ interface AddMessageParams {
         userKey?: string;
         abortController?: AbortController;
         onChunk: (chunk: string) => void;
+        globalPrompt?: string | null;
     };
 }
 
@@ -211,7 +212,8 @@ export function useMessagesMutation() {
                         }
                     },
                     userKey,
-                    abortController
+                    abortController,
+                    params.generateAIResponse.globalPrompt
                 );
 
                 // Update final response in database

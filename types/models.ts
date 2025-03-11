@@ -73,6 +73,7 @@ export type ThreadUpdateData = Partial<Thread>;
   export interface UserProfile {
     id: string;        
     username?: string;  
+    globalPrompt?: string;
     createdAt: string;  
     updatedAt: string;  
   }

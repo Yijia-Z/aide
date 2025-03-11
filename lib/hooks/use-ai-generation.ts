@@ -2,6 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import { Thread, Message, Model, KeyInfo } from '@/components/types';
 import { useToast } from './use-toast';
 import { useMessagesMutation } from './use-messages-mutation';
+import { useUserProfile } from './use-userprofile';
 import { storage } from '@/components/store';
 
 interface UseAIGenerationProps {
@@ -27,6 +28,7 @@ export function useAIGeneration({
 }: UseAIGenerationProps) {
     const { toast } = useToast();
     const { addMessage } = useMessagesMutation();
+    const { globalPrompt } = useUserProfile();
     const [isGenerating, setIsGenerating] = useState<{ [key: string]: boolean }>({});
     const [keyInfo, setKeyInfo] = useState<KeyInfo | null>(null);
     const abortControllersRef = useRef<Record<string, AbortController | null>>({});
@@ -133,7 +135,8 @@ export function useAIGeneration({
                                     abortController: messageAbortController,
                                     onChunk: (chunk) => {
                                         updateMessageContent(threadId, messageId, chunk);
-                                    }
+                                    },
+                                    globalPrompt: globalPrompt
                                 }
                             });
 
@@ -176,7 +179,8 @@ export function useAIGeneration({
             reloadUserProfile,
             refreshUsage,
             addMessage,
-            setActiveTab
+            setActiveTab,
+            globalPrompt
         ]
     );
 

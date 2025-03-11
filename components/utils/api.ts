@@ -11,12 +11,18 @@ export async function generateAIResponse(
   tools: Tool[],
   onData: (chunk: string) => void,
   userKey?: string, 
-  abortController?: AbortController
+  abortController?: AbortController,
+  globalPrompt?: string | null
 ) {
+  // Combine global prompt with system prompt if available
+  const systemPrompt = globalPrompt 
+    ? `${globalPrompt}\n\n${model.systemPrompt}` 
+    : model.systemPrompt;
+    
   const requestPayload = {
      
     messages: [
-      { role: "system", content: model.systemPrompt },
+      { role: "system", content: systemPrompt },
       ...findAllParentMessages(threads, currentThread, replyingTo).map(
         (msg) => ({
           role: msg.publisher === "user" ? "user" : "assistant",

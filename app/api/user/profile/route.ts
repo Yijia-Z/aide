@@ -70,7 +70,8 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       username: profile.username,
-      balance: profile.balance, // 如果有 balance 字段
+      balance: profile.balance,
+      globalPrompt: profile.globalPrompt,
     });
   } catch (err) {
     console.error("===[GET /api/user/profile] ERROR===", err);
@@ -112,8 +113,9 @@ export async function PUT(req: NextRequest) {
   }
 
   try {
-    const { username } = parsedBody;
+    const { username, globalPrompt } = parsedBody;
     console.log("username from client:", username);
+    console.log("globalPrompt from client:", globalPrompt);
 
     // 如果没传 username 或者是空字符串，就自动生成
     const finalUsername = username?.trim()
@@ -125,15 +127,26 @@ export async function PUT(req: NextRequest) {
     // upsert：如果没有就 create，有就 update
     const upsertData = { 
         where: { id: userId },
-        update: { username: finalUsername },
-        create: { id: userId, username: finalUsername,email:userEmail, },
+        update: { 
+          ...(username !== undefined ? { username: finalUsername } : {}),
+          ...(globalPrompt !== undefined ? { globalPrompt } : {})
+        },
+        create: { 
+          id: userId, 
+          username: finalUsername,
+          email: userEmail,
+          ...(globalPrompt !== undefined ? { globalPrompt } : {})
+        },
       };
       console.log("Upsert data:", upsertData);
       const profile = await prisma.userProfile.upsert(upsertData);
       console.log("Upsert result:", profile);
 
     console.log("===[PUT /api/user/profile] SUCCESS===");
-    return NextResponse.json({ username: profile.username });
+    return NextResponse.json({ 
+      username: profile.username,
+      globalPrompt: profile.globalPrompt 
+    });
   } catch (err: any) {
   console.log("err?.name=", err?.name);
   console.log("err?.message=", err?.message);
