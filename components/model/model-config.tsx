@@ -290,21 +290,40 @@ const ModelConfig: React.FC<ModelConfigProps> = ({
                             {model.parameters.max_tokens}
                           </p>
                         )}
-                        {model.parameters?.tools && model.parameters.tools.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {model.parameters.tools
-                              .filter(tool => availableTools.some(availableTool => availableTool.function.name === tool.function.name))
-                              .map((tool) => (
-                                <Badge
-                                  key={tool.function.name}
-                                  variant={model.parameters.tool_choice === 'auto' ? 'outline' : model.parameters.tool_choice === 'none' ? 'outline' : 'secondary'}
-                                  className={`flex items-center gap-2 ${model.parameters.tool_choice === 'none' ? 'text-muted-foreground line-through' : ''}`}
-                                >
-                                  {tool.function.name}
-                                </Badge>
-                              ))}
-                          </div>
+                        {model.parameters?.enable_web_search && (
+                          <p>
+                            <span className="text-muted-foreground">
+                              Web Search:
+                            </span>{" "}
+                            Enabled
+                          </p>
                         )}
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {model.parameters?.tools && model.parameters.tools.length > 0 && (
+                            <>
+                              {model.parameters.tools
+                                .filter(tool => availableTools.some(availableTool => availableTool.function.name === tool.function.name))
+                                .map((tool) => (
+                                  <Badge
+                                    key={tool.function.name}
+                                    variant={model.parameters.tool_choice === 'auto' ? 'outline' : model.parameters.tool_choice === 'none' ? 'outline' : 'secondary'}
+                                    className={`flex items-center gap-2 ${model.parameters.tool_choice === 'none' ? 'text-muted-foreground line-through' : ''}`}
+                                  >
+                                    {tool.function.name}
+                                  </Badge>
+                                ))}
+                            </>
+                          )}
+                          
+                          {model.parameters?.enable_web_search && (
+                            <Badge
+                              variant="secondary"
+                              className="flex items-center gap-2 bg-blue-100 dark:bg-blue-900"
+                            >
+                              Web Search
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>

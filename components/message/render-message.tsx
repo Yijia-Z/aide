@@ -97,6 +97,7 @@ import {
   Box,
   Bot,
   Reply,
+  Globe,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -346,27 +347,27 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
     const htmlRegex = /<html[\s>][\s\S]*?<\/html>|<!DOCTYPE[\s\S]*?<\/html>/gi;
     const htmlParts: string[] = [];
     const textParts: string[] = [];
-    
+
     let lastIndex = 0;
     let match;
-    
+
     while ((match = htmlRegex.exec(content)) !== null) {
       // Add text before the match
       if (match.index > lastIndex) {
         textParts.push(content.substring(lastIndex, match.index));
       }
-      
+
       // Add the HTML part
       htmlParts.push(match[0]);
-      
+
       lastIndex = match.index + match[0].length;
     }
-    
+
     // Add remaining text
     if (lastIndex < content.length) {
       textParts.push(content.substring(lastIndex));
     }
-    
+
     return { htmlParts, textParts };
   };
 
@@ -378,7 +379,7 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
       // Check if the content contains HTML blocks
       if (isContentHTML(content)) {
         const { htmlParts, textParts } = extractHTMLBlocks(content);
-        
+
         // If we have both HTML and text parts, render them separately
         if (htmlParts.length > 0) {
           return (
@@ -439,7 +440,7 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
                   </Markdown>
                 )
               ))}
-              
+
               {htmlParts.map((html, idx) => (
                 <div key={`html-${idx}`} className="my-2">
                   <HTMLPreview htmlContent={html} />
@@ -449,7 +450,7 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
           );
         }
       }
-      
+
       // Regular text content, render as Markdown
       return (
         <Markdown
@@ -513,7 +514,7 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
               // Check if the text part contains HTML
               if (isContentHTML(part.text)) {
                 const { htmlParts, textParts } = extractHTMLBlocks(part.text);
-                
+
                 return (
                   <div key={`part-${idx}`}>
                     {textParts.map((text, textIdx) => (
@@ -527,7 +528,7 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
                         </Markdown>
                       )
                     ))}
-                    
+
                     {htmlParts.map((html, htmlIdx) => (
                       <div key={`html-${htmlIdx}`} className="my-2">
                         <HTMLPreview htmlContent={html} />
@@ -536,7 +537,7 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
                   </div>
                 );
               }
-              
+
               return (
                 <Markdown
                   key={idx}
@@ -700,6 +701,18 @@ const RenderMessage: React.FC<RenderMessageProps> = (props) => {
                               {modelDetails.baseModel?.split("/").pop()?.split("-")[0]}
                             </span>
                           </Badge>
+                          
+                          {/* Web Search Badge */}
+                          {modelDetails.parameters?.enable_web_search && (
+                            <Badge
+                              variant="secondary"
+                              className="select-none cursor-pointer md:cursor-default gap-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200"
+                            >
+                              <Globe className="w-3 h-3 m-0.5" />
+                              <span className="hidden md:inline">Web Search</span>
+                            </Badge>
+                          )}
+                          
                           {modelDetails.parameters?.tools &&
                             modelDetails.parameters.tools.length > 0 &&
                             modelDetails.parameters.tool_choice !== "none" && (

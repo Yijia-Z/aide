@@ -59,6 +59,12 @@ export interface Model {
   parameters: ModelParameters;
 }
 
+export interface WebPlugin {
+  id: string;
+  max_results?: number;
+  search_prompt?: string;
+}
+
 export interface ModelParameters {
   temperature?: number;
   top_p?: number;
@@ -79,6 +85,10 @@ export interface ModelParameters {
   stop?: string[];
   tools?: any[];
   tool_choice?: ToolChoice;
+  plugins?: WebPlugin[];
+  enable_web_search?: boolean;
+  web_search_max_results?: number;
+  web_search_prompt?: string;
   supported_parameters?: any;
 }
 

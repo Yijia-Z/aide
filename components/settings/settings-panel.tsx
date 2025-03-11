@@ -98,7 +98,7 @@ export function SettingsPanel({ keyInfo, refreshUsage }: SettingsPanelProps) {
         <ModeToggle />
       </div>
 
-      <ScrollArea className="flex-grow select-none p-2">
+      <ScrollArea className="flex-grow select-none">
         <motion.div
           className="space-y-2 mt-2"
           initial={{ opacity: 0, y: 20 }}

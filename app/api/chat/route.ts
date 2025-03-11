@@ -35,9 +35,34 @@ export async function POST(req: NextRequest) {
       async start(controller) {
         while (shouldContinue) {
 
+          let modelName = configuration.model;
+          
+          // Handle web search functionality
+          const plugins = [];
+          if (configuration.enable_web_search) {
+            // Add :online suffix or web plugin based on configuration
+            if (!modelName.includes(':online')) {
+              // Create web plugin configuration
+              const webPlugin = {
+                id: "web"
+              };
+              
+              // Add custom parameters if specified
+              if (configuration.web_search_max_results) {
+                webPlugin["max_results"] = configuration.web_search_max_results;
+              }
+              
+              if (configuration.web_search_prompt) {
+                webPlugin["search_prompt"] = configuration.web_search_prompt;
+              }
+              
+              plugins.push(webPlugin);
+            }
+          }
+          
           const params = {
             messages: currentMessages,
-            model: configuration.model,
+            model: modelName,
             temperature: configuration.temperature,
             max_tokens: configuration.max_tokens,
             top_p: configuration.top_p,
@@ -56,6 +81,7 @@ export async function POST(req: NextRequest) {
             stop: configuration.stop,
             tools: configuration.tools,
             tool_choice: configuration.tools?.length ? configuration.tool_choice : "none",
+            plugins: plugins.length > 0 ? plugins : undefined,
             stream: true,
           };
 

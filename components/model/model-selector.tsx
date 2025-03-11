@@ -35,6 +35,7 @@ import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Accordion,
   AccordionContent,
@@ -47,7 +48,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Tool } from "../types";
+import { Tool, WebPlugin } from "../types";
 import { cn } from "@/lib/utils";
 
 interface ModelParameters {
@@ -121,10 +122,28 @@ export function SelectBaseModel({
         const data = await fetchModelParameters(modelId);
         // console.log("Received parameters:", data);
         if (data) {
-          setParameters(data.data);
-          setCachedParameters((prev) => ({ ...prev, [modelId]: data.data }));
+          // Add web search parameters to the fetched model parameters
+          const parametersWithWebSearch = {
+            ...data.data,
+            enable_web_search: false,
+            web_search_max_results: 5,
+            web_search_prompt: "A web search was conducted. Incorporate the following web search results into your response. IMPORTANT: Cite them using markdown links named using the domain of the source."
+          };
+
+          // Add web search to supported parameters if not present
+          if (parametersWithWebSearch.supported_parameters) {
+            if (!parametersWithWebSearch.supported_parameters.includes("enable_web_search")) {
+              parametersWithWebSearch.supported_parameters.push("enable_web_search");
+              parametersWithWebSearch.supported_parameters.push("web_search_max_results");
+              parametersWithWebSearch.supported_parameters.push("web_search_prompt");
+            }
+          }
+
+          setParameters(parametersWithWebSearch);
+          setCachedParameters((prev) => ({ ...prev, [modelId]: parametersWithWebSearch }));
+          return parametersWithWebSearch;
         }
-        return data?.data;
+        return data;
       } catch (error) {
         console.error("Error fetching model parameters:", error);
         setParameters(null);
@@ -137,7 +156,23 @@ export function SelectBaseModel({
   React.useEffect(() => {
     if (value) {
       if (existingParameters && Object.keys(existingParameters).length > 0) {
-        setParameters(existingParameters as ModelParameters);
+        // Make sure web search parameters exist in the parameters
+        const updatedParameters = {
+          ...existingParameters,
+          enable_web_search: existingParameters.enable_web_search || false,
+          web_search_max_results: existingParameters.web_search_max_results || 5,
+          web_search_prompt: existingParameters.web_search_prompt || "A web search was conducted. Incorporate the following web search results into your response. IMPORTANT: Cite them using markdown links named using the domain of the source."
+        } as ModelParameters;
+
+        // Add web search to supported parameters if not present
+        if (updatedParameters.supported_parameters &&
+          !updatedParameters.supported_parameters.includes("enable_web_search")) {
+          updatedParameters.supported_parameters.push("enable_web_search");
+          updatedParameters.supported_parameters.push("web_search_max_results");
+          updatedParameters.supported_parameters.push("web_search_prompt");
+        }
+
+        setParameters(updatedParameters as ModelParameters);
       } else {
         fetchModelParametersWithCache(value);
       }
@@ -288,6 +323,19 @@ export function SelectBaseModel({
       case "structured_outputs":
         tooltip = "When enabled, the model will return responses in a structured format.";
         break;
+      case "enable_web_search":
+        tooltip = "When enabled, the model will use web search to augment its responses with up-to-date information.";
+        break;
+      case "web_search_max_results":
+        min = 1;
+        max = 10;
+        step = 1;
+        defaultValue = 5;
+        tooltip = "Maximum number of web search results to include (1-10, Default: 5). Each result costs $0.004 in credits.";
+        break;
+      case "web_search_prompt":
+        tooltip = "Custom prompt for introducing web search results to the model. Default: 'A web search was conducted on [current date]. Incorporate the following web search results into your response.';";
+        break;
       default:
         console.warn(`Unknown parameter: ${param}`);
         return null;
@@ -409,6 +457,7 @@ export function SelectBaseModel({
       case "include_reasoning":
       case "structured_outputs":
       case "logprobs":
+      case "enable_web_search":
         return (
           <div key={param} className="flex items-center space-x-2">
             <Switch
@@ -458,6 +507,56 @@ export function SelectBaseModel({
                   handleParameterChange("tool_choice", choice);
                 }}
               />
+            </div>
+          );
+        }
+        return null;
+
+      // Web search section
+      case "web_search_max_results":
+      case "web_search_prompt":
+        if (parameters?.enable_web_search && param === "web_search_max_results") {
+          return (
+            <div key="web-search-settings" className="space-y-4">
+              <div className="flex flex-col space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label>{renderTooltip("web_search_max_results", "Maximum number of web search results to include (1-10, Default: 5). Each result costs $0.004 in credits.")}</Label>
+                  <Input
+                    type="number"
+                    value={parameters.web_search_max_results || 5}
+                    onChange={(e) =>
+                      handleParameterChange(
+                        "web_search_max_results",
+                        Math.min(parseInt(e.target.value) || 1, 10)
+                      )
+                    }
+                    className="min-font-size text-foreground p-1 ml-2 w-fit h-6 text-right text-xs"
+                    step="1"
+                    min="1"
+                    max="10"
+                  />
+                </div>
+                <Slider
+                  defaultValue={[parameters.web_search_max_results || 5]}
+                  max={10}
+                  min={1}
+                  step={1}
+                  value={[parameters.web_search_max_results || 5]}
+                  onValueChange={([val]) =>
+                    handleParameterChange("web_search_max_results", val)
+                  }
+                  className="h-2"
+                />
+              </div>
+              <div className="flex flex-col space-y-2">
+                <Label>{renderTooltip("web_search_prompt", "Custom prompt for introducing web search results to the model.")}</Label>
+                <Textarea
+                  value={parameters.web_search_prompt || "A web search was conducted. Incorporate the following web search results into your response. IMPORTANT: Cite them using markdown links named using the domain of the source."}
+                  onChange={(e) => handleParameterChange("web_search_prompt", e.target.value)}
+                  placeholder="Enter custom web search prompt..."
+                  className="text-foreground min-h-[100px]"
+                />
+              </div>
             </div>
           );
         }
@@ -547,6 +646,26 @@ export function SelectBaseModel({
           {parameters.supported_parameters?.includes("temperature") && renderParameter("temperature")}
           {parameters.supported_parameters?.includes("tools") && renderParameter("tools")}
           {parameters.supported_parameters?.includes("tool_choice") && renderParameter("tool_choice")}
+
+          {/* Web Search Toggle */}
+          <div className="flex flex-col space-y-2">
+            <Label>Web Search</Label>
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="enable-web-search-switch"
+                checked={parameters.enable_web_search === true}
+                onCheckedChange={(checked) =>
+                  handleParameterChange("enable_web_search", checked)
+                }
+              />
+              <Label htmlFor="enable-web-search-switch">
+                Enable Web Search
+              </Label>
+            </div>
+          </div>
+
+          {/* Web Search Settings (conditionally rendered) */}
+          {parameters.enable_web_search && renderParameter("web_search_max_results")}
           {parameters.supported_parameters?.length > 0 && (
             <Accordion type="single" collapsible className="w-auto">
               <AccordionItem value="additional-parameters">
