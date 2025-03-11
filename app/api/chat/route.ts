@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
     // 3. 如果前端没传 / 是空，就回退到 ENV
     if (!openRouterKey) {
       const { userId } = await auth();
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
       openRouterKey = process.env.OPENROUTER_API_KEY;
       isEnvKeyUsed = true;
@@ -36,30 +36,30 @@ export async function POST(req: NextRequest) {
         while (shouldContinue) {
 
           let modelName = configuration.model;
-          
+
           // Handle web search functionality
           const plugins = [];
           if (configuration.enable_web_search) {
             // Add :online suffix or web plugin based on configuration
             if (!modelName.includes(':online')) {
               // Create web plugin configuration
-              const webPlugin = {
+              const webPlugin: { id: string;[key: string]: any } = {
                 id: "web"
               };
-              
+
               // Add custom parameters if specified
               if (configuration.web_search_max_results) {
                 webPlugin["max_results"] = configuration.web_search_max_results;
               }
-              
+
               if (configuration.web_search_prompt) {
                 webPlugin["search_prompt"] = configuration.web_search_prompt;
               }
-              
+
               plugins.push(webPlugin);
             }
           }
-          
+
           const params = {
             messages: currentMessages,
             model: modelName,
@@ -186,7 +186,7 @@ export async function POST(req: NextRequest) {
                         });
                         assistantMessages = ''; // Reset assistant message
                       }
-                      
+
                       let parsedArgs;
                       try {
                         parsedArgs = JSON.parse(currentToolCall.function.arguments);
@@ -241,7 +241,7 @@ export async function POST(req: NextRequest) {
                       // console.log("Finish reason is 'end_turn' or 'stop', closing stream.");
                       parsed.choices[0].delta.content = assistantMessages;
                       console.log("finish_reason reached. Let's see if there's an id:", parsed.id);
-                      generationId=parsed.id;
+                      generationId = parsed.id;
                       shouldContinue = false;
 
                       controller.close();
