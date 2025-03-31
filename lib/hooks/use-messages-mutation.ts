@@ -153,7 +153,18 @@ export function useMessagesMutation() {
                     messages: messages || currentThread.messages || []
                 };
 
-                const parentMessage = messages?.find(m => m.id === params.parentId);
+                // Helper function to find a message in a nested structure
+                const findMessageById = (messages: Message[], id: string): Message | null => {
+                    for (const message of messages) {
+                        if (message.id === id) return message;
+                        const found = findMessageById(message.replies, id);
+                        if (found) return found;
+                    }
+                    return null;
+                };
+
+                // First try to find the parent message in the nested structure
+                const parentMessage = findMessageById(threadWithMessages.messages, params.parentId!);
                 if (!parentMessage) {
                     throw new Error("Parent message not found");
                 }
