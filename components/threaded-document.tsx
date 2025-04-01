@@ -101,7 +101,7 @@ export default function ThreadedDocument() {
 
   // Connection and generation states
   const { toast } = useToast()
-  const [isGenerating, setIsGenerating] = useState<{ [key: string]: boolean }>({});
+  // Removed local isGenerating state as we use the one from useAIGeneration hook
   const [copiedStates, setCopiedStates] = useState<{ [key: string]: boolean }>({});
   // const [scrollPosition, setScrollPosition] = useState<number>(0);
 
@@ -609,7 +609,7 @@ export default function ThreadedDocument() {
               clearGlowingMessages={clearGlowingMessages}
               copiedStates={copiedStates}
               clipboardMessage={clipboardMessage}
-              isGenerating={isGenerating}
+              isGenerating={aiIsGenerating}
               setSelectedMessages={setSelectedMessages}
               toggleCollapse={toggleCollapse}
               setEditingContent={setEditingContent}
@@ -859,7 +859,7 @@ export default function ThreadedDocument() {
                 clearGlowingMessages={clearGlowingMessages}
                 copiedStates={copiedStates}
                 clipboardMessage={clipboardMessage}
-                isGenerating={isGenerating}
+                isGenerating={aiIsGenerating}
                 setSelectedMessages={setSelectedMessages}
                 toggleCollapse={toggleCollapse}
                 setEditingContent={setEditingContent}

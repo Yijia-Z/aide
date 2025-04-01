@@ -134,7 +134,12 @@ export function GlobalPrompt({ globalPrompt, saveGlobalPrompt, isSignedIn }: Glo
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setIsEditing(!isEditing)}
+              onClick={() => {
+                if (isEditing) {
+                  handleSavePrompt();
+                }
+                setIsEditing(!isEditing);
+              }}
               className="md:opacity-0 md:group-hover:opacity-100 transition-opacity"
             >
               {isEditing ? <Check className="h-4 w-4" /> : <Edit className="h-4 w-4" />}
