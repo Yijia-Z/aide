@@ -21,7 +21,7 @@ export function useClipboardActions({
     threads
 }: UseClipboardActionsProps) {
     const { toast } = useToast();
-    const { copyMessage, addMessage } = useMessagesMutation();
+    const { copyMessage, pasteMessage, addMessage } = useMessagesMutation();
 
     const isDescendant = useCallback((message: Message, targetId: string | null): boolean => {
         if (!targetId) return false;
@@ -40,12 +40,6 @@ export function useClipboardActions({
         async (threadId: string, messageId: string, operation: "copy" | "cut") => {
             try {
                 const result = await copyMessage.mutateAsync({ threadId, messageId, operation });
-
-                // Copy content to clipboard
-                const content = typeof result.message.content === "string"
-                    ? result.message.content
-                    : JSON.stringify(result.message.content);
-                navigator.clipboard.writeText(content);
 
                 // Update clipboard state
                 setClipboardMessage({
@@ -111,18 +105,12 @@ export function useClipboardActions({
                     }
                 }
 
-                // Paste the message
-                await addMessage.mutateAsync({
+                // Use pasteMessage mutation
+                await pasteMessage.mutateAsync({
                     threadId,
                     parentId,
-                    publisher: "user",
-                    content: clipboardMessage.content
+                    clipboardMessage
                 });
-
-                // Clear clipboard if it was a cut operation
-                if (clipboardMessage.operation === "cut") {
-                    setClipboardMessage(null);
-                }
 
                 clearGlowingMessages();
             } catch (error) {
@@ -134,7 +122,7 @@ export function useClipboardActions({
                 });
             }
         },
-        [clipboardMessage, addMessage, setClipboardMessage, clearGlowingMessages, findMessageById, isDescendant, threads, toast]
+        [clipboardMessage, addMessage, pasteMessage, setClipboardMessage, clearGlowingMessages, findMessageById, isDescendant, threads, toast]
     );
 
     // Helper function to check if a message is a descendant of another
