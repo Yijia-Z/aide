@@ -41,3 +41,5 @@ backend/venv/
 venv/
 data/
 *.pyc
+# clerk configuration (can include secrets)
+/.clerk/
